@@ -15,6 +15,7 @@ function show{N,T}(io::IO, v::Vec{N,T})
     print(io, "}")
 end
 
+export vload, vloada
 import Base: +, -, *, /, %
 import Base: abs, sqrt
 import Base: muladd
@@ -111,10 +112,12 @@ subins{T<:AbstractFloat}(::Type{T}) = "fsub"
 mulins{T<:Integer}(::Type{T}) = "mul"
 mulins{T<:AbstractFloat}(::Type{T}) = "fmul"
 
-divins{T<:Integer}(::Type{T}) = "div"
+divins{T<:Signed}(::Type{T}) = "sdiv"
+divins{T<:Unsigned}(::Type{T}) = "udiv"
 divins{T<:AbstractFloat}(::Type{T}) = "fdiv"
 
-remins{T<:Integer}(::Type{T}) = "rem"
+remins{T<:Signed}(::Type{T}) = "srem"
+remins{T<:Unsigned}(::Type{T}) = "urem"
 remins{T<:AbstractFloat}(::Type{T}) = "frem"
 
 
@@ -125,7 +128,9 @@ function array2vector(vec, siz, typ, arr, tmp=arr)
     for i in 0:siz-1
         push!(instrs, "$(tmp)_$i = extractvalue [$siz x $typ] $arr, $i")
         push!(instrs,
-            "$(accum(vec,i)) = insertelement <$siz x $typ> $(accum(vec,i-1)), $typ $(tmp)_$i, i32 $i")
+            "$(accum(vec,i)) = " *
+                "insertelement <$siz x $typ> $(accum(vec,i-1)), " *
+                "$typ $(tmp)_$i, i32 $i")
     end
     instrs
 end
@@ -136,9 +141,44 @@ function vector2array(arr, siz, typ, vec, tmp=vec)
     for i in 0:siz-1
         push!(instrs, "$(tmp)_$i = extractelement <$siz x $typ> $vec, i32 $i")
         push!(instrs,
-            "$(accum(arr,i)) = insertvalue [$siz x $typ] $(accum(arr,i-1)), $typ $(tmp)_$i, $i")
+            "$(accum(arr,i)) = "*
+                "insertvalue [$siz x $typ] $(accum(arr,i-1)), " *
+                "$typ $(tmp)_$i, $i")
     end
     instrs
+end
+
+
+
+@generated function vload{N,T}(::Type{Vec{N,T}}, arr::Vector{T}, i::Integer)
+    instrs = []
+    ins = "load"
+    bytes = sizeof(T)   # This is overly optimistic
+    flags = ", align $bytes"
+    typ = llvmtype(T)
+    push!(instrs, "%ptr = bitcast $typ* %0 to <$N x $typ>*")
+    push!(instrs, "%res = $ins <$N x $typ>, <$N x $typ>* %ptr$flags")
+    append!(instrs, vector2array("%res_array", N, typ, "%res"))
+    push!(instrs, "ret [$N x $typ] %res_array")
+    quote
+        $(Expr(:meta, :inline))
+        Vec{N,T}(Base.llvmcall($(join(instrs, "\n")),
+            NTuple{N,T}, Tuple{Ptr{T}}, pointer(arr, i)))
+    end
+end
+
+@generated function vloada{N,T}(::Type{Vec{N,T}}, arr::Vector{T}, i::Integer)
+    instrs = []
+    ins = "load"
+    bytes = N * sizeof(T)
+    flags = ", align $bytes"
+    typ = llvmtype(T)
+    push!(instrs, "%ptr = bitcast $typ* %0 to <$N x $typ>*")
+    push!(instrs, "%res = $ins <$N x $typ>, <$N x $typ>* %ptr$flags")
+    append!(instrs, vector2array("%res_array", N, typ, "%res"))
+    push!(instrs, "ret [$N x $typ] %res_array")
+    :(Vec{N,T}(Base.llvmcall($(join(instrs, "\n")),
+        NTuple{N,T}, Tuple{Ptr{T}}, pointer(arr, i))))
 end
 
 @generated function +{N,T}(v::Vec{N,T})
@@ -278,11 +318,14 @@ end
     bits = 8*sizeof(T)
     ins = "@llvm.fmuladd.v$(N)f$bits"
     typ = llvmtype(T)
-    push!(decls, "declare <$N x $typ> $ins(<$N x $typ>, <$N x $typ>, <$N x $typ>)")
+    push!(decls,
+        "declare <$N x $typ> $ins(<$N x $typ>, <$N x $typ>, <$N x $typ>)")
     append!(instrs, array2vector("%arg1", N, typ, "%0", "%arg1_array"))
     append!(instrs, array2vector("%arg2", N, typ, "%1", "%arg2_array"))
     append!(instrs, array2vector("%arg3", N, typ, "%2", "%arg3_array"))
-    push!(instrs, "%res = call <$N x $typ> $ins(<$N x $typ> %arg1, <$N x $typ> %arg2, <$N x $typ> %arg3)")
+    push!(instrs,
+        "%res = call <$N x $typ> $ins(<$N x $typ> %arg1, " *
+            "<$N x $typ> %arg2, <$N x $typ> %arg3)")
     append!(instrs, vector2array("%res_array", N, typ, "%res"))
     push!(instrs, "ret [$N x $typ] %res_array")
     :(Vec{N,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
