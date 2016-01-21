@@ -163,7 +163,31 @@ end
     end
 end
 
-# Function definitions
+# Arithmetic functions
+
+for op in (:+, :-, :abs, :sqrt)
+    @eval begin
+        Base.$op{N,T}(v1::AbstractVec{N,T}) =
+            llvmwrap(Val{$(QuoteNode(op))}, v1)
+    end
+end
+
+for op in (:+, :-, :*, :/, :div, :rem, :^)
+    @eval begin
+        Base.$op{N,T}(v1::AbstractVec{N,T}, v2::AbstractVec{N,T}) =
+            llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
+    end
+end
+
+for op in (:muladd,)
+    @eval begin
+        Base.$op{N,T}(v1::AbstractVec{N,T}, v2::AbstractVec{N,T},
+                v3::AbstractVec{N,T}) =
+            llvmwrap(Val{$(QuoteNode(op))}, v1, v2, v3)
+    end
+end
+
+# Load and store functions
 
 function scalar2vector(vec, siz, typ, sca)
     instrs = []
@@ -261,6 +285,7 @@ end
 
 export setindex
 @generated function setindex{N,T,I}(v1::AbstractVec{N,T}, ::Type{Val{I}}, x)
+    @assert isa(I, Integer)
     @assert 1 <= I <= N
     jtyp = "i$(8*N*sizeof(T))"
     typ = llvmtype(T)
@@ -277,7 +302,7 @@ export setindex
     quote
         # $(Expr(:meta, :inline))
         $vtyp(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-            $etyp, Tuple{$etyp, $T}, v1.elts, $T(x)))
+            $etyp, Tuple{$etyp, T}, v1.elts, T(x)))
     end
 end
 
@@ -296,13 +321,14 @@ export setindex
     etyp = fieldtype(vtyp, 1)
     quote
         # $(Expr(:meta, :inline))
-        @assert 1 <= i <= $N
+        #TODO @boundscheck @assert 1 <= i <= N
         $vtyp(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-            $etyp, Tuple{$etyp, Int, $T}, v1.elts, Int(i)-1, $T(x)))
+            $etyp, Tuple{$etyp, Int, T}, v1.elts, Int(i)-1, T(x)))
     end
 end
 
 @generated function Base.getindex{N,T,I}(v1::AbstractVec{N,T}, ::Type{Val{I}})
+    @assert isa(I, Integer)
     @assert 1 <= I <= N
     jtyp = "i$(8*N*sizeof(T))"
     typ = llvmtype(T)
@@ -317,7 +343,7 @@ end
     quote
         # $(Expr(:meta, :inline))
         Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-            $T, Tuple{$etyp}, v1.elts)
+            T, Tuple{$etyp}, v1.elts)
     end
 end
 
@@ -334,66 +360,52 @@ end
     etyp = fieldtype(vtyp, 1)
     quote
         # $(Expr(:meta, :inline))
-        @assert 1 <= i <= $N
+        #TODO @boundscheck @assert 1 <= i <= N
         Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-            $T, Tuple{$etyp, Int}, v1.elts, Int(i)-1)
+            T, Tuple{$etyp, Int}, v1.elts, Int(i)-1)
     end
 end
 
-#=
-
-@generated function vload{N,T}(::Type{Vec{N,T}}, arr::Vector{T}, i::Integer)
-    instrs = []
-    ins = "load"
-    bytes = sizeof(T)   # This is overly optimistic
-    flags = ", align $bytes"
+export vload, vloada
+@generated function vload{V<:AbstractVec, T, Aligned}(::Type{V}, ptr::Ptr{T},
+        ::Type{Val{Aligned}} = Val{false})
+    @assert isa(Aligned, Bool)
+    N = length(V)
+    @assert T === eltype(V)
+    jtyp = "i$(8*N*sizeof(T))"
     typ = llvmtype(T)
+    decls = []
+    instrs = []
+    if Aligned
+        align = N * sizeof(T)
+    else
+        align = sizeof(T)   # This is overly optimistic
+    end
+    flags = ", align $align"
     push!(instrs, "%ptr = bitcast $typ* %0 to <$N x $typ>*")
-    push!(instrs, "%res = $ins <$N x $typ>, <$N x $typ>* %ptr$flags")
-    append!(instrs, vector2array("%res_array", N, typ, "%res"))
-    push!(instrs, "ret [$N x $typ] %res_array")
+    push!(instrs, "%res = load <$N x $typ>, <$N x $typ>* %ptr$flags")
+    push!(instrs, "%resbits = bitcast <$N x $typ> %res to $jtyp")
+    push!(instrs, "ret $jtyp %resbits")
+    # push!(instrs, "%ptr = bitcast $typ* %0 to $jtyp*")
+    # push!(instrs, "%res = load $jtyp, $jtyp* %ptr$flags")
+    # push!(instrs, "ret $jtyp %res")
+    vtyp = Vec(N,T)
+    etyp = fieldtype(vtyp, 1)
     quote
-        $(Expr(:meta, :inline))
-        Vec{N,T}(Base.llvmcall($(join(instrs, "\n")),
-            NTuple{N,T}, Tuple{Ptr{T}}, pointer(arr, i)))
+        # $(Expr(:meta, :inline))
+        $vtyp(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            $etyp, Tuple{Ptr{T}}, ptr))
     end
 end
 
-@generated function vloada{N,T}(::Type{Vec{N,T}}, arr::Vector{T}, i::Integer)
-    instrs = []
-    ins = "load"
-    bytes = N * sizeof(T)
-    flags = ", align $bytes"
-    typ = llvmtype(T)
-    push!(instrs, "%ptr = bitcast $typ* %0 to <$N x $typ>*")
-    push!(instrs, "%res = $ins <$N x $typ>, <$N x $typ>* %ptr$flags")
-    append!(instrs, vector2array("%res_array", N, typ, "%res"))
-    push!(instrs, "ret [$N x $typ] %res_array")
-    :(Vec{N,T}(Base.llvmcall($(join(instrs, "\n")),
-        NTuple{N,T}, Tuple{Ptr{T}}, pointer(arr, i))))
-end
-=#
+vloada{V<:AbstractVec}(::Type{V}, ptr::Ptr) = vload(V, ptr, Val{true})
 
-for op in (:+, :-, :abs, :sqrt)
-    @eval begin
-        Base.$op{N,T}(v1::AbstractVec{N,T}) =
-            llvmwrap(Val{$(QuoteNode(op))}, v1)
-    end
+@inline function vload{V<:AbstractVec, Aligned}(::Type{V}, arr::Vector,
+        i::Integer, ::Type{Val{Aligned}} = Val{false})
+    #TODO @boundscheck @assert 1 <= i < length(arr) - length(V)
+    vload(V, pointer(arr, i), Val{Aligned})
 end
-
-for op in (:+, :-, :*, :/, :div, :rem, :^)
-    @eval begin
-        Base.$op{N,T}(v1::AbstractVec{N,T}, v2::AbstractVec{N,T}) =
-            llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
-    end
-end
-
-for op in (:muladd,)
-    @eval begin
-        Base.$op{N,T}(v1::AbstractVec{N,T}, v2::AbstractVec{N,T},
-                v3::AbstractVec{N,T}) =
-            llvmwrap(Val{$(QuoteNode(op))}, v1, v2, v3)
-    end
-end
+vloada{V<:AbstractVec}(::Type{V}, arr::Vector, i::Integer) =
+    vload(V, arr, i, Val{true})
 
 end
