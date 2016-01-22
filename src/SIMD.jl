@@ -52,6 +52,8 @@ end
 
 # Convert Julia types to LLVM types
 
+llvmtype(::Type{Bool}) = "i8"   # Julia represents Tuple{Bool} as [1 x i8]
+
 llvmtype(::Type{Int8}) = "i8"
 llvmtype(::Type{Int16}) = "i16"
 llvmtype(::Type{Int32}) = "i32"
@@ -73,27 +75,49 @@ fastflags{T<:Signed}(::Type{T}) = "nsw"
 fastflags{T<:Unsigned}(::Type{T}) = "nuw"
 fastflags{T<:AbstractFloat}(::Type{T}) = "fast"
 
+suffix{T}(N::Integer, ::Type{T}) = "v$(N)f$(8*sizeof(T))"
+
 # Type-dependent LLVM intrinsics
-llvmins{T<:Integer}(::Type{Val{:+}}, ::Type{T}) = "add"
-llvmins{T<:Integer}(::Type{Val{:-}}, ::Type{T}) = "sub"
-llvmins{T<:Integer}(::Type{Val{:*}}, ::Type{T}) = "mul"
-llvmins{T<:Signed}(::Type{Val{:div}}, ::Type{T}) = "sdiv"
-llvmins{T<:Signed}(::Type{Val{:rem}}, ::Type{T}) = "srem"
-llvmins{T<:Unsigned}(::Type{Val{:div}}, ::Type{T}) = "udiv"
-llvmins{T<:Unsigned}(::Type{Val{:rem}}, ::Type{T}) = "urem"
+llvmins{T<:Integer}(::Type{Val{:+}}, N, ::Type{T}) = "add"
+llvmins{T<:Integer}(::Type{Val{:-}}, N, ::Type{T}) = "sub"
+llvmins{T<:Integer}(::Type{Val{:*}}, N, ::Type{T}) = "mul"
+llvmins{T<:Signed}(::Type{Val{:div}}, N, ::Type{T}) = "sdiv"
+llvmins{T<:Signed}(::Type{Val{:rem}}, N, ::Type{T}) = "srem"
+llvmins{T<:Unsigned}(::Type{Val{:div}}, N, ::Type{T}) = "udiv"
+llvmins{T<:Unsigned}(::Type{Val{:rem}}, N, ::Type{T}) = "urem"
+llvmins{T<:Integer}(::Type{Val{:(==)}}, N, ::Type{T}) = "icmp eq"
+llvmins{T<:Integer}(::Type{Val{:(!=)}}, N, ::Type{T}) = "icmp ne"
+llvmins{T<:Signed}(::Type{Val{:(>)}}, N, ::Type{T}) = "icmp sgt"
+llvmins{T<:Signed}(::Type{Val{:(>=)}}, N, ::Type{T}) = "icmp sge"
+llvmins{T<:Signed}(::Type{Val{:(<)}}, N, ::Type{T}) = "icmp slt"
+llvmins{T<:Signed}(::Type{Val{:(<=)}}, N, ::Type{T}) = "icmp sle"
+llvmins{T<:Unsigned}(::Type{Val{:(>)}}, N, ::Type{T}) = "icmp ugt"
+llvmins{T<:Unsigned}(::Type{Val{:(>=)}}, N, ::Type{T}) = "icmp uge"
+llvmins{T<:Unsigned}(::Type{Val{:(<)}}, N, ::Type{T}) = "icmp ult"
+llvmins{T<:Unsigned}(::Type{Val{:(<=)}}, N, ::Type{T}) = "icmp ule"
 
-llvmins{T<:AbstractFloat}(::Type{Val{:+}}, ::Type{T}) = "fadd"
-llvmins{T<:AbstractFloat}(::Type{Val{:-}}, ::Type{T}) = "fsub"
-llvmins{T<:AbstractFloat}(::Type{Val{:*}}, ::Type{T}) = "fmul"
-llvmins{T<:AbstractFloat}(::Type{Val{:/}}, ::Type{T}) = "fdiv"
-llvmins{T<:AbstractFloat}(::Type{Val{:rem}}, ::Type{T}) = "frem"
+llvmins{T<:AbstractFloat}(::Type{Val{:+}}, N, ::Type{T}) = "fadd"
+llvmins{T<:AbstractFloat}(::Type{Val{:-}}, N, ::Type{T}) = "fsub"
+llvmins{T<:AbstractFloat}(::Type{Val{:*}}, N, ::Type{T}) = "fmul"
+llvmins{T<:AbstractFloat}(::Type{Val{:/}}, N, ::Type{T}) = "fdiv"
+llvmins{T<:AbstractFloat}(::Type{Val{:rem}}, N, ::Type{T}) = "frem"
+llvmins{T<:AbstractFloat}(::Type{Val{:(==)}}, N, ::Type{T}) = "fcmp oeq"
+llvmins{T<:AbstractFloat}(::Type{Val{:(!=)}}, N, ::Type{T}) = "fcmp une"
+llvmins{T<:AbstractFloat}(::Type{Val{:(>)}}, N, ::Type{T}) = "fcmp ogt"
+llvmins{T<:AbstractFloat}(::Type{Val{:(>=)}}, N, ::Type{T}) = "fcmp oge"
+llvmins{T<:AbstractFloat}(::Type{Val{:(<)}}, N, ::Type{T}) = "fcmp olt"
+llvmins{T<:AbstractFloat}(::Type{Val{:(<=)}}, N, ::Type{T}) = "fcmp ole"
 
-llvmins{T<:AbstractFloat}(::Type{Val{:^}}, ::Type{T}) = "@llvm.pow"
-llvmins{T<:AbstractFloat}(::Type{Val{:abs}}, ::Type{T}) = "@llvm.fabs"
-llvmins{T<:AbstractFloat}(::Type{Val{:muladd}}, ::Type{T}) = "@llvm.fmuladd"
-llvmins{T<:AbstractFloat}(::Type{Val{:sqrt}}, ::Type{T}) = "@llvm.sqrt"
+llvmins{T<:AbstractFloat}(::Type{Val{:ifelse}}, N, ::Type{T}) = "select"
 
-llvmsuffix{T}(N::Integer, ::Type{T}) = ".v$(N)f$(8*sizeof(T))"
+llvmins{T<:AbstractFloat}(::Type{Val{:^}}, N, ::Type{T}) =
+    "@llvm.pow.$(suffix(N,T))"
+llvmins{T<:AbstractFloat}(::Type{Val{:abs}}, N, ::Type{T}) =
+    "@llvm.fabs.$(suffix(N,T))"
+llvmins{T<:AbstractFloat}(::Type{Val{:muladd}}, N, ::Type{T}) =
+    "@llvm.fmuladd.$(suffix(N,T))"
+llvmins{T<:AbstractFloat}(::Type{Val{:sqrt}}, N, ::Type{T}) =
+    "@llvm.sqrt.$(suffix(N,T))"
 
 # Convert between LLVM scalars, vectors, and arrays
 
@@ -191,87 +215,100 @@ Base.getindex{N,T}(v::Vec{N,T}, i::Integer) = v.elts[i]
 
 # Generic function wrappers
 
-@generated function llvmwrap{Op,N,T}(::Type{Val{Op}}, v1::Vec{N,T})
+@generated function llvmwrap{Op,N,T1,R}(::Type{Val{Op}}, v1::Vec{N,T1},
+        ::Type{R} = T1)
     @assert isa(Op, Symbol)
-    typ = llvmtype(T)
-    atyp = "[$N x $typ]"
-    vtyp = "<$N x $typ>"
-    ins = llvmins(Val{Op}, T)
-    flags = fastflags(T)
+    typ1 = llvmtype(T1)
+    atyp1 = "[$N x $typ1]"
+    vtyp1 = "<$N x $typ1>"
+    typr = llvmtype(R)
+    atypr = "[$N x $typr]"
+    vtypr = "<$N x $typr>"
+    ins = llvmins(Val{Op}, N, R)
     decls = []
     instrs = []
-    append!(instrs, array2vector("%arg1", N, typ, "%0", "%arg1arr"))
+    append!(instrs, array2vector("%arg1", N, typ1, "%0", "%arg1arr"))
     if ins[1] == '@'
-        suf = llvmsuffix(N, T)
-        push!(decls, "declare $vtyp $ins$suf($vtyp)")
-        push!(instrs, "%res = call $vtyp $ins$suf($vtyp %arg1)")
+        push!(decls, "declare $vtypr $ins($vtyp1)")
+        push!(instrs, "%res = call $vtypr $ins($vtyp1 %arg1)")
     else
-        push!(instrs, "%res = $ins $flags $vtyp zeroinitializer, %arg1")
+        push!(instrs, "%res = $ins $vtypr zeroinitializer, %arg1")
     end
-    append!(instrs, vector2array("%resarr", N, typ, "%res"))
-    push!(instrs, "ret $atyp %resarr")
+    append!(instrs, vector2array("%resarr", N, typr, "%res"))
+    push!(instrs, "ret $atypr %resarr")
     quote
         # $(Expr(:meta, :inline))
-        Vec{N,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-            NTuple{N,T}, Tuple{NTuple{N,T}}, v1.elts))
+        Vec{N,R}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{N,R}, Tuple{NTuple{N,T1}}, v1.elts))
     end
 end
 
-@generated function llvmwrap{Op,N,T}(::Type{Val{Op}}, v1::Vec{N,T},
-        v2::Vec{N,T})
+@generated function llvmwrap{Op,N,T1,T2,R}(::Type{Val{Op}}, v1::Vec{N,T1},
+        v2::Vec{N,T2}, ::Type{R} = T1)
     @assert isa(Op, Symbol)
-    typ = llvmtype(T)
-    atyp = "[$N x $typ]"
-    vtyp = "<$N x $typ>"
-    ins = llvmins(Val{Op}, T)
-    flags = fastflags(T)
+    typ1 = llvmtype(T1)
+    atyp1 = "[$N x $typ1]"
+    vtyp1 = "<$N x $typ1>"
+    typ2 = llvmtype(T2)
+    atyp2 = "[$N x $typ2]"
+    vtyp2 = "<$N x $typ2>"
+    typr = llvmtype(R)
+    atypr = "[$N x $typr]"
+    vtypr = "<$N x $typr>"
+    ins = llvmins(Val{Op}, N, R)
     decls = []
     instrs = []
-    append!(instrs, array2vector("%arg1", N, typ, "%0", "%arg1arr"))
-    append!(instrs, array2vector("%arg2", N, typ, "%1", "%arg2arr"))
+    append!(instrs, array2vector("%arg1", N, typ1, "%0", "%arg1arr"))
+    append!(instrs, array2vector("%arg2", N, typ2, "%1", "%arg2arr"))
     if ins[1] == '@'
-        suf = llvmsuffix(N, T)
-        push!(decls, "declare $vtyp $ins$suf($vtyp, $vtyp)")
-        push!(instrs, "%res = call $vtyp $ins$suf($vtyp %arg1, $vtyp %arg2)")
+        push!(decls, "declare $vtypr $ins($vtyp1, $vtyp2)")
+        push!(instrs, "%res = call $vtypr $ins($vtyp1 %arg1, $vtyp2 %arg2)")
     else
-        push!(instrs, "%res = $ins $flags $vtyp %arg1, %arg2")
+        push!(instrs, "%res = $ins $vtypr %arg1, %arg2")
     end
-    append!(instrs, vector2array("%resarr", N, typ, "%res"))
-    push!(instrs, "ret $atyp %resarr")
+    append!(instrs, vector2array("%resarr", N, typr, "%res"))
+    push!(instrs, "ret $atypr %resarr")
     quote
         # $(Expr(:meta, :inline))
-        Vec{N,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-            NTuple{N,T}, Tuple{NTuple{N,T}, NTuple{N,T}}, v1.elts, v2.elts))
+        Vec{N,R}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{N,R}, Tuple{NTuple{N,T1}, NTuple{N,T2}}, v1.elts, v2.elts))
     end
 end
 
-@generated function llvmwrap{Op,N,T}(::Type{Val{Op}}, v1::Vec{N,T},
-        v2::Vec{N,T}, v3::Vec{N,T})
+@generated function llvmwrap{Op,N,T1,T2,T3,R}(::Type{Val{Op}}, v1::Vec{N,T1},
+        v2::Vec{N,T2}, v3::Vec{N,T3}, ::Type{R} = T1)
     @assert isa(Op, Symbol)
-    typ = llvmtype(T)
-    atyp = "[$N x $typ]"
-    vtyp = "<$N x $typ>"
-    ins = llvmins(Val{Op}, T)
-    flags = fastflags(T)
+    typ1 = llvmtype(T1)
+    atyp1 = "[$N x $typ1]"
+    vtyp1 = "<$N x $typ1>"
+    typ2 = llvmtype(T2)
+    atyp2 = "[$N x $typ2]"
+    vtyp2 = "<$N x $typ2>"
+    typ3 = llvmtype(T3)
+    atyp3 = "[$N x $typ3]"
+    vtyp3 = "<$N x $typ3>"
+    typr = llvmtype(R)
+    atypr = "[$N x $typr]"
+    vtypr = "<$N x $typr>"
+    ins = llvmins(Val{Op}, N, R)
     decls = []
     instrs = []
-    append!(instrs, array2vector("%arg1", N, typ, "%0", "%arg1arr"))
-    append!(instrs, array2vector("%arg2", N, typ, "%1", "%arg2arr"))
-    append!(instrs, array2vector("%arg3", N, typ, "%2", "%arg3arr"))
+    append!(instrs, array2vector("%arg1", N, typ1, "%0", "%arg1arr"))
+    append!(instrs, array2vector("%arg2", N, typ2, "%1", "%arg2arr"))
+    append!(instrs, array2vector("%arg3", N, typ3, "%2", "%arg3arr"))
     if ins[1] == '@'
-        suf = llvmsuffix(N, T)
-        push!(decls, "declare $vtyp $ins$suf($vtyp, $vtyp, $vtyp)")
+        push!(decls, "declare $vtypr $ins($vtyp1, $vtyp2, $vtyp3)")
         push!(instrs,
-            "%res = call $vtyp $ins$suf($vtyp %arg1, $vtyp %arg2, $vtyp %arg3)")
+            "%res = call $vtypr $ins($vtyp1 %arg1, $vtyp2 %arg2, $vtyp3 %arg3)")
     else
-        push!(instrs, "%res = $ins $flags $vtyp %arg1, %arg2, %arg3")
+        push!(instrs, "%res = $ins $vtypr %arg1, %arg2, %arg3")
     end
-    append!(instrs, vector2array("%resarr", N, typ, "%res"))
-    push!(instrs, "ret $atyp %resarr")
+    append!(instrs, vector2array("%resarr", N, typr, "%res"))
+    push!(instrs, "ret $atypr %resarr")
     quote
         # $(Expr(:meta, :inline))
-        Vec{N,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-            NTuple{N,T}, Tuple{NTuple{N,T}, NTuple{N,T}, NTuple{N,T}},
+        Vec{N,R}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{N,R}, Tuple{NTuple{N,T1}, NTuple{N,T2}, NTuple{N,T3}},
             v1.elts, v2.elts, v3.elts))
     end
 end
@@ -297,6 +334,9 @@ for op in (:muladd,)
             llvmwrap(Val{$(QuoteNode(op))}, v1, v2, v3)
     end
 end
+
+Base.ifelse{N,T}(v1::Vec{N,Bool}, v2::Vec{N,T}, v3::Vec{N,T}) =
+    llvmwrap(Val{:ifelse}, v1, v2, v3, T)
 
 # Load and store functions
 
@@ -371,5 +411,86 @@ vstorea{N,T}(v::Vec{N,T}, ptr::Ptr{T}) = vstore(v, ptr, Val{true})
 end
 vstorea{N,T}(v::Vec{N,T}, arr::Vector{T}, i::Integer) =
     vstore(v, arr, i, Val{true})
+
+# Conditionals
+
+@generated function llvmwrapcond{Op,N,T}(::Type{Val{Op}}, v1::Vec{N,T},
+        v2::Vec{N,T})
+    @assert isa(Op, Symbol)
+    btyp = llvmtype(Bool)
+    vbtyp = "<$N x $btyp>"
+    abtyp = "[$N x $btyp]"
+    typ = llvmtype(T)
+    atyp = "[$N x $typ]"
+    vtyp = "<$N x $typ>"
+    ins = llvmins(Val{Op}, N, T)
+    decls = []
+    instrs = []
+    append!(instrs, array2vector("%arg1", N, typ, "%0", "%arg1arr"))
+    append!(instrs, array2vector("%arg2", N, typ, "%1", "%arg2arr"))
+    push!(instrs, "%cond = $ins $vtyp %arg1, %arg2")
+    push!(instrs, "%res = zext <$N x i1> %cond to $vbtyp")
+    append!(instrs, vector2array("%resarr", N, btyp, "%res"))
+    push!(instrs, "ret $abtyp %resarr")
+    quote
+        # $(Expr(:meta, :inline))
+        Vec{N,Bool}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{N,Bool}, Tuple{NTuple{N,T}, NTuple{N,T}},
+            v1.elts, v2.elts))
+    end
+end
+
+for op in (:(==), :(!=), :(<), :(<=), :(>), :(>=))
+    @eval begin
+        Base.$op{N,T}(v1::Vec{N,T}, v2::Vec{N,T}) =
+            llvmwrapcond(Val{$(QuoteNode(op))}, v1, v2)
+    end
+end
+
+#=
+@generated function Base.ifelse{N,T}(x1::Bool, v2::Vec{N,T}, v3::Vec{N,T})
+    typ = llvmtype(T)
+    atyp = "[$N x $typ]"
+    vtyp = "<$N x $typ>"
+    decls = []
+    instrs = []
+    append!(instrs, array2vector("%arg2", N, typ, "%1", "%arg2arr"))
+    append!(instrs, array2vector("%arg3", N, typ, "%2", "%arg3arr"))
+    push!(instrs, "%res = select i1 %0, $vtyp %arg2, $vtyp %arg3")
+    append!(instrs, vector2array("%resarr", N, typ, "%res"))
+    push!(instrs, "ret $atyp %resarr")
+    quote
+        # $(Expr(:meta, :inline))
+        Vec{N,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{N,T}, Tuple{Bool, NTuple{N,T}, NTuple{N,T}},
+            x1, v2.elts, v3.elts))
+    end
+end
+=#
+
+@generated function Base.ifelse{N,T}(v1::Vec{N,Bool}, v2::Vec{N,T},
+        v3::Vec{N,T})
+    btyp = llvmtype(Bool)
+    vbtyp = "<$N x $btyp>"
+    abtyp = "[$N x $btyp]"
+    typ = llvmtype(T)
+    atyp = "[$N x $typ]"
+    vtyp = "<$N x $typ>"
+    decls = []
+    instrs = []
+    append!(instrs, array2vector("%arg1", N, btyp, "%0", "%arg1arr"))
+    append!(instrs, array2vector("%arg2", N, typ, "%1", "%arg2arr"))
+    append!(instrs, array2vector("%arg3", N, typ, "%2", "%arg3arr"))
+    push!(instrs, "%cond = trunc $vbtyp %arg1 to <$N x i1>")
+    push!(instrs, "%res = select <$N x i1> %cond, $vtyp %arg2, $vtyp %arg3")
+    append!(instrs, vector2array("%resarr", N, typ, "%res"))
+    push!(instrs, "ret $atyp %resarr")
+    quote
+        # $(Expr(:meta, :inline))
+        Vec{N,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{N,T}, Tuple{NTuple{N,Bool}, NTuple{N,T}, NTuple{N,T}},
+            v1.elts, v2.elts, v3.elts))
+    end
+end
 
 end

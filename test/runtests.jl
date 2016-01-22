@@ -22,7 +22,6 @@ arr = Float64[1:10;]
 @code_native vload(Vec{4,Float64}, pointer(arr, 1))
 @code_native vload(Vec{4,Float64}, arr, 1)
 
-info("vstore")
 @code_native vstore(Vec{4,Float64}(0), pointer(arr, 1))
 @code_native vstore(Vec{4,Float64}(0), arr, 1)
 
@@ -57,3 +56,14 @@ function vsum{N,T}(::Type{Vec{N,T}}, xs::Vector{T})
 end
 
 @code_native vsum(Vec{4,Float64}, arr)
+
+@code_native Vec{4,Bool}(false)
+@code_native Vec{4,Int8}(false)
+@code_native Vec{4,Int64}(false)
+
+@code_native Vec{4,Float64}(1) == Vec{4,Float64}(0)
+@code_native ifelse(Vec{4,Bool}(false), Vec{4,Float64}(1), Vec{4,Float64}(0))
+
+f(x,y,a,b) = ifelse(x==y,a,b)
+code_native(f, (Vec{4,Float64}, Vec{4,Float64}, Vec{4,Float64}, Vec{4,Float64}))
+code_native(f, (Float64, Float64, Vec{4,Float64}, Vec{4,Float64}))
