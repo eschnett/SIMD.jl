@@ -1,69 +1,87 @@
 using SIMD
 using Base.Test
 
-@code_native Vec{4,Float64}((1.0,2.0,3.0,4.0))
-@code_native Vec{4,Float64}((1,2,3,4))
-@code_native Vec{4,Float64}(0)
+typealias V8I32 Vec{8,Int32}
+typealias V4F64 Vec{4,Float64}
 
-v = Vec{4,Float64}(0)
-@code_native NTuple{4,Float64}(v)
+# Type properties
 
-@code_native setindex(Vec{4,Float64}(0), Val{1}, 1)
-@code_native setindex(Vec{4,Float64}(0), 1, 1)
+@test length(V8I32) == 8
+@test length(V4F64) == 4
+@test eltype(V8I32) === Int32
+@test eltype(V4F64) === Float64
 
-@code_native Vec{4,Float64}(0)[Val{1}]
-@code_native Vec{4,Float64}(0)[1]
+# Type conversion
 
-@code_native sqrt(Vec{4,Float64}(1))
-@code_native Vec{4,Float64}(1) / Vec{4,Float64}(2)
-@code_native muladd(Vec{4,Float64}(1), Vec{4,Float64}(2), Vec{4,Float64}(3))
+const v8i32 = ntuple(i->Int32(ifelse(isodd(i), i, -i)), 8)
+const v4f64 = ntuple(i->Float64(ifelse(isodd(i), i, -i)), 4)
 
-arr = Float64[1:10;]
-@code_native vload(Vec{4,Float64}, pointer(arr, 1))
-@code_native vload(Vec{4,Float64}, arr, 1)
+@test V8I32(v8i32).elts === v8i32
+@test V4F64(v4f64).elts === v4f64
 
-@code_native vstore(Vec{4,Float64}(0), pointer(arr, 1))
-@code_native vstore(Vec{4,Float64}(0), arr, 1)
+@test V8I32(9).elts === ntuple(i->Int32(9), 8)
+@test V4F64(9).elts === ntuple(i->9.0, 4)
+@test V8I32(ntuple(i->Float32(v8i32[i]), 8)).elts === v8i32
+@test V4F64(ntuple(i->Int64(v4f64[i]), 4)).elts === v4f64
 
-info("vadd!")
+@test NTuple{8,Int32}(V8I32(v8i32)) === v8i32
+@test NTuple{4,Float64}(V4F64(v4f64)) === v4f64
 
-function vadd!{N,T}(::Type{Vec{N,T}}, xs::Vector{T}, ys::Vector{T})
-    @inbounds for i in 1:N:length(xs)
-        xv = vload(Vec{N,T}, xs, i)
-        yv = vload(Vec{N,T}, ys, i)
-        zv = xv + yv
-        vstore(zv, xs, i)
-    end
+# Element-wise access
+
+for i in 1:8
+    @test setindex(V8I32(v8i32), Val{i}, 9.0).elts ===
+        ntuple(j->Int32(ifelse(j==i, 9, v8i32[j])), 8)
+    @test setindex(V8I32(v8i32), i, 9.0).elts ===
+        ntuple(j->Int32(ifelse(j==i, 9, v8i32[j])), 8)
+
+    @test V8I32(v8i32)[Val{i}] === v8i32[i]
+    @test V8I32(v8i32)[i] === v8i32[i]
+end
+@test_throws BoundsError setindex(V8I32(v8i32), Val{0}, 0)
+@test_throws BoundsError setindex(V8I32(v8i32), Val{9}, 0)
+@test_throws BoundsError setindex(V8I32(v8i32), 0, 0)
+@test_throws BoundsError setindex(V8I32(v8i32), 9, 0)
+@test_throws BoundsError V8I32(v8i32)[Val{0}]
+@test_throws BoundsError V8I32(v8i32)[Val{9}]
+@test_throws BoundsError V8I32(v8i32)[0]
+@test_throws BoundsError V8I32(v8i32)[9]
+
+for i in 1:4
+    @test setindex(V4F64(v4f64), Val{i}, 9).elts ===
+        ntuple(j->Float64(ifelse(j==i, 9.0, v4f64[j])), 4)
+    @test setindex(V4F64(v4f64), i, 9).elts ===
+        ntuple(j->Float64(ifelse(j==i, 9.0, v4f64[j])), 4)
+
+    @test V4F64(v4f64)[Val{i}] === v4f64[i]
+    @test V4F64(v4f64)[i] === v4f64[i]
 end
 
-@code_native vadd!(Vec{4,Float64}, arr, arr)
+# Arithmetic functions and conditionals
 
-info("vsum")
-
-function vsum{N,T}(::Type{Vec{N,T}}, xs::Vector{T})
-    sv = Vec{N,T}(0)
-    @inbounds for i in 1:N:length(xs)
-        xv = vload(Vec{N,T}, xs, i)
-        sv += xv
-    end
-    # sv[Val{1}] + sv[Val{2}] + sv[Val{3}] + sv[Val{4}]
-    # sv[1] + sv[2] + sv[3] + sv[4]
-    s = T(0)
-    for i in 1:N
-        s += sv[i]
-    end
-    s
+const v8i32b = map(x->Int32(x+1), v8i32)
+const v8i32c = map(x->Int32(x*2), v8i32)
+for op in (~, +, -, abs)
+    @test op(V8I32(v8i32)).elts === map(op, v8i32)
+end
+for op in (+, -, *, ÷, %, <<, >>, >>>)
+    @test op(V8I32(v8i32), V8I32(v8i32b)).elts === map(op, v8i32, v8i32b)
+end
+for op in (muladd, (x,y,z)->ifelse(x==abs(x),y,z))
+    @test op(V8I32(v8i32), V8I32(v8i32b), V8I32(v8i32c)).elts ===
+        map(op, v8i32, v8i32b, v8i32c)
 end
 
-@code_native vsum(Vec{4,Float64}, arr)
-
-@code_native Vec{4,Bool}(false)
-@code_native Vec{4,Int8}(false)
-@code_native Vec{4,Int64}(false)
-
-@code_native Vec{4,Float64}(1) == Vec{4,Float64}(0)
-@code_native ifelse(Vec{4,Bool}(false), Vec{4,Float64}(1), Vec{4,Float64}(0))
-
-f(x,y,a,b) = ifelse(x==y,a,b)
-code_native(f, (Vec{4,Float64}, Vec{4,Float64}, Vec{4,Float64}, Vec{4,Float64}))
-code_native(f, (Float64, Float64, Vec{4,Float64}, Vec{4,Float64}))
+const v4f64b = map(x->Float64(x+1), v4f64)
+const v4f64c = map(x->Float64(x*2), v4f64)
+for op in (+, -, abs, sin, x->sqrt(abs(x)))
+    @test op(V4F64(v4f64)).elts === map(op, v4f64)
+end
+for op in (+, -, *, /, %, ^, ==, !=, <, <=, >, >=)
+    @test op(V4F64(v4f64), V4F64(v4f64b)).elts === map(op, v4f64, v4f64b)
+end
+@test ^(V4F64(v4f64), Vec{4,Int64}(v4f64b)).elts === map(^, v4f64, v4f64b)
+for op in (muladd, (x,y,z)->ifelse(x==abs(x),y,z))
+    @test op(V4F64(v4f64), V4F64(v4f64b), V4F64(v4f64c)).elts ===
+        map(op, v4f64, v4f64b, v4f64c)
+end
