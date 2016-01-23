@@ -1,6 +1,8 @@
 using SIMD
 using Base.Test
 
+#=
+
 typealias V8I32 Vec{8,Int32}
 typealias V4F64 Vec{4,Float64}
 
@@ -119,25 +121,11 @@ end
 function vadd!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
     @assert length(ys) == length(xs)
     @assert length(xs) % N == 0
-    isaligned(arr) = Int(pointer(arr, 1)) % sizeof(Vec{N,T}) == 0
-    if isaligned(xs) && isaligned(ys)
-        i = 1
-        @inbounds while i <= length(xs)
-            xv = vloada(Vec{N,T}, xs, i)
-            yv = vloada(Vec{N,T}, ys, i)
-            xv += yv
-            vstorea(xv, xs, i)
-            i += N
-        end
-    else
-        i = 1
-        @inbounds while i <= length(xs)
-            xv = vload(Vec{N,T}, xs, i)
-            yv = vload(Vec{N,T}, ys, i)
-            xv += yv
-            vstore(xv, xs, i)
-            i += N
-        end
+    @inbounds for i in 1:N:length(xs)
+        xv = vload(Vec{N,T}, xs, i)
+        yv = vload(Vec{N,T}, ys, i)
+        xv += yv
+        vstore(xv, xs, i)
     end
 end
 
@@ -147,3 +135,23 @@ let xs = Float64[1, 2, 3, 4];
     @test xs == Float64[2, 3, 4, 5]
     @code_native vadd!(xs, ys, V4F64)
 end
+
+function vsum{N,T}(xs::Vector{T}, ::Type{Vec{N,T}})
+    @assert length(xs) % N == 0
+    sv = Vec{N,T}(0)
+    @inbounds for i in 1:N:length(xs)
+        xv = vload(Vec{N,T}, xs, i)
+        sv += xv
+    end
+    s = T(0)
+    for i in 1:N s+=sv[i] end
+    s
+end
+
+let xs = Float64[1, 2, 3, 4]
+    s = vsum(xs, V4F64)
+    @test s === Float64(10)
+    @code_native vsum(xs, V4F64)
+end
+
+=#
