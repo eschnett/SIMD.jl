@@ -84,7 +84,7 @@ end
 
 const v4f64b = map(x->Float64(x+1), v4f64)
 const v4f64c = map(x->Float64(x*2), v4f64)
-for op in (+, -, abs, sin, x->sqrt(abs(x)))
+for op in (+, -, abs, inv, sin, x->sqrt(abs(x)))
     @test op(V4F64(v4f64)).elts === map(op, v4f64)
 end
 for op in (+, -, *, /, %, ^, ==, !=, <, <=, >, >=)

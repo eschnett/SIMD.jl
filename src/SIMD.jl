@@ -99,6 +99,7 @@ llvmins{T<:AbstractFloat}(::Type{Val{:+}}, N, ::Type{T}) = "fadd"
 llvmins{T<:AbstractFloat}(::Type{Val{:-}}, N, ::Type{T}) = "fsub"
 llvmins{T<:AbstractFloat}(::Type{Val{:*}}, N, ::Type{T}) = "fmul"
 llvmins{T<:AbstractFloat}(::Type{Val{:/}}, N, ::Type{T}) = "fdiv"
+llvmins{T<:AbstractFloat}(::Type{Val{:inv}}, N, ::Type{T}) = "fdiv"
 llvmins{T<:AbstractFloat}(::Type{Val{:rem}}, N, ::Type{T}) = "frem"
 
 llvmins{T<:AbstractFloat}(::Type{Val{:(==)}}, N, ::Type{T}) = "fcmp oeq"
@@ -234,7 +235,7 @@ Base.getindex{N,T}(v::Vec{N,T}, i::Integer) = v.elts[i]
         push!(decls, "declare $vtypr $ins($vtyp1)")
         push!(instrs, "%res = call $vtypr $ins($vtyp1 %arg1)")
     else
-        otherarg = llvmconst(N, T1, Op === :~ ? -1 : 0)
+        otherarg = llvmconst(N, T1, Op === :~ ? -1 : Op === :inv ? 1.0 : 0)
         push!(instrs, "%res = $ins $vtypr $otherarg, %arg1")
     end
     append!(instrs, vector2array("%resarr", N, typr, "%res"))
@@ -489,7 +490,7 @@ end
 
 # Arithmetic functions
 
-for op in (:~, :+, :-, :abs, :sin, :sqrt)
+for op in (:~, :+, :-, :abs, :inv, :sin, :sqrt)
     @eval begin
         @inline Base.$op{N,T}(v1::Vec{N,T}) =
             llvmwrap(Val{$(QuoteNode(op))}, v1)
