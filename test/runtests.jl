@@ -85,3 +85,65 @@ for op in (muladd, (x,y,z)->ifelse(x==abs(x),y,z))
     @test op(V4F64(v4f64), V4F64(v4f64b), V4F64(v4f64c)).elts ===
         map(op, v4f64, v4f64b, v4f64c)
 end
+
+# Load and store functions
+
+const arri32 = [Int32(i) for i in 1:16]
+for i in 1:length(arri32)-7
+    @test vload(V8I32, arri32, i) === V8I32(ntuple(j->i+j-1, 8))
+end
+for i in 1:8:length(arri32)-7
+    @test vloada(V8I32, arri32, i) === V8I32(ntuple(j->i+j-1, 8))
+end
+vstorea(V8I32(0), arri32, 1)
+vstore(V8I32(1), arri32, 2)
+for i in 1:length(arri32)
+    @test arri32[i] == if i==1 0 elseif i<=9 1 else i end
+end
+
+const arrf64 = [Float64(i) for i in 1:16]
+for i in 1:length(arrf64)-3
+    @test vload(V4F64, arrf64, i) === V4F64(ntuple(j->i+j-1, 4))
+end
+for i in 1:4:length(arrf64)-3
+    @test vloada(V4F64, arrf64, i) === V4F64(ntuple(j->i+j-1, 4))
+end
+vstorea(V4F64(0), arrf64, 1)
+vstore(V4F64(1), arrf64, 2)
+for i in 1:length(arrf64)
+    @test arrf64[i] == if i==1 0 elseif i<=5 1 else i end
+end
+
+# Real-world examples
+
+function vadd!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
+    @assert length(ys) == length(xs)
+    @assert length(xs) % N == 0
+    isaligned(arr) = Int(pointer(arr, 1)) % sizeof(Vec{N,T}) == 0
+    if isaligned(xs) && isaligned(ys)
+        i = 1
+        @inbounds while i <= length(xs)
+            xv = vloada(Vec{N,T}, xs, i)
+            yv = vloada(Vec{N,T}, ys, i)
+            xv += yv
+            vstorea(xv, xs, i)
+            i += N
+        end
+    else
+        i = 1
+        @inbounds while i <= length(xs)
+            xv = vload(Vec{N,T}, xs, i)
+            yv = vload(Vec{N,T}, ys, i)
+            xv += yv
+            vstore(xv, xs, i)
+            i += N
+        end
+    end
+end
+
+let xs = Float64[1, 2, 3, 4];
+    ys = Float64[1, 1, 1, 1]
+    vadd!(xs, ys, V4F64)
+    @test xs == Float64[2, 3, 4, 5]
+    @code_native vadd!(xs, ys, V4F64)
+end

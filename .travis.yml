@@ -8,7 +8,8 @@ julia:
   - nightly
 notifications:
   email: false
-# uncomment the following lines to override the default test script
-#script:
-#  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-#  - julia -e 'Pkg.clone(pwd()); Pkg.build("SIMD"); Pkg.test("SIMD"; coverage=true)'
+script:
+- if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+- julia -e 'Pkg.clone(pwd()); Pkg.build("SIMD"); Pkg.test("SIMD"; coverage=true)'
+after_success:
+  - julia -e 'cd(Pkg.dir("SIMD")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'

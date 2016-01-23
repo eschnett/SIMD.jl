@@ -581,7 +581,7 @@ end
 
 @inline function vload{N,T,Aligned}(::Type{Vec{N,T}}, arr::Vector{T},
         i::Integer, ::Type{Val{Aligned}} = Val{false})
-    @boundscheck 1 <= i < length(arr) - N || throw(BoundsError())
+    @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
     vload(Vec{N,T}, pointer(arr, i), Val{Aligned})
 end
 @inline vloada{N,T}(::Type{Vec{N,T}}, arr::Vector{T}, i::Integer) =
@@ -617,7 +617,7 @@ end
 
 @inline function vstore{N,T,Aligned}(v::Vec{N,T}, arr::Vector{T}, i::Integer,
         ::Type{Val{Aligned}} = Val{false})
-    @boundscheck 1 <= i < length(arr) - N || throw(BoundsError())
+    @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
     vstore(v, pointer(arr, i), Val{Aligned})
 end
 @inline vstorea{N,T}(v::Vec{N,T}, arr::Vector{T}, i::Integer) =
