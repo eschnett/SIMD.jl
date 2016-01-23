@@ -1,69 +1,65 @@
 using SIMD
 using Base.Test
 
-typealias V4I32 Vec{4,Int32}
-typealias V2F64 Vec{2,Float64}
+# The vector we are testing. Ideally, we should be able to use any vector size
+# anywhere, but LLVM codegen bugs prevent us from doing so -- thus we make this
+# a parameter.
+const nbytes = 16   # 32
+
+const L8 = nbytes÷4
+const L4 = nbytes÷8
+
+typealias V8I32 Vec{L8,Int32}
+typealias V4F64 Vec{L4,Float64}
 
 # Type properties
 
-@test length(V4I32) == 4
-@test length(V2F64) == 2
-@test eltype(V4I32) === Int32
-@test eltype(V2F64) === Float64
-
-#=
-
-typealias V8I32 Vec{8,Int32}
-typealias V4F64 Vec{4,Float64}
-
-# Type properties
-
-@test length(V8I32) == 8
-@test length(V4F64) == 4
+@test length(V8I32) == L8
+@test length(V4F64) == L4
 @test eltype(V8I32) === Int32
 @test eltype(V4F64) === Float64
 
 # Type conversion
 
-const v8i32 = ntuple(i->Int32(ifelse(isodd(i), i, -i)), 8)
-const v4f64 = ntuple(i->Float64(ifelse(isodd(i), i, -i)), 4)
+const v8i32 = ntuple(i->Int32(ifelse(isodd(i), i, -i)), L8)
+const v4f64 = ntuple(i->Float64(ifelse(isodd(i), i, -i)), L4)
 
 @test V8I32(v8i32).elts === v8i32
 @test V4F64(v4f64).elts === v4f64
 
-@test V8I32(9).elts === ntuple(i->Int32(9), 8)
-@test V4F64(9).elts === ntuple(i->9.0, 4)
-@test V8I32(ntuple(i->Float32(v8i32[i]), 8)).elts === v8i32
-@test V4F64(ntuple(i->Int64(v4f64[i]), 4)).elts === v4f64
+@test V8I32(9).elts === ntuple(i->Int32(9), L8)
+@test V4F64(9).elts === ntuple(i->9.0, L4)
+@test V8I32(ntuple(i->Float32(v8i32[i]), L8)).elts === v8i32
+@test V4F64(ntuple(i->Int64(v4f64[i]), L4)).elts === v4f64
 
-@test NTuple{8,Int32}(V8I32(v8i32)) === v8i32
-@test NTuple{4,Float64}(V4F64(v4f64)) === v4f64
+@test NTuple{L8,Int32}(V8I32(v8i32)) === v8i32
+@test NTuple{L4,Float64}(V4F64(v4f64)) === v4f64
 
 # Element-wise access
 
-for i in 1:8
+for i in 1:L8
     @test setindex(V8I32(v8i32), Val{i}, 9.0).elts ===
-        ntuple(j->Int32(ifelse(j==i, 9, v8i32[j])), 8)
+        ntuple(j->Int32(ifelse(j==i, 9, v8i32[j])), L8)
     @test setindex(V8I32(v8i32), i, 9.0).elts ===
-        ntuple(j->Int32(ifelse(j==i, 9, v8i32[j])), 8)
+        ntuple(j->Int32(ifelse(j==i, 9, v8i32[j])), L8)
 
     @test V8I32(v8i32)[Val{i}] === v8i32[i]
     @test V8I32(v8i32)[i] === v8i32[i]
 end
 @test_throws BoundsError setindex(V8I32(v8i32), Val{0}, 0)
-@test_throws BoundsError setindex(V8I32(v8i32), Val{9}, 0)
+@test_throws BoundsError setindex(V8I32(v8i32), Val{L8+1}, 0)
 @test_throws BoundsError setindex(V8I32(v8i32), 0, 0)
-@test_throws BoundsError setindex(V8I32(v8i32), 9, 0)
+@test_throws BoundsError setindex(V8I32(v8i32), L8+1, 0)
 @test_throws BoundsError V8I32(v8i32)[Val{0}]
-@test_throws BoundsError V8I32(v8i32)[Val{9}]
+@test_throws BoundsError V8I32(v8i32)[Val{L8+1}]
 @test_throws BoundsError V8I32(v8i32)[0]
-@test_throws BoundsError V8I32(v8i32)[9]
+@test_throws BoundsError V8I32(v8i32)[L8+1]
 
-for i in 1:4
+for i in 1:L4
     @test setindex(V4F64(v4f64), Val{i}, 9).elts ===
-        ntuple(j->Float64(ifelse(j==i, 9.0, v4f64[j])), 4)
+        ntuple(j->Float64(ifelse(j==i, 9.0, v4f64[j])), L4)
     @test setindex(V4F64(v4f64), i, 9).elts ===
-        ntuple(j->Float64(ifelse(j==i, 9.0, v4f64[j])), 4)
+        ntuple(j->Float64(ifelse(j==i, 9.0, v4f64[j])), L4)
 
     @test V4F64(v4f64)[Val{i}] === v4f64[i]
     @test V4F64(v4f64)[i] === v4f64[i]
@@ -92,7 +88,7 @@ end
 for op in (+, -, *, /, %, ^, ==, !=, <, <=, >, >=)
     @test op(V4F64(v4f64), V4F64(v4f64b)).elts === map(op, v4f64, v4f64b)
 end
-@test ^(V4F64(v4f64), Vec{4,Int64}(v4f64b)).elts === map(^, v4f64, v4f64b)
+@test ^(V4F64(v4f64), Vec{L4,Int64}(v4f64b)).elts === map(^, v4f64, v4f64b)
 for op in (muladd, (x,y,z)->ifelse(x==abs(x),y,z))
     @test op(V4F64(v4f64), V4F64(v4f64b), V4F64(v4f64c)).elts ===
         map(op, v4f64, v4f64b, v4f64c)
@@ -100,30 +96,30 @@ end
 
 # Load and store functions
 
-const arri32 = [Int32(i) for i in 1:16]
-for i in 1:length(arri32)-7
-    @test vload(V8I32, arri32, i) === V8I32(ntuple(j->i+j-1, 8))
+const arri32 = Int32[i for i in 1:(2*L8)]
+for i in 1:length(arri32)-(L8-1)
+    @test vload(V8I32, arri32, i) === V8I32(ntuple(j->i+j-1, L8))
 end
-for i in 1:8:length(arri32)-7
-    @test vloada(V8I32, arri32, i) === V8I32(ntuple(j->i+j-1, 8))
+for i in 1:L8:length(arri32)-(L8-1)
+    @test vloada(V8I32, arri32, i) === V8I32(ntuple(j->i+j-1, L8))
 end
 vstorea(V8I32(0), arri32, 1)
 vstore(V8I32(1), arri32, 2)
 for i in 1:length(arri32)
-    @test arri32[i] == if i==1 0 elseif i<=9 1 else i end
+    @test arri32[i] == if i==1 0 elseif i<=(L8+1) 1 else i end
 end
 
-const arrf64 = [Float64(i) for i in 1:16]
-for i in 1:length(arrf64)-3
-    @test vload(V4F64, arrf64, i) === V4F64(ntuple(j->i+j-1, 4))
+const arrf64 = Float64[i for i in 1:(4*L4)]
+for i in 1:length(arrf64)-(L4-1)
+    @test vload(V4F64, arrf64, i) === V4F64(ntuple(j->i+j-1, L4))
 end
-for i in 1:4:length(arrf64)-3
-    @test vloada(V4F64, arrf64, i) === V4F64(ntuple(j->i+j-1, 4))
+for i in 1:4:length(arrf64)-(L4-1)
+    @test vloada(V4F64, arrf64, i) === V4F64(ntuple(j->i+j-1, L4))
 end
 vstorea(V4F64(0), arrf64, 1)
 vstore(V4F64(1), arrf64, 2)
 for i in 1:length(arrf64)
-    @test arrf64[i] == if i==1 0 elseif i<=5 1 else i end
+    @test arrf64[i] == if i==1 0 elseif i<=(L4+1) 1 else i end
 end
 
 # Real-world examples
@@ -139,10 +135,10 @@ function vadd!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
     end
 end
 
-let xs = Float64[1, 2, 3, 4];
-    ys = Float64[1, 1, 1, 1]
+let xs = Float64[i for i in 1:(4*L4)];
+    ys = Float64[1 for i in 1:(4*L4)]
     vadd!(xs, ys, V4F64)
-    @test xs == Float64[2, 3, 4, 5]
+    @test xs == Float64[i+1 for i in 1:(4*L4)]
     @code_native vadd!(xs, ys, V4F64)
 end
 
@@ -158,10 +154,8 @@ function vsum{N,T}(xs::Vector{T}, ::Type{Vec{N,T}})
     s
 end
 
-let xs = Float64[1, 2, 3, 4]
+let xs = Float64[i for i in 1:(4*L4)]
     s = vsum(xs, V4F64)
-    @test s === Float64(10)
+    @test s === (x->(x^2+x)/2)(Float64(4*L4))
     @code_native vsum(xs, V4F64)
 end
-
-=#
