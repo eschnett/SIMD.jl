@@ -1,6 +1,8 @@
 using SIMD
 using Base.Test
 
+info("Basic definitions")
+
 # The vector we are testing. Ideally, we should be able to use any vector size
 # anywhere, but LLVM codegen bugs prevent us from doing so -- thus we make this
 # a parameter.
@@ -12,14 +14,14 @@ const L4 = nbytes÷8
 typealias V8I32 Vec{L8,Int32}
 typealias V4F64 Vec{L4,Float64}
 
-# Type properties
+info("Type properties")
 
 @test length(V8I32) == L8
 @test length(V4F64) == L4
 @test eltype(V8I32) === Int32
 @test eltype(V4F64) === Float64
 
-# Type conversion
+info("Type conversion")
 
 const v8i32 = ntuple(i->Int32(ifelse(isodd(i), i, -i)), L8)
 const v4f64 = ntuple(i->Float64(ifelse(isodd(i), i, -i)), L4)
@@ -35,7 +37,7 @@ const v4f64 = ntuple(i->Float64(ifelse(isodd(i), i, -i)), L4)
 @test NTuple{L8,Int32}(V8I32(v8i32)) === v8i32
 @test NTuple{L4,Float64}(V4F64(v4f64)) === v4f64
 
-# Element-wise access
+info("Element-wise access")
 
 for i in 1:L8
     @test setindex(V8I32(v8i32), Val{i}, 9.0).elts ===
@@ -65,7 +67,7 @@ for i in 1:L4
     @test V4F64(v4f64)[i] === v4f64[i]
 end
 
-# Arithmetic functions and conditionals
+info("Arithmetic functions and conditionals")
 
 const v8i32b = map(x->Int32(x+1), v8i32)
 const v8i32c = map(x->Int32(x*2), v8i32)
@@ -94,7 +96,7 @@ for op in (muladd, (x,y,z)->ifelse(x==abs(x),y,z))
         map(op, v4f64, v4f64b, v4f64c)
 end
 
-# Load and store functions
+info("Load and store functions")
 
 const arri32 = Int32[i for i in 1:(2*L8)]
 for i in 1:length(arri32)-(L8-1)
@@ -122,7 +124,7 @@ for i in 1:length(arrf64)
     @test arrf64[i] == if i==1 0 elseif i<=(L4+1) 1 else i end
 end
 
-# Real-world examples
+info("Real-world examples")
 
 function vadd!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
     @assert length(ys) == length(xs)
