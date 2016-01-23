@@ -1,6 +1,16 @@
 using SIMD
 using Base.Test
 
+typealias V4I32 Vec{4,Int32}
+typealias V2F64 Vec{2,Float64}
+
+# Type properties
+
+@test length(V4I32) == 4
+@test length(V2F64) == 2
+@test eltype(V4I32) === Int32
+@test eltype(V2F64) === Float64
+
 #=
 
 typealias V8I32 Vec{8,Int32}
