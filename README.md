@@ -32,11 +32,13 @@ end
 
 The SIMD package provides the usual arithmetic and logical operations for SIMD vectors:
 
-`+ - * / % ~ & | $ << >> >>> == != < <= > >=`
+`+ - * / % ^ ! ~ & | $ << >> >>> == != < <= > >=`
 
-`abs div ifelse inv muladd sqrt`
+`abs cbrt ceil cos div exp exp10 exp2 floor fma ifelse inv log log10 log2 muladd round sin sqrt trunc`
 
-Others could (and should) be added.
+(Currently missing: `copysign(Int) count_ones count_zeros expm1 flipsign isfinite isinf isnan isnormal ldexp leading_ones leading_zeros log1p sign signbit significand trailing_ones trailing_zeros`)
+
+(Also currently missing: Type conversions, vector shuffles, scatter/gather operations, masked load/store operations)
 
 These operators and functions are always applied element-wise, i.e. they are applied to each element in parallel, giving again a SIMD vector as result. This means that e.g. multiplying two vectors yields a vector, and comparing two vectors yields a boolean vector. This behaviour might seem strange and slightly unusual, but corresponds to the machine instructions provided by the hardware.
 

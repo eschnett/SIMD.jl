@@ -96,7 +96,7 @@ for op in (
 end
 powi(x,y::AbstractFloat) = x^Int64(y)
 powi(x,y) = x^Vec{L4,Int64}(NTuple{L4,Float64}(y))
-for op in (+, -, *, /, %, ^, powi, ==, !=, <, <=, >, >=)
+for op in (+, -, *, /, %, ^, copysign, powi, ==, !=, <, <=, >, >=)
     @test op(V4F64(v4f64), V4F64(v4f64b)).elts === map(op, v4f64, v4f64b)
 end
 ifelsebool(x,y,z) = ifelse(x==abs(x),y,z)

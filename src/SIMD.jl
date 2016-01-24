@@ -678,7 +678,7 @@ end
 
 for op in (
         :~, :+, :-,
-        :abs, :ceil, :cos, :exp, :exp2, :inv, :floor, :log, :log10, :log2,
+        :abs, :ceil, :cos, :exp, :exp2, :floor, :inv, :log, :log10, :log2,
         :round, :sin, :sqrt, :trunc)
     @eval begin
         @inline Base.$op{N,T}(v1::Vec{N,T}) =
@@ -691,7 +691,7 @@ end
 @inline function Base.abs{N,T<:Signed}(v1::Vec{N,T})
     nbits = 8*sizeof(T)
     s = v1 >> (nbits-1)
-    # -v1 = ~v1 + 1
+    # Note: -v1 = ~v1 + 1
     (s $ v1) - s
 end
 
