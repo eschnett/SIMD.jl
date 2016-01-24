@@ -71,7 +71,8 @@ info("Arithmetic functions and conditionals")
 
 const v8i32b = map(x->Int32(x+1), v8i32)
 const v8i32c = map(x->Int32(x*2), v8i32)
-for op in (~, +, -, abs)
+notbool(x) = !(x==abs(x))
+for op in (~, +, -, abs, notbool)
     @test op(V8I32(v8i32)).elts === map(op, v8i32)
 end
 for op in (+, -, *, ÷, %, <<, >>, >>>)
@@ -84,14 +85,22 @@ end
 
 const v4f64b = map(x->Float64(x+1), v4f64)
 const v4f64c = map(x->Float64(x*2), v4f64)
-for op in (+, -, abs, inv, sin, x->sqrt(abs(x)))
+logabs(x) = log(abs(x))
+log10abs(x) = log10(abs(x))
+log2abs(x) = log2(abs(x))
+sqrtabs(x) = sqrt(abs(x))
+for op in (
+        +, -, abs, ceil, cos, exp, exp10, exp2, inv, floor, logabs, log10abs,
+        log2abs, round, sin, sqrtabs, trunc)
     @test op(V4F64(v4f64)).elts === map(op, v4f64)
 end
-for op in (+, -, *, /, %, ^, ==, !=, <, <=, >, >=)
+powi(x,y::AbstractFloat) = x^Int64(y)
+powi(x,y) = x^Vec{L4,Int64}(NTuple{L4,Float64}(y))
+for op in (+, -, *, /, %, ^, powi, ==, !=, <, <=, >, >=)
     @test op(V4F64(v4f64), V4F64(v4f64b)).elts === map(op, v4f64, v4f64b)
 end
-@test ^(V4F64(v4f64), Vec{L4,Int64}(v4f64b)).elts === map(^, v4f64, v4f64b)
-for op in (muladd, (x,y,z)->ifelse(x==abs(x),y,z))
+ifelsebool(x,y,z) = ifelse(x==abs(x),y,z)
+for op in (fma, ifelsebool, muladd)
     @test op(V4F64(v4f64), V4F64(v4f64b), V4F64(v4f64c)).elts ===
         map(op, v4f64, v4f64b, v4f64c)
 end
@@ -141,7 +150,7 @@ let xs = Float64[i for i in 1:(4*L4)];
     ys = Float64[1 for i in 1:(4*L4)]
     vadd!(xs, ys, V4F64)
     @test xs == Float64[i+1 for i in 1:(4*L4)]
-    @code_native vadd!(xs, ys, V4F64)
+    # @code_native vadd!(xs, ys, V4F64)
 end
 
 function vsum{N,T}(xs::Vector{T}, ::Type{Vec{N,T}})
@@ -159,5 +168,5 @@ end
 let xs = Float64[i for i in 1:(4*L4)]
     s = vsum(xs, V4F64)
     @test s === (x->(x^2+x)/2)(Float64(4*L4))
-    @code_native vsum(xs, V4F64)
+    # @code_native vsum(xs, V4F64)
 end
