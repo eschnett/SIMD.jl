@@ -157,17 +157,6 @@ for op in (fma, ifelsebool, muladd)
         map(op, v4f64, v4f64b, v4f64c)
 end
 
-for op in (+, -, *, /, %, ^, copysign, powi, ==, !=, <, <=, >, >=)
-    @show op
-    @showtest op(V4F64(v4f64), V4F64(v4f64b)).elts === map(op, v4f64, v4f64b)
-end
-
-for op in (fma, ifelsebool, muladd)
-    @show op
-    @showtest op(V4F64(v4f64), V4F64(v4f64b), V4F64(v4f64c)).elts ===
-        map(op, v4f64, v4f64b, v4f64c)
-end
-
 info("Load and store functions")
 
 const arri32 = Int32[i for i in 1:(2*L8)]
