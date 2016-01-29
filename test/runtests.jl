@@ -10,9 +10,9 @@ macro showtest(expr)
         rhs = nothing
     end
     esc(quote
-        # println()
-        # @show $lhs
-        # @show $rhs
+        println()
+        @show $lhs
+        @show $rhs
         @test $expr
     end)
 end
