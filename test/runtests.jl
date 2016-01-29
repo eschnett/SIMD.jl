@@ -10,10 +10,10 @@ macro showtest(expr)
         rhs = nothing
     end
     esc(quote
-        println()
         @show $lhs
         @show $rhs
         @test $expr
+        println()
     end)
 end
 
@@ -97,17 +97,20 @@ const v8i32c = map(x->Int32(x*2), v8i32)
 
 notbool(x) = !(x>=typeof(x)(0))
 for op in (~, +, -, abs, notbool, signbit)
+    @show op
     @showtest op(V8I32(v8i32)).elts === map(op, v8i32)
 end
 
 for op in (
         +, -, *, ÷, %, ==, !=, <, <=, >, >=,
         div, max, min, rem)
+    @show op
     @showtest op(V8I32(v8i32), V8I32(v8i32b)).elts === map(op, v8i32, v8i32b)
 end
 
 ifelsebool(x,y,z) = ifelse(x>=typeof(x)(0),y,z)
 for op in (ifelsebool, muladd)
+    @show op
     @showtest op(V8I32(v8i32), V8I32(v8i32b), V8I32(v8i32c)).elts ===
         map(op, v8i32, v8i32b, v8i32c)
 end
@@ -122,6 +125,7 @@ log10abs(x) = log10(abs(x))
 log2abs(x) = log2(abs(x))
 sqrtabs(x) = sqrt(abs(x))
 for op in (+, -, abs, ceil, inv, floor, round, sqrtabs, trunc)
+    @show op
     @showtest op(V4F64(v4f64)).elts === map(op, v4f64)
 end
 function Base.isapprox(t1::Tuple,t2::Tuple)
@@ -129,6 +133,7 @@ function Base.isapprox(t1::Tuple,t2::Tuple)
         all(Bool[isapprox(t1[i], t2[i]) for i in 1:length(t1)])
 end
 for op in (cos, exp, exp10, exp2, logabs, log10abs, log2abs, sin)
+    @show op
     rvec = op(V4F64(v4f64)).elts
     rsca = map(op, v4f64)
     @showtest typeof(rvec) === typeof(rsca)
@@ -141,19 +146,23 @@ powi{N,T}(x,y::Vec{N,T}) = x^Vec{N,Int64}(NTuple{N,Float64}(y))
 for op in (
         +, -, *, /, %, ^, ==, !=, <, <=, >, >=,
         copysign, max, min, powi, powi, rem)
+    @show op
     @showtest op(V4F64(v4f64), V4F64(v4f64b)).elts === map(op, v4f64, v4f64b)
 end
 
 for op in (fma, ifelsebool, muladd)
+    @show op
     @showtest op(V4F64(v4f64), V4F64(v4f64b), V4F64(v4f64c)).elts ===
         map(op, v4f64, v4f64b, v4f64c)
 end
 
 for op in (+, -, *, /, %, ^, copysign, powi, ==, !=, <, <=, >, >=)
+    @show op
     @showtest op(V4F64(v4f64), V4F64(v4f64b)).elts === map(op, v4f64, v4f64b)
 end
 
 for op in (fma, ifelsebool, muladd)
+    @show op
     @showtest op(V4F64(v4f64), V4F64(v4f64b), V4F64(v4f64c)).elts ===
         map(op, v4f64, v4f64b, v4f64c)
 end
