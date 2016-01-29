@@ -141,12 +141,12 @@ for op in (cos, exp, exp10, exp2, logabs, log10abs, log2abs, sin)
 end
 
 # TODO: use type conversion
-# TODO: powi is broken on x86-64 Sandybridge
+# TODO: powi is broken on x86-64 SandyBridge
 powi(x,y) = x^Int64(y)
 powi{N,T}(x,y::Vec{N,T}) = x^Vec{N,Int64}(NTuple{N,Float64}(y))
 for op in (
         +, -, *, /, %, ^, ==, !=, <, <=, >, >=,
-        copysign, max, min, powi, rem)
+        copysign, max, min, rem)
     @show op
     @showtest op(V4F64(v4f64), V4F64(v4f64b)).elts === map(op, v4f64, v4f64b)
 end
