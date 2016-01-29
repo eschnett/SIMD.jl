@@ -49,22 +49,41 @@ uinttype{T}(::Type{T}) = uinttype(Val{8*sizeof(T)})
 
 # The Julia SIMD vector type
 
+const BoolTypes = Union{Bool}
+const IntTypes = Union{Int8, Int16, Int32, Int64, Int128}
+const UIntTypes = Union{UInt8, UInt16, UInt32, UInt64, UInt128}
+const IntegerTypes = Union{BoolTypes, IntTypes, UIntTypes}
+const FloatTypes = Union{Float16, Float32, Float64}
+const ScalarTypes = Union{IntegerTypes, FloatTypes}
+
 export Vec
-immutable Vec{N,T}
+immutable Vec{N,T<:ScalarTypes} <: DenseArray{T,1}
     elts::NTuple{N,T}
     Vec(elts::NTuple{N,T}) = new(elts)
 end
 
+function Base.show{N,T}(io::IO, v::Vec{N,T})
+    print(io, T, "<")
+    for i in 1:N
+        i>1 && print(io, ",")
+        print(io, v.elts[i])
+    end
+    print(io, ">")
+end
+
 # Type properties
 
+# eltype and ndims is provided by DenseArray
 Base.length{N,T}(::Type{Vec{N,T}}) = N
-Base.eltype{N,T}(::Type{Vec{N,T}}) = T
+Base.size{N,T}(::Type{Vec{N,T}}) = (N,)
+Base.size{N,T}(::Type{Vec{N,T}}, n::Integer) = (N,)[n]
 Base.length{N,T}(::Vec{N,T}) = N
-Base.eltype{N,T}(::Vec{N,T}) = T
+Base.size{N,T}(::Vec{N,T}) = (N,)
+Base.size{N,T}(::Vec{N,T}, n::Integer) = (N,)[n]
 
 # Type conversion
 
-@generated function create{N,T}(::Type{Vec{N,T}}, x::T)
+@generated function create{N,T<:ScalarTypes}(::Type{Vec{N,T}}, x::T)
     quote
         $(Expr(:meta, :inline))
         Vec{N,T}($(Expr(:tuple, [:x for i in 1:N]...)))
@@ -670,73 +689,90 @@ end
             v1.elts, v2.elts, v3.elts))
     end
 end
-# copysign(Int)
-# flipsign
-@inline Base.exp10{N,T<:AbstractFloat}(v1::Vec{N,T}) = Vec{N,T}(10)^v1
 
-# Arithmetic functions
+# Integer arithmetic functions
 
-for op in (
-        :~, :+, :-,
-        :abs, :ceil, :cos, :exp, :exp2, :floor, :inv, :log, :log10, :log2,
-        :round, :sin, :sqrt, :trunc)
+for op in (:~, :+, :-)
     @eval begin
-        @inline Base.$op{N,T}(v1::Vec{N,T}) =
+        @inline Base.$op{N,T<:IntegerTypes}(v1::Vec{N,T}) =
             llvmwrap(Val{$(QuoteNode(op))}, v1)
     end
 end
 @inline Base. !{N}(v1::Vec{N,Bool}) = ~v1
-# @inline Base. !{N}(v1::Vec{N,Bool}) = v1 == Vec{N,Bool}(false)
-@inline Base.abs{N,T<:Unsigned}(v1::Vec{N,T}) = v1
-@inline function Base.abs{N,T<:Signed}(v1::Vec{N,T})
-    nbits = 8*sizeof(T)
-    s = v1 >> (nbits-1)
-    # Note: -v1 = ~v1 + 1
+@inline Base.abs{N,T<:UIntTypes}(v1::Vec{N,T}) = v1
+@inline function Base.abs{N,T<:IntTypes}(v1::Vec{N,T})
+    # s = -Vec{N,T}(signbit(v1))
+    s = v1 >> Val{8*sizeof(T)}
+    # Note: -v1 == ~v1 + 1
     (s $ v1) - s
 end
+@inline Base.signbit{N,T<:UIntTypes}(v1::Vec{N,T}) = Vec{N,Bool}(false)
+@inline Base.signbit{N,T<:IntTypes}(v1::Vec{N,T}) = v1 < typeof(v1)(0)
+# @inline Base.signbit{N,T<:IntTypes}(v1::Vec{N,T}) = v1 >> Val{8*sizeof(T)}
 
-@inline Base. ^{N,T<:Integer}(v1::Vec{N,T}, v2::Vec{N,T}) = error("undefined")
-@inline Base. ^{N,T,U<:Integer}(v1::Vec{N,T}, v2::Vec{N,U}) =
-    llvmwrap(Val{:powi}, v1, v2)
-for op in (:&, :|, :$, :+, :-, :*, :/, :^, :copysign, :div, :max, :min, :rem)
+# copysign
+# flipsign
+for op in (:&, :|, :$, :+, :-, :*, :div, :rem)
     @eval begin
-        @inline Base.$op{N,T}(v1::Vec{N,T}, v2::Vec{N,T}) =
+        @inline Base.$op{N,T<:IntegerTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
             llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
     end
+end
+@inline Base.max{N,T<:IntegerTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
+    ifelse(v1>=v2, v1, v2)
+@inline Base.min{N,T<:IntegerTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
+    ifelse(v1>=v2, v2, v1)
+
+@inline function Base.muladd{N,T<:IntegerTypes}(v1::Vec{N,T}, v2::Vec{N,T},
+        v3::Vec{N,T})
+    v1*v2+v3
+end
+
+for op in (:<<, :>>, :>>>)
+    @eval begin
+        @inline Base.$op{N,T<:IntegerTypes,I}(v1::Vec{N,T}, ::Type{Val{I}}) =
+            llvmwrapshift(Val{$(QuoteNode(op))}, v1, Val{I})
+        @inline Base.$op{N,T<:IntegerTypes}(v1::Vec{N,T}, x2::Int) =
+            llvmwrapshift(Val{$(QuoteNode(op))}, v1, T(x2))
+        @inline Base.$op{N,T<:IntegerTypes}(v1::Vec{N,T}, x2::Integer) =
+            llvmwrapshift(Val{$(QuoteNode(op))}, v1, T(x2))
+        @inline Base.$op{N,T<:IntegerTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
+            llvmwrapshift(Val{$(QuoteNode(op))}, v1, v2)
+    end
+end
+
+# Floating point arithmetic functions
+
+# signbit
+for op in (
+        :+, :-,
+        :abs, :ceil, :cos, :exp, :exp2, :floor, :inv, :log, :log10, :log2,
+        :round, :sin, :sqrt, :trunc)
+    @eval begin
+        @inline Base.$op{N,T<:FloatTypes}(v1::Vec{N,T}) =
+            llvmwrap(Val{$(QuoteNode(op))}, v1)
+    end
+end
+@inline Base.exp10{N,T<:FloatTypes}(v1::Vec{N,T}) = Vec{N,T}(10)^v1
+
+# flipsign
+for op in (:+, :-, :*, :/, :^, :copysign, :max, :min, :rem)
+    @eval begin
+        @inline Base.$op{N,T<:FloatTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
+            llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
+    end
+end
+@inline function Base. ^{N,T1<:FloatTypes,T2<:IntegerTypes}(v1::Vec{N,T1},
+        v2::Vec{N,T2})
+    llvmwrap(Val{:powi}, v1, v2)
 end
 
 for op in (:fma, :muladd)
     @eval begin
-        @inline Base.$op{N,T}(v1::Vec{N,T}, v2::Vec{N,T}, v3::Vec{N,T}) =
+        @inline function Base.$op{N,T<:FloatTypes}(v1::Vec{N,T}, v2::Vec{N,T},
+                v3::Vec{N,T})
             llvmwrap(Val{$(QuoteNode(op))}, v1, v2, v3)
-    end
-end
-@inline Base.muladd{N,T<:Integer}(v1::Vec{N,T}, v2::Vec{N,T}, v3::Vec{N,T}) =
-    v1*v2+v3
-
-for op in (:<<, :>>, :>>>)
-    #=
-    @eval begin
-        @inline function Base.$op{N,T}(v1::Vec{N,T}, v2::Vec{N,T})
-            nbits = 8*sizeof(T)
-            ifelse(
-                (Vec{N,T}(0) <= v2) & (v2 < Vec{N,T}(nbits)),
-                llvmwrap(Val{$(QuoteNode(op))}, v1, v2),
-                $op === :>> && T <: Signed ?
-                    llvmwrap(Val{$(QuoteNode(op))}, v1, Vec{N,T}(nbits-1)) :
-                    Vec{N,T}(0))
         end
-    end
-    =#
-    @eval begin
-        @inline Base.$op{N,T,I}(v1::Vec{N,T}, ::Type{Val{I}}) =
-            llvmwrapshift(Val{$(QuoteNode(op))}, v1, Val{I})
-        @inline Base.$op{N,T}(v1::Vec{N,T}, x2::Int) =
-            llvmwrapshift(Val{$(QuoteNode(op))}, v1, T(x2))
-        @inline Base.$op{N,T}(v1::Vec{N,T}, x2::Integer) =
-            llvmwrapshift(Val{$(QuoteNode(op))}, v1, T(x2))
-        @inline Base.$op{N,T}(v1::Vec{N,T}, v2::Vec{N,T}) =
-            llvmwrapshift(Val{$(QuoteNode(op))}, v1, v2)
     end
 end
 
