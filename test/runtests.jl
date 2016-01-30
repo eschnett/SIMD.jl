@@ -1,27 +1,6 @@
 using SIMD
 using Base.Test
 
-# @code_llvm SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), Vec{4,Int64}(2))
-# @code_native SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), Vec{4,Int64}(2))
-# @show SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), Vec{4,Int64}(2))
-#
-# @code_llvm ^(Vec{4,Float64}(1), Vec{4,Int64}(2))
-# @code_native ^(Vec{4,Float64}(1), Vec{4,Int64}(2))
-# @show ^(Vec{4,Float64}(1), Vec{4,Int64}(2))
-
-@code_llvm SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), 2)
-@code_native SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), 2)
-@show SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), 2)
-
-@code_llvm ^(Vec{4,Float64}(1), 2)
-@code_native ^(Vec{4,Float64}(1), 2)
-@show ^(Vec{4,Float64}(1), 2)
-
-powi4(x) = x^4
-@code_llvm powi4(Vec{4,Float64}(1))
-@code_native powi4(Vec{4,Float64}(1))
-@show powi4(Vec{4,Float64}(1))
-
 macro showtest(expr)
     if length(expr.args) == 3
         lhs = expr.args[1]
@@ -31,10 +10,10 @@ macro showtest(expr)
         rhs = nothing
     end
     esc(quote
-        @show $lhs
-        @show $rhs
+        # @show $lhs
+        # @show $rhs
         @test $expr
-        println()
+        # println()
     end)
 end
 
@@ -118,20 +97,20 @@ const v8i32c = map(x->Int32(x*2), v8i32)
 
 notbool(x) = !(x>=typeof(x)(0))
 for op in (~, +, -, abs, notbool, signbit)
-    @show op
+    # @show op
     @showtest op(V8I32(v8i32)).elts === map(op, v8i32)
 end
 
 for op in (
         +, -, *, ÷, %, ==, !=, <, <=, >, >=,
         div, max, min, rem)
-    @show op
+    # @show op
     @showtest op(V8I32(v8i32), V8I32(v8i32b)).elts === map(op, v8i32, v8i32b)
 end
 
 ifelsebool(x,y,z) = ifelse(x>=typeof(x)(0),y,z)
 for op in (ifelsebool, muladd)
-    @show op
+    # @show op
     @showtest op(V8I32(v8i32), V8I32(v8i32b), V8I32(v8i32c)).elts ===
         map(op, v8i32, v8i32b, v8i32c)
 end
@@ -147,7 +126,7 @@ log2abs(x) = log2(abs(x))
 powi4(x,y) = x^4
 sqrtabs(x) = sqrt(abs(x))
 for op in (+, -, abs, ceil, inv, floor, powi4, round, sqrtabs, trunc)
-    @show op
+    # @show op
     @showtest op(V4F64(v4f64)).elts === map(op, v4f64)
 end
 function Base.isapprox(t1::Tuple,t2::Tuple)
@@ -155,7 +134,7 @@ function Base.isapprox(t1::Tuple,t2::Tuple)
         all(Bool[isapprox(t1[i], t2[i]) for i in 1:length(t1)])
 end
 for op in (cos, exp, exp10, exp2, logabs, log10abs, log2abs, sin)
-    @show op
+    # @show op
     rvec = op(V4F64(v4f64)).elts
     rsca = map(op, v4f64)
     @showtest typeof(rvec) === typeof(rsca)
@@ -165,12 +144,12 @@ end
 for op in (
         +, -, *, /, %, ^, ==, !=, <, <=, >, >=,
         copysign, max, min, rem)
-    @show op
+    # @show op
     @showtest op(V4F64(v4f64), V4F64(v4f64b)).elts === map(op, v4f64, v4f64b)
 end
 
 for op in (fma, ifelsebool, muladd)
-    @show op
+    # @show op
     @showtest op(V4F64(v4f64), V4F64(v4f64b), V4F64(v4f64c)).elts ===
         map(op, v4f64, v4f64b, v4f64c)
 end
