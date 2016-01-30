@@ -123,7 +123,7 @@ const v4f64c = map(x->Float64(x*2), v4f64)
 logabs(x) = log(abs(x))
 log10abs(x) = log10(abs(x))
 log2abs(x) = log2(abs(x))
-powi4(x,y) = x^4
+powi4(x) = x^4
 sqrtabs(x) = sqrt(abs(x))
 for op in (+, -, abs, ceil, inv, floor, powi4, round, sqrtabs, trunc)
     # @show op
