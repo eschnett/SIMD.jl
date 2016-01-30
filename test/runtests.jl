@@ -1,6 +1,10 @@
 using SIMD
 using Base.Test
 
+code_llvm(^, (Vec{4,Float64}, Vec{4,Int64}))
+code_native(^, (Vec{4,Float64}, Vec{4,Int64}))
+^(Vec{4,Float64}(1), Vec{4,Int64}(2))
+
 macro showtest(expr)
     if length(expr.args) == 3
         lhs = expr.args[1]
