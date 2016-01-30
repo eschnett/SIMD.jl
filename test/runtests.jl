@@ -1,9 +1,13 @@
 using SIMD
 using Base.Test
 
-code_llvm(^, (Vec{4,Float64}, Vec{4,Int64}))
-code_native(^, (Vec{4,Float64}, Vec{4,Int64}))
-^(Vec{4,Float64}(1), Vec{4,Int64}(2))
+@code_llvm SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), Vec{4,Int64}(2))
+@code_native SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), Vec{4,Int64}(2))
+@show SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), Vec{4,Int64}(2))
+
+@code_llvm ^(Vec{4,Float64}(1), Vec{4,Int64}(2))
+@code_native ^(Vec{4,Float64}(1), Vec{4,Int64}(2))
+@show ^(Vec{4,Float64}(1), Vec{4,Int64}(2))
 
 macro showtest(expr)
     if length(expr.args) == 3
