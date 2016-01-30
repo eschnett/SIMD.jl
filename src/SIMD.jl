@@ -762,9 +762,11 @@ for op in (:+, :-, :*, :/, :^, :copysign, :max, :min, :rem)
             llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
     end
 end
-@inline function Base. ^{N,T1<:FloatTypes,T2<:IntegerTypes}(v1::Vec{N,T1},
-        v2::Vec{N,T2})
-    llvmwrap(Val{:powi}, v1, v2)
+for (FT,IT) in ((Float16,Int16), (Float32,Int32), (Float64,Int64))
+    @eval begin
+        @inline Base. ^{N}(v1::Vec{N,$FT},v2::Vec{N,$IT}) =
+            llvmwrap(Val{:powi}, v1, v2)
+    end
 end
 
 for op in (:fma, :muladd)
