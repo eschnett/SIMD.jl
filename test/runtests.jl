@@ -1,13 +1,26 @@
 using SIMD
 using Base.Test
 
-@code_llvm SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), Vec{4,Int64}(2))
-@code_native SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), Vec{4,Int64}(2))
-@show SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), Vec{4,Int64}(2))
+# @code_llvm SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), Vec{4,Int64}(2))
+# @code_native SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), Vec{4,Int64}(2))
+# @show SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), Vec{4,Int64}(2))
+#
+# @code_llvm ^(Vec{4,Float64}(1), Vec{4,Int64}(2))
+# @code_native ^(Vec{4,Float64}(1), Vec{4,Int64}(2))
+# @show ^(Vec{4,Float64}(1), Vec{4,Int64}(2))
 
-@code_llvm ^(Vec{4,Float64}(1), Vec{4,Int64}(2))
-@code_native ^(Vec{4,Float64}(1), Vec{4,Int64}(2))
-@show ^(Vec{4,Float64}(1), Vec{4,Int64}(2))
+@code_llvm SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), 2)
+@code_native SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), 2)
+@show SIMD.llvmwrap(Val{:powi}, Vec{4,Float64}(1), 2)
+
+@code_llvm ^(Vec{4,Float64}(1), 2)
+@code_native ^(Vec{4,Float64}(1), 2)
+@show ^(Vec{4,Float64}(1), 2)
+
+powi4(x) = x^4
+@code_llvm powi4(Vec{4,Float64}(1))
+@code_native powi4(Vec{4,Float64}(1))
+@show powi4(Vec{4,Float64}(1))
 
 macro showtest(expr)
     if length(expr.args) == 3
@@ -131,8 +144,9 @@ const v4f64c = map(x->Float64(x*2), v4f64)
 logabs(x) = log(abs(x))
 log10abs(x) = log10(abs(x))
 log2abs(x) = log2(abs(x))
+powi4(x,y) = x^4
 sqrtabs(x) = sqrt(abs(x))
-for op in (+, -, abs, ceil, inv, floor, round, sqrtabs, trunc)
+for op in (+, -, abs, ceil, inv, floor, powi4, round, sqrtabs, trunc)
     @show op
     @showtest op(V4F64(v4f64)).elts === map(op, v4f64)
 end
@@ -148,10 +162,6 @@ for op in (cos, exp, exp10, exp2, logabs, log10abs, log2abs, sin)
     @showtest isapprox(rvec, rsca)
 end
 
-# TODO: use type conversion
-# TODO: powi is broken on x86-64 SandyBridge
-powi(x,y) = x^Int64(y)
-powi{N,T}(x,y::Vec{N,T}) = x^Vec{N,Int64}(NTuple{N,Float64}(y))
 for op in (
         +, -, *, /, %, ^, ==, !=, <, <=, >, >=,
         copysign, max, min, rem)

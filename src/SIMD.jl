@@ -469,6 +469,35 @@ end
     end
 end
 
+@generated function llvmwrap{Op,N,T1,T2,R}(::Type{Val{Op}}, v1::Vec{N,T1},
+        x2::T2, ::Type{R} = T1)
+    @assert isa(Op, Symbol)
+    typ1 = llvmtype(T1)
+    atyp1 = "[$N x $typ1]"
+    vtyp1 = "<$N x $typ1>"
+    typ2 = llvmtype(T2)
+    typr = llvmtype(R)
+    atypr = "[$N x $typr]"
+    vtypr = "<$N x $typr>"
+    ins = llvmins(Val{Op}, N, T1)
+    decls = []
+    instrs = []
+    append!(instrs, array2vector("%arg1", N, typ1, "%0", "%arg1arr"))
+    if ins[1] == '@'
+        push!(decls, "declare $vtypr $ins($vtyp1, $typ2)")
+        push!(instrs, "%res = call $vtypr $ins($vtyp1 %arg1, $typ2 %1)")
+    else
+        push!(instrs, "%res = $ins $vtyp1 %arg1, %1")
+    end
+    append!(instrs, vector2array("%resarr", N, typr, "%res"))
+    push!(instrs, "ret $atypr %resarr")
+    quote
+        $(Expr(:meta, :inline))
+        Vec{N,R}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{N,R}, Tuple{NTuple{N,T1}, T2}, v1.elts, x2))
+    end
+end
+
 @generated function llvmwrap{Op,N}(::Type{Val{Op}}, v1::Vec{N,Bool},
         v2::Vec{N,Bool}, ::Type{Bool} = Bool)
     @assert isa(Op, Symbol)
@@ -762,12 +791,14 @@ for op in (:+, :-, :*, :/, :^, :copysign, :max, :min, :rem)
             llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
     end
 end
-for (FT,IT) in ((Float16,Int16), (Float32,Int32), (Float64,Int64))
-    @eval begin
-        @inline Base. ^{N}(v1::Vec{N,$FT},v2::Vec{N,$IT}) =
-            llvmwrap(Val{:powi}, v1, v2)
-    end
-end
+# for (FT,IT) in ((Float16,Int16), (Float32,Int32), (Float64,Int64))
+#     @eval begin
+#         @inline Base. ^{N}(v1::Vec{N,$FT},v2::Vec{N,$IT}) =
+#             llvmwrap(Val{:powi}, v1, v2)
+#     end
+# end
+@inline Base. ^{N,T<:FloatTypes}(v1::Vec{N,T},x2::Integer) =
+    llvmwrap(Val{:powi}, v1, Int(x2))
 
 for op in (:fma, :muladd)
     @eval begin
