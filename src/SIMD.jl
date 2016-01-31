@@ -800,15 +800,20 @@ for op in (:~, :+, :-)
     end
 end
 @inline Base. !{N}(v1::Vec{N,Bool}) = ~v1
-@inline Base.abs{N,T<:UIntTypes}(v1::Vec{N,T}) = v1
 @inline function Base.abs{N,T<:IntTypes}(v1::Vec{N,T})
     # s = -Vec{N,T}(signbit(v1))
     s = v1 >> Val{8*sizeof(T)}
     # Note: -v1 == ~v1 + 1
     (s $ v1) - s
 end
+@inline Base.abs{N,T<:UIntTypes}(v1::Vec{N,T}) = v1
+@inline Base.sign{N,T<:IntTypes}(v1::Vec{N,T}) =
+    ifelse(v1 == Vec{N,T}(0), Vec{N,T}(0),
+        ifelse(v1 < Vec{N,T}(0), Vec{N,T}(-1), Vec{N,T}(1)))
+@inline Base.sign{N,T<:UIntTypes}(v1::Vec{N,T}) =
+    ifelse(v1 == Vec{N,T}(0), Vec{N,T}(0), Vec{N,T}(1))
+@inline Base.signbit{N,T<:IntTypes}(v1::Vec{N,T}) = v1 < Vec{N,T}(0)
 @inline Base.signbit{N,T<:UIntTypes}(v1::Vec{N,T}) = Vec{N,Bool}(false)
-@inline Base.signbit{N,T<:IntTypes}(v1::Vec{N,T}) = v1 < typeof(v1)(0)
 # @inline Base.signbit{N,T<:IntTypes}(v1::Vec{N,T}) = v1 >> Val{8*sizeof(T)}
 
 # copysign
@@ -844,7 +849,6 @@ end
 
 # Floating point arithmetic functions
 
-# signbit
 for op in (
         :+, :-,
         :abs, :ceil, :cos, :exp, :exp2, :floor, :inv, :log, :log10, :log2,
@@ -855,6 +859,8 @@ for op in (
     end
 end
 @inline Base.exp10{N,T<:FloatTypes}(v1::Vec{N,T}) = Vec{N,T}(10)^v1
+@inline Base.sign{N,T<:FloatTypes}(v1::Vec{N,T}) =
+    ifelse(v1 == Vec{N,T}(0.0), Vec{N,T}(0.0), copysign(Vec{N,T}(1.0), v1))
 
 # flipsign
 for op in (:+, :-, :*, :/, :^, :copysign, :max, :min, :rem)

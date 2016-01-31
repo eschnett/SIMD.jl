@@ -96,7 +96,7 @@ const v8i32b = map(x->Int32(x+1), v8i32)
 const v8i32c = map(x->Int32(x*2), v8i32)
 
 notbool(x) = !(x>=typeof(x)(0))
-for op in (~, +, -, abs, notbool, signbit)
+for op in (~, +, -, abs, notbool, sign, signbit)
     # @show op
     @showtest op(V8I32(v8i32)).elts === map(op, v8i32)
 end
@@ -128,7 +128,7 @@ sqrtabs(x) = sqrt(abs(x))
 for op in (
         +, -,
         abs, ceil, inv, isinf, isinf, isnan, issubnormal, floor, powi4,
-        round, signbit, sqrtabs, trunc)
+        round, sign, signbit, sqrtabs, trunc)
     # @show op
     @showtest op(V4F64(v4f64)).elts === map(op, v4f64)
 end
