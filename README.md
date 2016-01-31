@@ -38,9 +38,9 @@ The SIMD package provides the usual arithmetic and logical operations for SIMD v
 
 `+ - * / % ^ ! ~ & | $ << >> >>> == != < <= > >=`
 
-`abs cbrt ceil copysign cos div exp exp10 exp2 floor fma ifelse inv log log10 log2 muladd rem round signbit sin sqrt trunc`
+`abs cbrt ceil copysign cos div exp exp10 exp2 floor fma ifelse inv isfinite isinf isnan issubnormal log log10 log2 muladd rem round signbit sin sqrt trunc`
 
-(Currently missing: `copysign(Int) count_ones count_zeros expm1 flipsign isfinite isinf isnan isnormal ldexp leading_ones leading_zeros log1p sign  significand trailing_ones trailing_zeros`)
+(Currently missing: `copysign(Int) count_ones count_zeros expm1 flipsign ldexp leading_ones leading_zeros log1p sign significand trailing_ones trailing_zeros`)
 
 (Also currently missing: Type conversions, vector shuffles, scatter/gather operations, masked load/store operations, reduction operations)
 

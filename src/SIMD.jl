@@ -109,6 +109,39 @@ Base.convert{N,T}(::Type{Vec{N,T}}, xs::NTuple{N}) = Vec{N,T}(NTuple{N,T}(xs))
 
 Base.convert{N,T}(::Type{NTuple{N,T}}, v::Vec{N,T}) = v.elts
 
+# Floating point formats
+
+uint_type(::Type{Float16}) = UInt16
+uint_type(::Type{Float32}) = UInt32
+uint_type(::Type{Float64}) = UInt64
+# uint_type(::Type{Float128}) = UInt128
+# uint_type(::Type{Float256}) = UInt256
+
+significand_bits(::Type{Float16}) = 10
+significand_bits(::Type{Float32}) = 23
+significand_bits(::Type{Float64}) = 52
+# significand_bits(::Type{Float128}) = 112
+# significand_bits(::Type{Float256}) = 136
+
+exponent_bits{T<:FloatTypes}(::Type{T}) = 8*sizeof(T) - 1 - significand_bits(T)
+sign_bits{T<:FloatTypes}(::Type{T}) = 1
+
+significand_mask{T<:FloatTypes}(::Type{T}) =
+    uint_type(T)(uint_type(T)(1) << significand_bits(T) - 1)
+exponent_mask{T<:FloatTypes}(::Type{T}) =
+    uint_type(T)(uint_type(T)(1) << exponent_bits(T) - 1) << significand_bits(T)
+sign_mask{T<:FloatTypes}(::Type{T}) =
+    uint_type(T)(1) << (significand_bits(T) + exponent_bits(T))
+
+for T in (Float16, Float32, Float64)
+    @assert sizeof(uint_type(T)) == sizeof(T)
+    @assert significand_bits(T) + exponent_bits(T) + sign_bits(T) == 8*sizeof(T)
+    @assert significand_mask(T) | exponent_mask(T) | sign_mask(T) ==
+        typemax(uint_type(T))
+    @assert significand_mask(T) $ exponent_mask(T) $ sign_mask(T) ==
+        typemax(uint_type(T))
+end
+
 # Convert Julia types to LLVM types
 
 llvmtype(::Type{Bool}) = "i8"   # Julia represents Tuple{Bool} as [1 x i8]
@@ -673,18 +706,43 @@ for op in (:(==), :(!=), :(<), :(<=), :(>), :(>=))
             llvmwrap(Val{$(QuoteNode(op))}, v1, v2, Bool)
     end
 end
-@inline Base.isfinite{N,T<:FloatTypes}(v1::Vec{N,T}) =
-    !(isinf(v1) | isnan(v1))
+# @inline Base.isfinite{N,T<:FloatTypes}(v1::Vec{N,T}) =
+#     !(isinf(v1) | isnan(v1))
+@inline function Base.isfinite{N,T<:FloatTypes}(v1::Vec{N,T})
+    U = uint_type(T)
+    em = Vec{N,U}(exponent_mask(T))
+    iv = reinterpret(Vec{N,U}, v1)
+    iv & em != em
+end
 @inline Base.isinf{N,T<:FloatTypes}(v1::Vec{N,T}) = abs(v1) == Vec{N,T}(Inf)
-@inline Base.isnan{N,T<:FloatTypes}(v1::Vec{N,T}) = v1!=v1
+# @inline function Base.isinf{N,T<:FloatTypes}(v1::Vec{N,T})
+#     U = uint_type(T)
+#     em = Vec{N,U}(exponent_mask(T))
+#     sm = Vec{N,U}(significand_mask(T))
+#     iv = reinterpret(Vec{N,U}, v1)
+#     iv & (em|sm) == em
+# end
+@inline Base.isnan{N,T<:FloatTypes}(v1::Vec{N,T}) = v1 != v1
+# @inline function Base.isnan{N,T<:FloatTypes}(v1::Vec{N,T})
+#     U = uint_type(T)
+#     em = Vec{N,U}(exponent_mask(T))
+#     sm = Vec{N,U}(significand_mask(T))
+#     iv = reinterpret(Vec{N,U}, v1)
+#     (iv & em == em)  & (iv & sm != Vec{N,U}(0))
+# end
 # @inline Base.isnormal{N,T<:FloatTypes}(v1::Vec{N,T}) = ???
-@generated function Base.signbit{N,T<:FloatTypes}(v1::Vec{N,T})
-    U = inttype(T)
-    quote
-        $(Expr(:meta, :inline))
-        reinterpret(Vec{N,$U}, v1) & Vec{N,$U}(typemin($U)) !=
-            Vec{N,$U}(0)
-    end
+@inline function Base.issubnormal{N,T<:FloatTypes}(v1::Vec{N,T})
+    U = uint_type(T)
+    em = Vec{N,U}(exponent_mask(T))
+    sm = Vec{N,U}(significand_mask(T))
+    iv = reinterpret(Vec{N,U}, v1)
+    (iv & em == Vec{N,U}(0)) & (iv & sm != Vec{N,U}(0))
+end
+@inline function Base.signbit{N,T<:FloatTypes}(v1::Vec{N,T})
+    U = uint_type(T)
+    sm = Vec{N,U}(sign_mask(T))
+    iv = reinterpret(Vec{N,U}, v1)
+    iv & sm != Vec{N,U}(0)
 end
 
 #=

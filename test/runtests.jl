@@ -125,7 +125,10 @@ log10abs(x) = log10(abs(x))
 log2abs(x) = log2(abs(x))
 powi4(x) = x^4
 sqrtabs(x) = sqrt(abs(x))
-for op in (+, -, abs, ceil, inv, floor, powi4, round, sqrtabs, trunc)
+for op in (
+        +, -,
+        abs, ceil, inv, isinf, isinf, isnan, issubnormal, floor, powi4,
+        round, signbit, sqrtabs, trunc)
     # @show op
     @showtest op(V4F64(v4f64)).elts === map(op, v4f64)
 end
@@ -140,6 +143,56 @@ for op in (cos, exp, exp10, exp2, logabs, log10abs, log2abs, sin)
     @showtest typeof(rvec) === typeof(rsca)
     @showtest isapprox(rvec, rsca)
 end
+
+@showtest isfinite(V4F64(0.0))[1]
+@showtest isfinite(V4F64(-0.0))[1]
+@showtest isfinite(V4F64(nextfloat(0.0)))[1]
+@showtest isfinite(V4F64(-nextfloat(0.0)))[1]
+@showtest isfinite(V4F64(1.0))[1]
+@showtest isfinite(V4F64(-1.0))[1]
+@showtest !isfinite(V4F64(Inf))[1]
+@showtest !isfinite(V4F64(-Inf))[1]
+@showtest !isfinite(V4F64(NaN))[1]
+
+@showtest !isinf(V4F64(0.0))[1]
+@showtest !isinf(V4F64(-0.0))[1]
+@showtest !isinf(V4F64(nextfloat(0.0)))[1]
+@showtest !isinf(V4F64(-nextfloat(0.0)))[1]
+@showtest !isinf(V4F64(1.0))[1]
+@showtest !isinf(V4F64(-1.0))[1]
+@showtest isinf(V4F64(Inf))[1]
+@showtest isinf(V4F64(-Inf))[1]
+@showtest !isinf(V4F64(NaN))[1]
+
+@showtest !isnan(V4F64(0.0))[1]
+@showtest !isnan(V4F64(-0.0))[1]
+@showtest !isnan(V4F64(nextfloat(0.0)))[1]
+@showtest !isnan(V4F64(-nextfloat(0.0)))[1]
+@showtest !isnan(V4F64(1.0))[1]
+@showtest !isnan(V4F64(-1.0))[1]
+@showtest !isnan(V4F64(Inf))[1]
+@showtest !isnan(V4F64(-Inf))[1]
+@showtest isnan(V4F64(NaN))[1]
+
+@showtest !issubnormal(V4F64(0.0))[1]
+@showtest !issubnormal(V4F64(-0.0))[1]
+@showtest issubnormal(V4F64(nextfloat(0.0)))[1]
+@showtest issubnormal(V4F64(-nextfloat(0.0)))[1]
+@showtest !issubnormal(V4F64(1.0))[1]
+@showtest !issubnormal(V4F64(-1.0))[1]
+@showtest !issubnormal(V4F64(Inf))[1]
+@showtest !issubnormal(V4F64(-Inf))[1]
+@showtest !issubnormal(V4F64(NaN))[1]
+
+@showtest !signbit(V4F64(0.0))[1]
+@showtest signbit(V4F64(-0.0))[1]
+@showtest !signbit(V4F64(nextfloat(0.0)))[1]
+@showtest signbit(V4F64(-nextfloat(0.0)))[1]
+@showtest !signbit(V4F64(1.0))[1]
+@showtest signbit(V4F64(-1.0))[1]
+@showtest !signbit(V4F64(Inf))[1]
+@showtest signbit(V4F64(-Inf))[1]
+@showtest !signbit(V4F64(NaN))[1]
 
 for op in (
         +, -, *, /, %, ^, ==, !=, <, <=, >, >=,
