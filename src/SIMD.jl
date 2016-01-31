@@ -71,6 +71,20 @@ function Base.show{N,T}(io::IO, v::Vec{N,T})
     print(io, ">")
 end
 
+# Base.print_matrix wants to access a second dimension that doesn't exist for
+# Vec. (In Julia, every array can be accessed as N-dimensional array, for
+# arbitrary N.) Instead of implementing this, output our Vec the usual way.
+function Base.print_matrix(io::IO, X::Vec,
+                      pre::AbstractString = " ",  # pre-matrix string
+                      sep::AbstractString = "  ", # separator between elements
+                      post::AbstractString = "",  # post-matrix string
+                      hdots::AbstractString = "  \u2026  ",
+                      vdots::AbstractString = "\u22ee",
+                      ddots::AbstractString = "  \u22f1  ",
+                      hmod::Integer = 5, vmod::Integer = 5)
+    print(io, X)
+end
+
 # Type properties
 
 # eltype and ndims is provided by DenseArray
