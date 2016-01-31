@@ -49,7 +49,7 @@ These operators and functions are always applied element-wise, i.e. they are app
 The SIMD package also provides conversion operators from scalars and tuples to SIMD vectors and from SIMD vectors to tuples. Additionally, there are `getindex` and `setindex` functions to access individual vector elements.  SIMD vectors are immutable (like tuples), and `setindex` (note there is no exclamation mark at the end of the name) thus returns the modified vector.
 ```Julia
 # Create a vector where all elements are Float64(1):
-xs = Vec{2,Float64}(1)
+xs = Vec{4,Float64}(1)
 
 # Create a vector from a tuple, and convert it back to a tuple:
 ys = Vec{4,Float32}((1,2,3,4))
@@ -57,7 +57,7 @@ ys1 = NTuple{4,Float32}(ys)
 y2 = ys[2]   # getindex
 
 # Update one element of a vector:
-ys = setindex(ys, 4, 5)   # can't say ys[4] = 5
+ys = setindex(ys, 3, 5)   # cannot use ys[3] = 5
 ```
 
 ### Accessing arrays
