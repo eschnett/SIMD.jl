@@ -816,14 +816,18 @@ end
 @inline Base.signbit{N,T<:UIntTypes}(v1::Vec{N,T}) = Vec{N,Bool}(false)
 # @inline Base.signbit{N,T<:IntTypes}(v1::Vec{N,T}) = v1 >> Val{8*sizeof(T)}
 
-# copysign
-# flipsign
 for op in (:&, :|, :$, :+, :-, :*, :div, :rem)
     @eval begin
         @inline Base.$op{N,T<:IntegerTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
             llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
     end
 end
+@inline Base.copysign{N,T<:IntTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
+    ifelse(signbit(v2), -abs(v1), abs(v1))
+@inline Base.copysign{N,T<:UIntTypes}(v1::Vec{N,T}, v2::Vec{N,T}) = v1
+@inline Base.flipsign{N,T<:IntTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
+    ifelse(signbit(v2), -v1, v1)
+@inline Base.flipsign{N,T<:UIntTypes}(v1::Vec{N,T}, v2::Vec{N,T}) = v1
 @inline Base.max{N,T<:IntegerTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
     ifelse(v1>=v2, v1, v2)
 @inline Base.min{N,T<:IntegerTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
@@ -862,7 +866,6 @@ end
 @inline Base.sign{N,T<:FloatTypes}(v1::Vec{N,T}) =
     ifelse(v1 == Vec{N,T}(0.0), Vec{N,T}(0.0), copysign(Vec{N,T}(1.0), v1))
 
-# flipsign
 for op in (:+, :-, :*, :/, :^, :copysign, :max, :min, :rem)
     @eval begin
         @inline Base.$op{N,T<:FloatTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
@@ -871,6 +874,8 @@ for op in (:+, :-, :*, :/, :^, :copysign, :max, :min, :rem)
 end
 @inline Base. ^{N,T<:FloatTypes}(v1::Vec{N,T},x2::Integer) =
     llvmwrap(Val{:powi}, v1, Int(x2))
+@inline Base.flipsign{N,T<:FloatTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
+    ifelse(signbit(v2), -v1, v1)
 
 for op in (:fma, :muladd)
     @eval begin

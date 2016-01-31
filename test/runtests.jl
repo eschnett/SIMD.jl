@@ -103,7 +103,7 @@ end
 
 for op in (
         +, -, *, ÷, %, ==, !=, <, <=, >, >=,
-        div, max, min, rem)
+        copysign, div, flipsign, max, min, rem)
     # @show op
     @showtest op(V8I32(v8i32), V8I32(v8i32b)).elts === map(op, v8i32, v8i32b)
 end
@@ -196,7 +196,7 @@ end
 
 for op in (
         +, -, *, /, %, ^, ==, !=, <, <=, >, >=,
-        copysign, max, min, rem)
+        copysign, flipsign, max, min, rem)
     # @show op
     @showtest op(V4F64(v4f64), V4F64(v4f64b)).elts === map(op, v4f64, v4f64b)
 end
