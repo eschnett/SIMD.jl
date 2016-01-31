@@ -111,6 +111,12 @@ Base.convert{N,T}(::Type{NTuple{N,T}}, v::Vec{N,T}) = v.elts
 
 # Floating point formats
 
+int_type(::Type{Float16}) = Int16
+int_type(::Type{Float32}) = Int32
+int_type(::Type{Float64}) = Int64
+# int_type(::Type{Float128}) = Int128
+# int_type(::Type{Float256}) = Int256
+
 uint_type(::Type{Float16}) = UInt16
 uint_type(::Type{Float32}) = UInt32
 uint_type(::Type{Float64}) = UInt64
@@ -134,6 +140,7 @@ sign_mask{T<:FloatTypes}(::Type{T}) =
     uint_type(T)(1) << (significand_bits(T) + exponent_bits(T))
 
 for T in (Float16, Float32, Float64)
+    @assert sizeof(int_type(T)) == sizeof(T)
     @assert sizeof(uint_type(T)) == sizeof(T)
     @assert significand_bits(T) + exponent_bits(T) + sign_bits(T) == 8*sizeof(T)
     @assert significand_mask(T) | exponent_mask(T) | sign_mask(T) ==
