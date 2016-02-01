@@ -343,6 +343,66 @@ function vector2array(arr, siz, typ, vec, tmp="$(vec)_va")
     instrs
 end
 
+function subvector(vec, siz, typ, rvec, rsiz, roff, tmp="$(rvec)_sv")
+    instrs = []
+    accum(nam, i) = i<0 ? "undef" : i==rsiz-1 ? nam : "$(nam)_iter$i"
+    @assert 0 <= roff
+    @assert roff + rsiz <= siz
+    for i in 0:rsiz-1
+        push!(instrs,
+            "$(tmp)_elem$i = extractelement <$siz x $typ> $vec, i32 $(roff+i)")
+        push!(instrs,
+            "$(accum(rvec,i)) = "*
+                "insertelement <$rsiz x $typ> $(accum(rvec,i-1)), " *
+                "$typ $(tmp)_elem$i, i32 $i")
+    end
+    instrs
+end
+
+function extendvector(vec, siz, typ, voff, vsiz, val, rvec)
+    instrs = []
+    accum(nam, i) = i<0 ? "undef" : i==siz-1 ? nam : "$(nam)_iter$i"
+    rsiz = siz1 + siz2
+    for i in 0:siz-1
+        push!(instrs,
+            "$(tmp)_elem$i = extractelement <$siz1 x $typ> $vec1, i32 $i")
+        push!(instrs,
+            "$(accum(rvec,i)) = "*
+                "insertelement <$rsiz x $typ> $(accum(rvec,i-1)), " *
+                "$typ $(tmp)_elem$i, i32 $i")
+    end
+    for i in siz:siz+vsiz-1
+        push!(instrs,
+            "$(accum(rvec,i)) = "*
+                "insertelement <$rsiz x $typ> $(accum(rvec,i-1)), $val, i32 $i")
+    end
+    instrs
+end
+
+function combinevectors(vec1, siz1, vec2, siz2, typ, rvec, tmp="$(rvec)_cv")
+    instrs = []
+    accum(nam, i) = i<0 ? "undef" : i==siz-1 ? nam : "$(nam)_iter$i"
+    rsiz = siz1 + siz2
+    for i in 0:siz1-1
+        push!(instrs,
+            "$(tmp)_elem$i = extractelement <$siz1 x $typ> $vec1, i32 $i")
+        push!(instrs,
+            "$(accum(rvec,i)) = "*
+                "insertelement <$rsiz x $typ> $(accum(rvec,i-1)), " *
+                "$typ $(tmp)_elem$i, $i")
+    end
+    for i in siz1:siz2-1
+        push!(instrs,
+            "$(tmp)_elem$i = " *
+                "extractelement <$siz2 x $typ> $vec2, i32 $(i-siz1)")
+        push!(instrs,
+            "$(accum(rvec,i)) = "*
+                "insertelement <$rsiz x $typ> $(accum(rvec,i-1)), " *
+                "$typ $(tmp)_elem$i, i32 $i")
+    end
+    instrs
+end
+
 # Element-wise access
 
 export setindex
