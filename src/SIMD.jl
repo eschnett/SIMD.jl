@@ -964,6 +964,103 @@ for op in (:fma, :muladd)
     end
 end
 
+# Reduction operations
+
+function getneutral{T}(op::Symbol, ::Type{T})
+    zs = Dict{Symbol,T}()
+    if T <: IntegerTypes
+        zs[:&] = ~T(0)
+        zs[:|] = T(0)
+    end
+    zs[:max] = typemin(T)
+    zs[:min] = typemax(T)
+    zs[:+] = T(0)
+    zs[:*] = T(1)
+    zs[op]
+end
+
+# We cannot pass in the neutral element via Val{}; if we try, Julia refused to
+# inline this function, which is then disastrous for performance
+@generated function llvmwrapreduce{Op,N,T}(::Type{Val{Op}}, v::Vec{N,T})
+    @assert isa(Op, Symbol)
+    z = getneutral(Op, T)
+    typ = llvmtype(T)
+    decls = []
+    instrs = []
+    n = N
+    append!(instrs, array2vector("%vec_$n", N, typ, "%0", "%argarr"))
+    nold,n = n,nextpow2(n)
+    if n > nold
+        append!(instrs,
+            extendvector("%vec_$nold", nold, typ, n, n-nold, llvmconst(T,z),
+                "%vec_$n"))
+    end
+    while n > 1
+        nold,n = n, div(n, 2)
+        atyp = "[$n x $typ]"
+        vtyp = "<$n x $typ>"
+        ins = llvmins(Val{Op}, n, T)
+        append!(instrs, subvector("%vec_$nold", nold, typ, "%vec_$(n)_1", n, 0))
+        append!(instrs, subvector("%vec_$nold", nold, typ, "%vec_$(n)_2", n, n))
+        if ins[1] == '@'
+            push!(decls, "declare $vtyp $ins($vtyp, $vtyp)")
+            push!(instrs,
+                "%vec_$n = " *
+                    "call $vtyp $ins($vtyp %vec_$(n)_1, $vtyp %vec_$(n)_2)")
+        else
+            push!(instrs, "%vec_$n = $ins $vtyp %vec_$(n)_1, %vec_$(n)_2")
+        end
+    end
+    push!(instrs, "%res = extractelement <$n x $typ> %vec_$n, i32 0")
+    push!(instrs, "ret $typ %res")
+    quote
+        $(Expr(:meta, :inline))
+        Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            T, Tuple{NTuple{N,T}}, v.elts)
+    end
+end
+
+@inline Base.all{N,T<:IntegerTypes}(v::Vec{N,T}) = llvmwrapreduce(Val{:&}, v)
+@inline Base.any{N,T<:IntegerTypes}(v::Vec{N,T}) = llvmwrapreduce(Val{:|}, v)
+@inline Base.maximum{N,T<:FloatTypes}(v::Vec{N,T}) =
+    llvmwrapreduce(Val{:max}, v)
+@inline Base.minimum{N,T<:FloatTypes}(v::Vec{N,T}) =
+    llvmwrapreduce(Val{:min}, v)
+@inline Base.prod{N,T}(v::Vec{N,T}) = llvmwrapreduce(Val{:*}, v)
+@inline Base.sum{N,T}(v::Vec{N,T}) = llvmwrapreduce(Val{:+}, v)
+
+@generated function Base.reduce{Op,N,T}(::Type{Val{Op}}, v::Vec{N,T})
+    @assert isa(Op, Symbol)
+    z = getneutral(Op, T)
+    stmts = []
+    n = N
+    push!(stmts, :($(symbol(:v,n)) = v))
+    nold,n = n,nextpow2(n)
+    if n > nold
+        push!(stmts,
+            :($(symbol(:v,n)) = Vec{$n,T}($(Expr(:tuple,
+                [:($(symbol(:v,nold)).elts[$i]) for i in 1:nold]...,
+                [z for i in nold+1:n]...)))))
+    end
+    while n > 1
+        nold,n = n, div(n, 2)
+        push!(stmts,
+            :($(symbol(:v,n,"lo")) = Vec{$n,T}($(Expr(:tuple,
+                [:($(symbol(:v,nold)).elts[$i]) for i in 1:n]...)))))
+        push!(stmts,
+            :($(symbol(:v,n,"hi")) = Vec{$n,T}($(Expr(:tuple,
+                [:($(symbol(:v,nold)).elts[$i]) for i in n+1:nold]...)))))
+        push!(stmts,
+            :($(symbol(:v,n)) =
+                $Op($(symbol(:v,n,"lo")), $(symbol(:v,n,"hi")))))
+    end
+    push!(stmts, :(v1[1]))
+    Expr(:block, Expr(:meta, :inline), stmts...)
+end
+
+@inline Base.maximum{N,T<:IntegerTypes}(v::Vec{N,T}) = reduce(Val{:max}, v)
+@inline Base.minimum{N,T<:IntegerTypes}(v::Vec{N,T}) = reduce(Val{:min}, v)
+
 # Load and store functions
 
 export vload, vloada

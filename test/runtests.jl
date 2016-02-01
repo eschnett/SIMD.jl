@@ -207,6 +207,20 @@ for op in (fma, ifelsebool, muladd)
         map(op, v4f64, v4f64b, v4f64c)
 end
 
+info("Reduction operations")
+
+for op in (maximum, minimum, sum, prod)
+    # @show op
+    @showtest op(V8I32(v8i32)) === op(v8i32)
+end
+@showtest all(V8I32(v8i32)) == reduce(&, v8i32)
+@showtest any(V8I32(v8i32)) == reduce(|, v8i32)
+
+for op in (maximum, minimum, sum, prod)
+    # @show op
+    @showtest op(V4F64(v4f64)) === op(v4f64)
+end
+
 info("Load and store functions")
 
 const arri32 = Int32[i for i in 1:(2*L8)]
@@ -262,9 +276,7 @@ function vsum{N,T}(xs::Vector{T}, ::Type{Vec{N,T}})
         xv = vload(Vec{N,T}, xs, i)
         sv += xv
     end
-    s = T(0)
-    for i in 1:N s+=sv[i] end
-    s
+    sum(sv)
 end
 
 let xs = Float64[i for i in 1:(4*L4)]
