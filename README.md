@@ -42,7 +42,7 @@ The SIMD package provides the usual arithmetic and logical operations for SIMD v
 
 (Currently missing: `count_ones count_zeros exponent ldexp leading_ones leading_zeros significand trailing_ones trailing_zeros`, many trigonometric functions)
 
-(Also currently missing: Type conversions, vector shuffles, scatter/gather operations, masked load/store operations, reduction operations)
+(Also currently missing: Type conversions, reinterpretation that changes the vector size, vector shuffles, scatter/gather operations, masked load/store operations)
 
 These operators and functions are always applied element-wise, i.e. they are applied to each element in parallel, yielding again a SIMD vector as result. This means that e.g. multiplying two vectors yields a vector, and comparing two vectors yields a vector of booleans. This behaviour might seem strange and slightly unusual, but corresponds to the machine instructions provided by the hardware. It is also what is usually needed to vectorize loops.
 
@@ -60,7 +60,20 @@ y2 = ys[2]   # getindex
 ys = setindex(ys, 3, 5)   # cannot use ys[3] = 5
 ```
 
-### Accessing arrays
+## Reduction operations
+
+Reduction operations reduce a SIMD vector to a scalar. The following reduction operations are provided:
+
+`all any maximum minimum sum proc`
+
+Example:
+```Julia
+v = Vec{4,Float64}((1,2,3,4))
+sum(v)
+10.0
+```
+
+## Accessing arrays
 
 When using explicit SIMD vectorization, it is convenient to allocate arrays still as arrays of scalars, not as arrays of vectors. The `vload` and `vstore` functions allow reading vectors from and writing vectors into arrays, accessing several contiguous array elements.
 
