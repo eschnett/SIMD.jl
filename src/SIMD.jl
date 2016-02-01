@@ -1077,7 +1077,8 @@ export vload, vloada
     else
         align = sizeof(T)   # This is overly optimistic
     end
-    flags = ", align $align"
+    flags = ""
+    if align > 0 flags *= ", align $align" end
     push!(instrs, "%ptr = bitcast $typ* %0 to $vtyp*")
     push!(instrs, "%res = load $vtyp, $vtyp* %ptr$flags")
     append!(instrs, vector2array("%resarr", N, typ, "%res"))
@@ -1114,7 +1115,8 @@ export vstore, vstorea
     else
         align = sizeof(T)   # This is overly optimistic
     end
-    flags = ", align $align"
+    flags = ""
+    if align > 0 flags *= ", align $align" end
     append!(instrs, array2vector("%arg1", N, typ, "%0", "%arg1arr"))
     push!(instrs, "%ptr = bitcast $typ* %1 to $vtyp*")
     push!(instrs, "store $vtyp %arg1, $vtyp* %ptr$flags")
