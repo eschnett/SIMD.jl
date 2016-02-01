@@ -295,7 +295,7 @@ llvmins{T<:FloatTypes}(::Type{Val{:trunc}}, N, ::Type{T}) =
 
 function scalar2vector(vec, siz, typ, sca)
     instrs = []
-    accum(nam, i) = i<0 ? "undef" : i==siz-1 ? nam : "$(nam)_$i"
+    accum(nam, i) = i<0 ? "undef" : i==siz-1 ? nam : "$(nam)_iter$i"
     for i in 0:siz-1
         push!(instrs,
             "$(accum(vec,i)) = " *
@@ -307,7 +307,7 @@ end
 
 function scalar2array(varrec, siz, typ, sca)
     instrs = []
-    accum(nam, i) = i<0 ? "undef" : i==siz-1 ? nam : "$(nam)_$i"
+    accum(nam, i) = i<0 ? "undef" : i==siz-1 ? nam : "$(nam)_iter$i"
     for i in 0:siz-1
         push!(instrs,
             "$(accum(arr,i)) = " *
@@ -316,28 +316,29 @@ function scalar2array(varrec, siz, typ, sca)
     instrs
 end
 
-function array2vector(vec, siz, typ, arr, tmp=arr)
+function array2vector(vec, siz, typ, arr, tmp="$(arr)_av")
     instrs = []
-    accum(nam, i) = i<0 ? "undef" : i==siz-1 ? nam : "$(nam)_$i"
+    accum(nam, i) = i<0 ? "undef" : i==siz-1 ? nam : "$(nam)_iter$i"
     for i in 0:siz-1
-        push!(instrs, "$(tmp)_$i = extractvalue [$siz x $typ] $arr, $i")
+        push!(instrs, "$(tmp)_elem$i = extractvalue [$siz x $typ] $arr, $i")
         push!(instrs,
             "$(accum(vec,i)) = " *
                 "insertelement <$siz x $typ> $(accum(vec,i-1)), " *
-                "$typ $(tmp)_$i, i32 $i")
+                "$typ $(tmp)_elem$i, i32 $i")
     end
     instrs
 end
 
-function vector2array(arr, siz, typ, vec, tmp=vec)
+function vector2array(arr, siz, typ, vec, tmp="$(vec)_va")
     instrs = []
-    accum(nam, i) = i<0 ? "undef" : i==siz-1 ? nam : "$(nam)_$i"
+    accum(nam, i) = i<0 ? "undef" : i==siz-1 ? nam : "$(nam)_iter$i"
     for i in 0:siz-1
-        push!(instrs, "$(tmp)_$i = extractelement <$siz x $typ> $vec, i32 $i")
+        push!(instrs,
+            "$(tmp)_elem$i = extractelement <$siz x $typ> $vec, i32 $i")
         push!(instrs,
             "$(accum(arr,i)) = "*
                 "insertvalue [$siz x $typ] $(accum(arr,i-1)), " *
-                "$typ $(tmp)_$i, $i")
+                "$typ $(tmp)_elem$i, $i")
     end
     instrs
 end
