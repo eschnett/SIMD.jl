@@ -183,6 +183,16 @@ fastflags{T<:FloatTypes}(::Type{T}) = "fast"
 suffix{T}(N::Integer, ::Type{T}) = "v$(N)f$(8*sizeof(T))"
 
 # Type-dependent LLVM constants
+function llvmconst{T}(::Type{T}, val)
+    T(val) === T(0) && return "zeroinitializer"
+    typ = llvmtype(T)
+    "$typ $val"
+end
+function llvmconst(::Type{Bool}, val)
+    Bool(val) === false && return "zeroinitializer"
+    typ = "i1"
+    "$typ $(Int(val))"
+end
 function llvmconst{T}(N::Integer, ::Type{T}, val)
     T(val) === T(0) && return "zeroinitializer"
     typ = llvmtype(T)
