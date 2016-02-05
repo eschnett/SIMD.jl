@@ -284,3 +284,44 @@ let xs = Float64[i for i in 1:(4*L4)]
     @showtest s === (x->(x^2+x)/2)(Float64(4*L4))
     # @code_native vsum(xs, V4F64)
 end
+
+function vadd_masked!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
+    @assert length(ys) == length(xs)
+    limit = length(xs) - (N-1)
+    vlimit = Vec{N,Int}(let l=length(xs); (l:l+N-1...) end)
+    @inbounds for i in 1:N:length(xs)
+        xv = vload(Vec{N,T}, xs, i)
+        yv = vload(Vec{N,T}, ys, i)
+        xv += yv
+        if i <= limit
+            vstore(xv, xs, i)
+        else
+            mask = Vec{N,Int}(i) <= vlimit
+            vstore(xv, xs, i, mask)
+        end
+    end
+end
+
+let xs = Float64[i for i in 1:13],
+    ys = Float64[1 for i in 1:13]
+    vadd_masked!(xs, ys, V4F64)
+    @showtest xs == Float64[i+1 for i in 1:13]
+    # @code_native vadd!(xs, ys, V4F64)
+end
+
+function vsum_masked{N,T}(xs::Vector{T}, ::Type{Vec{N,T}})
+    vlimit = Vec{N,Int}(let l=length(xs); (l:l+N-1...) end)
+    sv = Vec{N,T}(0)
+    @inbounds for i in 1:N:length(xs)
+        mask = Vec{N,Int}(i) <= vlimit
+        xv = vload(Vec{N,T}, xs, i, mask)
+        sv += xv
+    end
+    sum(sv)
+end
+
+let xs = Float64[i for i in 1:13]
+    s = vsum_masked(xs, V4F64)
+    @showtest s === sum(xs)
+    # @code_native vsum(xs, V4F64)
+end
