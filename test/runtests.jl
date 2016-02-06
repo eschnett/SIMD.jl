@@ -40,6 +40,8 @@ info("Type properties")
 @showtest ndims(V4F64) == 1
 @showtest size(V8I32,1) == L8
 @showtest size(V4F64,1) == L4
+@showtest size(V8I32) == (L8,)
+@showtest size(V4F64) == (L4,)
 
 info("Type conversion")
 
@@ -205,6 +207,58 @@ for op in (fma, ifelsebool, muladd)
     # @show op
     @showtest op(V4F64(v4f64), V4F64(v4f64b), V4F64(v4f64c)).elts ===
         map(op, v4f64, v4f64b, v4f64c)
+end
+
+info("Type promotion")
+
+for op in (
+        ==, !=, <, <=, >, >=,
+        &, |, $, +, -, *, copysign, div, flipsign, max, min, rem)
+    @showtest op(42, V8I32(v8i32)) === op(V8I32(42), V8I32(v8i32))
+    @showtest op(V8I32(v8i32), 42) === op(V8I32(v8i32), V8I32(42))
+end
+@showtest ifelse(signbit(V8I32(v8i32)), 42, V8I32(v8i32)) ===
+    ifelse(signbit(V8I32(v8i32)), V8I32(42), V8I32(v8i32))
+@showtest ifelse(signbit(V8I32(v8i32)), V8I32(v8i32), 42) ===
+    ifelse(signbit(V8I32(v8i32)), V8I32(v8i32), V8I32(42))
+for op in (muladd,)
+    @showtest op(42, 42, V8I32(v8i32)) ===
+        op(V8I32(42), V8I32(42), V8I32(v8i32))
+    @showtest op(42, V8I32(v8i32), V8I32(v8i32)) ===
+        op(V8I32(42), V8I32(v8i32), V8I32(v8i32))
+    @showtest op(V8I32(v8i32), 42, V8I32(v8i32)) ===
+        op(V8I32(v8i32), V8I32(42), V8I32(v8i32))
+    @showtest op(V8I32(v8i32), V8I32(v8i32), 42) ===
+        op(V8I32(v8i32), V8I32(v8i32), V8I32(42))
+    @showtest op(42, V8I32(v8i32), 42) ===
+        op(V8I32(42), V8I32(v8i32), V8I32(42))
+    @showtest op(V8I32(v8i32), 42, 42) ===
+        op(V8I32(v8i32), V8I32(42), V8I32(42))
+end
+
+for op in (
+        ==, !=, <, <=, >, >=,
+        +, -, *, /, ^, copysign, flipsign, max, min, rem)
+    @showtest op(42, V4F64(v4f64)) === op(V4F64(42), V4F64(v4f64))
+    @showtest op(V4F64(v4f64), 42) === op(V4F64(v4f64), V4F64(42))
+end
+@showtest ifelse(signbit(V4F64(v4f64)), 42, V4F64(v4f64)) ===
+    ifelse(signbit(V4F64(v4f64)), V4F64(42), V4F64(v4f64))
+@showtest ifelse(signbit(V4F64(v4f64)), V4F64(v4f64), 42) ===
+    ifelse(signbit(V4F64(v4f64)), V4F64(v4f64), V4F64(42))
+for op in (fma, muladd)
+    @showtest op(42, 42, V4F64(v4f64)) ===
+        op(V4F64(42), V4F64(42), V4F64(v4f64))
+    @showtest op(42, V4F64(v4f64), V4F64(v4f64)) ===
+        op(V4F64(42), V4F64(v4f64), V4F64(v4f64))
+    @showtest op(V4F64(v4f64), 42, V4F64(v4f64)) ===
+        op(V4F64(v4f64), V4F64(42), V4F64(v4f64))
+    @showtest op(V4F64(v4f64), V4F64(v4f64), 42) ===
+        op(V4F64(v4f64), V4F64(v4f64), V4F64(42))
+    @showtest op(42, V4F64(v4f64), 42) ===
+        op(V4F64(42), V4F64(v4f64), V4F64(42))
+    @showtest op(V4F64(v4f64), 42, 42) ===
+        op(V4F64(v4f64), V4F64(42), V4F64(42))
 end
 
 info("Reduction operations")

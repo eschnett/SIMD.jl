@@ -57,7 +57,7 @@ const FloatingTypes = Union{Float16, Float32, Float64}
 const ScalarTypes = Union{IntegerTypes, FloatingTypes}
 
 export Vec
-immutable Vec{N,T<:ScalarTypes} <: DenseArray{T,1}
+immutable Vec{N,T<:ScalarTypes} <: DenseArray{T,1}   # <: Number
     elts::NTuple{N,T}
     Vec(elts::NTuple{N,T}) = new(elts)
 end
@@ -88,9 +88,13 @@ end
 # Type properties
 
 # eltype and ndims is provided by DenseArray
+# Base.eltype{N,T}(::Type{Vec{N,T}}) = T
+# Base.ndims{N,T}(::Type{Vec{N,T}}) = 1
 Base.length{N,T}(::Type{Vec{N,T}}) = N
 Base.size{N,T}(::Type{Vec{N,T}}) = (N,)
 Base.size{N,T}(::Type{Vec{N,T}}, n::Integer) = (N,)[n]
+# Base.eltype{N,T}(::Vec{N,T}) = T
+# Base.ndims{N,T}(::Vec{N,T}) = 1
 Base.length{N,T}(::Vec{N,T}) = N
 Base.size{N,T}(::Vec{N,T}) = (N,)
 Base.size{N,T}(::Vec{N,T}, n::Integer) = (N,)[n]
@@ -108,6 +112,11 @@ Base.convert{N,T}(::Type{Vec{N,T}}, x::Number) = create(Vec{N,T}, T(x))
 Base.convert{N,T}(::Type{Vec{N,T}}, xs::NTuple{N}) = Vec{N,T}(NTuple{N,T}(xs))
 
 Base.convert{N,T}(::Type{NTuple{N,T}}, v::Vec{N,T}) = v.elts
+
+# Promotion rules
+
+# Type promotion only works for subtypes of Number!
+# Base.promote_rule{N,T<:ScalarTypes}(::Type{Vec{N,T}}, ::Type{T}) = Vec{N,T}
 
 # Floating point formats
 
@@ -928,6 +937,8 @@ for op in (:<<, :>>, :>>>)
             llvmwrapshift(Val{$(QuoteNode(op))}, v1, T(x2))
         @inline Base.$op{N,T<:IntegerTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
             llvmwrapshift(Val{$(QuoteNode(op))}, v1, v2)
+        @inline Base.$op{N,T<:IntegerTypes}(x1::T, v2::Vec{N,T}) =
+            $op(Vec{N,T}(x1), v2)
     end
 end
 
@@ -963,6 +974,96 @@ for op in (:fma, :muladd)
                 v3::Vec{N,T})
             llvmwrap(Val{$(QuoteNode(op))}, v1, v2, v3)
         end
+    end
+end
+
+# Type promotion
+
+# Promote scalars of all Integertypes to vectors of IntegerTypes, leaving the
+# vector type unchanged
+
+for op in (
+        :(==), :(!=), :(<), :(<=), :(>), :(>=),
+        :&, :|, :$, :+, :-, :*, :copysign, :div, :flipsign, :max, :min, :rem)
+    @eval begin
+        @inline Base.$op{N}(s1::Bool, v2::Vec{N,Bool}) =
+            $op(Vec{N,Bool}(s1), v2)
+        @inline Base.$op{N,T<:IntegerTypes}(s1::IntegerTypes, v2::Vec{N,T}) =
+            $op(Vec{N,T}(s1), v2)
+        @inline Base.$op{N,T<:IntegerTypes}(v1::Vec{N,T}, s2::IntegerTypes) =
+            $op(v1, Vec{N,T}(s2))
+    end
+end
+@inline Base.ifelse{N,T<:IntegerTypes}(c::Vec{N,Bool}, s1::IntegerTypes,
+        v2::Vec{N,T}) =
+    ifelse(c, Vec{N,T}(s1), v2)
+@inline Base.ifelse{N,T<:IntegerTypes}(c::Vec{N,Bool}, v1::Vec{N,T},
+        s2::IntegerTypes) =
+    ifelse(c, v1, Vec{N,T}(s2))
+
+for op in (:muladd,)
+    @eval begin
+        @inline Base.$op{N,T<:IntegerTypes}(s1::IntegerTypes, v2::Vec{N,T},
+                v3::Vec{N,T}) =
+            $op(Vec{N,T}(s1), v2, v3)
+        @inline Base.$op{N,T<:IntegerTypes}(v1::Vec{N,T}, s2::IntegerTypes,
+                v3::Vec{N,T}) =
+            $op(v1, Vec{N,T}(s2), v3)
+        @inline Base.$op{N,T<:IntegerTypes}(s1::IntegerTypes, s2::IntegerTypes,
+                v3::Vec{N,T}) =
+            $op(Vec{N,T}(s1), Vec{N,T}(s2), v3)
+        @inline Base.$op{N,T<:IntegerTypes}(v1::Vec{N,T}, v2::Vec{N,T},
+                s3::IntegerTypes) =
+            $op(v1, v2, Vec{N,T}(s3))
+        @inline Base.$op{N,T<:IntegerTypes}(s1::IntegerTypes, v2::Vec{N,T},
+                s3::IntegerTypes) =
+            $op(Vec{N,T}(s1), v2, Vec{N,T}(s3))
+        @inline Base.$op{N,T<:IntegerTypes}(v1::Vec{N,T}, s2::IntegerTypes,
+                s3::IntegerTypes) =
+            $op(v1, Vec{N,T}(s2), Vec{N,T}(s3))
+    end
+end
+
+# Promote scalars of all ScalarTypes to vectors of FloatingTypes, leaving the
+# vector type unchanged
+
+for op in (
+        :(==), :(!=), :(<), :(<=), :(>), :(>=),
+        :+, :-, :*, :/, :^, :copysign, :flipsign, :max, :min, :rem)
+    @eval begin
+        @inline Base.$op{N,T<:FloatingTypes}(s1::ScalarTypes, v2::Vec{N,T}) =
+            $op(Vec{N,T}(s1), v2)
+        @inline Base.$op{N,T<:FloatingTypes}(v1::Vec{N,T}, s2::ScalarTypes) =
+            $op(v1, Vec{N,T}(s2))
+    end
+end
+@inline Base.ifelse{N,T<:FloatingTypes}(c::Vec{N,Bool}, s1::ScalarTypes,
+        v2::Vec{N,T}) =
+    ifelse(c, Vec{N,T}(s1), v2)
+@inline Base.ifelse{N,T<:FloatingTypes}(c::Vec{N,Bool}, v1::Vec{N,T},
+        s2::ScalarTypes) =
+    ifelse(c, v1, Vec{N,T}(s2))
+
+for op in (:fma, :muladd)
+    @eval begin
+        @inline Base.$op{N,T<:FloatingTypes}(s1::ScalarTypes, v2::Vec{N,T},
+                v3::Vec{N,T}) =
+            $op(Vec{N,T}(s1), v2, v3)
+        @inline Base.$op{N,T<:FloatingTypes}(v1::Vec{N,T}, s2::ScalarTypes,
+                v3::Vec{N,T}) =
+            $op(v1, Vec{N,T}(s2), v3)
+        @inline Base.$op{N,T<:FloatingTypes}(s1::ScalarTypes, s2::ScalarTypes,
+                v3::Vec{N,T}) =
+            $op(Vec{N,T}(s1), Vec{N,T}(s2), v3)
+        @inline Base.$op{N,T<:FloatingTypes}(v1::Vec{N,T}, v2::Vec{N,T},
+                s3::ScalarTypes) =
+            $op(v1, v2, Vec{N,T}(s3))
+        @inline Base.$op{N,T<:FloatingTypes}(s1::ScalarTypes, v2::Vec{N,T},
+                s3::ScalarTypes) =
+            $op(Vec{N,T}(s1), v2, Vec{N,T}(s3))
+        @inline Base.$op{N,T<:FloatingTypes}(v1::Vec{N,T}, s2::ScalarTypes,
+                s3::ScalarTypes) =
+            $op(v1, Vec{N,T}(s2), Vec{N,T}(s3))
     end
 end
 
