@@ -15,8 +15,7 @@ By exposing SIMD vector types and corresponding operations, the programmer can e
 Here is a simple example for a manually vectorized code that adds two arrays:
 ```Julia
 using SIMD
-function vadd!{T}(xs::Vector{T}, ys::Vector{T})
-    N = 8   # choose a SIMD vector length
+function vadd!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
     @assert length(ys) == length(xs)
     @assert length(xs) % N == 0
     @inbounds for i in 1:N:length(xs)
@@ -27,6 +26,7 @@ function vadd!{T}(xs::Vector{T}, ys::Vector{T})
     end
 end
 ```
+To simplify this example code, the vector type that should be used (`Vec{N,T}`) is passed in explicitly as additional type argument. This routine is e.g. called as `vadd!(xs, ys, Vec{8,Float64})`.
 
 ## SIMD vector operations
 
