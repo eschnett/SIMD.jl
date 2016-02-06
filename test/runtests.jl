@@ -251,6 +251,7 @@ end
 
 info("Real-world examples")
 
+info("vadd!")
 function vadd!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
     @assert length(ys) == length(xs)
     @assert length(xs) % N == 0
@@ -269,6 +270,7 @@ let xs = Float64[i for i in 1:(4*L4)];
     # @code_native vadd!(xs, ys, V4F64)
 end
 
+info("vsum")
 function vsum{N,T}(xs::Vector{T}, ::Type{Vec{N,T}})
     @assert length(xs) % N == 0
     sv = Vec{N,T}(0)
@@ -285,6 +287,7 @@ let xs = Float64[i for i in 1:(4*L4)]
     # @code_native vsum(xs, V4F64)
 end
 
+info("vadd_masked!")
 function vadd_masked!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
     @assert length(ys) == length(xs)
     limit = length(xs) - (N-1)
@@ -309,6 +312,7 @@ let xs = Float64[i for i in 1:13],
     # @code_native vadd!(xs, ys, V4F64)
 end
 
+info("vsum_masked")
 function vsum_masked{N,T}(xs::Vector{T}, ::Type{Vec{N,T}})
     vlimit = Vec{N,Int}(let l=length(xs); (l:l+N-1...) end)
     sv = Vec{N,T}(0)
