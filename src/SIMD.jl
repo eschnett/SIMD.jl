@@ -1122,20 +1122,12 @@ end
     push!(instrs, "%ptr = bitcast $typ* %0 to $vtyp*")
     append!(instrs, array2vector("%maskb", N, btyp, "%1", "%arg2arr"))
     push!(instrs, "%mask = trunc $vbtyp %maskb to <$N x i1>")
-    #TODO push!(instrs, "%mask8 = sext <$N x i1> %mask to <$N x i8>")
-    # Note: Documentation says mask argument is <N x i1>?
     push!(decls,
         "declare $vtyp @llvm.masked.load.$(suffix(N,T))($vtyp*, i32, " *
             "<$N x i1>, $vtyp)")
     push!(instrs,
         "%res = call $vtyp @llvm.masked.load.$(suffix(N,T))($vtyp* %ptr, " *
             "i32 $align, <$N x i1> %mask, $vtyp $(llvmconst(N, T, 0)))")
-    #TODO push!(decls,
-    #TODO     "declare $vtyp @llvm.masked.load.$(suffix(N,T))($vtyp*, i32, " *
-    #TODO         "<$N x i8>, $vtyp)")
-    #TODO push!(instrs,
-    #TODO     "%res = call $vtyp @llvm.masked.load.$(suffix(N,T))($vtyp* %ptr, " *
-    #TODO         "i32 $align, <$N x i8> %mask8, $vtyp $(llvmconst(N, T, 0)))")
     append!(instrs, vector2array("%resarr", N, typ, "%res"))
     push!(instrs, "ret $atyp %resarr")
     quote
