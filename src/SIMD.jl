@@ -53,8 +53,8 @@ const BoolTypes = Union{Bool}
 const IntTypes = Union{Int8, Int16, Int32, Int64, Int128}
 const UIntTypes = Union{UInt8, UInt16, UInt32, UInt64, UInt128}
 const IntegerTypes = Union{BoolTypes, IntTypes, UIntTypes}
-const FloatingTypess = Union{Float16, Float32, Float64}
-const ScalarTypes = Union{IntegerTypes, FloatingTypess}
+const FloatingTypes = Union{Float16, Float32, Float64}
+const ScalarTypes = Union{IntegerTypes, FloatingTypes}
 
 export Vec
 immutable Vec{N,T<:ScalarTypes} <: DenseArray{T,1}
@@ -129,14 +129,14 @@ significand_bits(::Type{Float64}) = 52
 # significand_bits(::Type{Float128}) = 112
 # significand_bits(::Type{Float256}) = 136
 
-exponent_bits{T<:FloatingTypess}(::Type{T}) = 8*sizeof(T) - 1 - significand_bits(T)
-sign_bits{T<:FloatingTypess}(::Type{T}) = 1
+exponent_bits{T<:FloatingTypes}(::Type{T}) = 8*sizeof(T) - 1 - significand_bits(T)
+sign_bits{T<:FloatingTypes}(::Type{T}) = 1
 
-significand_mask{T<:FloatingTypess}(::Type{T}) =
+significand_mask{T<:FloatingTypes}(::Type{T}) =
     uint_type(T)(uint_type(T)(1) << significand_bits(T) - 1)
-exponent_mask{T<:FloatingTypess}(::Type{T}) =
+exponent_mask{T<:FloatingTypes}(::Type{T}) =
     uint_type(T)(uint_type(T)(1) << exponent_bits(T) - 1) << significand_bits(T)
-sign_mask{T<:FloatingTypess}(::Type{T}) =
+sign_mask{T<:FloatingTypes}(::Type{T}) =
     uint_type(T)(1) << (significand_bits(T) + exponent_bits(T))
 
 for T in (Float16, Float32, Float64)
@@ -178,10 +178,10 @@ llvmtype(::Type{Float64}) = "double"
 # Type-dependent optimization flags
 fastflags{T<:IntTypes}(::Type{T}) = "nsw"
 fastflags{T<:UIntTypes}(::Type{T}) = "nuw"
-fastflags{T<:FloatingTypess}(::Type{T}) = "fast"
+fastflags{T<:FloatingTypes}(::Type{T}) = "fast"
 
 suffix{T<:IntegerTypes}(N::Integer, ::Type{T}) = "v$(N)i$(8*sizeof(T))"
-suffix{T<:FloatingTypess}(N::Integer, ::Type{T}) = "v$(N)f$(8*sizeof(T))"
+suffix{T<:FloatingTypes}(N::Integer, ::Type{T}) = "v$(N)f$(8*sizeof(T))"
 
 # Type-dependent LLVM constants
 function llvmconst{T}(::Type{T}, val)
@@ -237,59 +237,59 @@ llvmins{T<:UIntTypes}(::Type{Val{:(<=)}}, N, ::Type{T}) = "icmp ule"
 
 llvmins{T}(::Type{Val{:ifelse}}, N, ::Type{T}) = "select"
 
-llvmins{T<:FloatingTypess}(::Type{Val{:+}}, N, ::Type{T}) = "fadd"
-llvmins{T<:FloatingTypess}(::Type{Val{:-}}, N, ::Type{T}) = "fsub"
-llvmins{T<:FloatingTypess}(::Type{Val{:*}}, N, ::Type{T}) = "fmul"
-llvmins{T<:FloatingTypess}(::Type{Val{:/}}, N, ::Type{T}) = "fdiv"
-llvmins{T<:FloatingTypess}(::Type{Val{:inv}}, N, ::Type{T}) = "fdiv"
-llvmins{T<:FloatingTypess}(::Type{Val{:rem}}, N, ::Type{T}) = "frem"
+llvmins{T<:FloatingTypes}(::Type{Val{:+}}, N, ::Type{T}) = "fadd"
+llvmins{T<:FloatingTypes}(::Type{Val{:-}}, N, ::Type{T}) = "fsub"
+llvmins{T<:FloatingTypes}(::Type{Val{:*}}, N, ::Type{T}) = "fmul"
+llvmins{T<:FloatingTypes}(::Type{Val{:/}}, N, ::Type{T}) = "fdiv"
+llvmins{T<:FloatingTypes}(::Type{Val{:inv}}, N, ::Type{T}) = "fdiv"
+llvmins{T<:FloatingTypes}(::Type{Val{:rem}}, N, ::Type{T}) = "frem"
 
-llvmins{T<:FloatingTypess}(::Type{Val{:(==)}}, N, ::Type{T}) = "fcmp oeq"
-llvmins{T<:FloatingTypess}(::Type{Val{:(!=)}}, N, ::Type{T}) = "fcmp une"
-llvmins{T<:FloatingTypess}(::Type{Val{:(>)}}, N, ::Type{T}) = "fcmp ogt"
-llvmins{T<:FloatingTypess}(::Type{Val{:(>=)}}, N, ::Type{T}) = "fcmp oge"
-llvmins{T<:FloatingTypess}(::Type{Val{:(<)}}, N, ::Type{T}) = "fcmp olt"
-llvmins{T<:FloatingTypess}(::Type{Val{:(<=)}}, N, ::Type{T}) = "fcmp ole"
+llvmins{T<:FloatingTypes}(::Type{Val{:(==)}}, N, ::Type{T}) = "fcmp oeq"
+llvmins{T<:FloatingTypes}(::Type{Val{:(!=)}}, N, ::Type{T}) = "fcmp une"
+llvmins{T<:FloatingTypes}(::Type{Val{:(>)}}, N, ::Type{T}) = "fcmp ogt"
+llvmins{T<:FloatingTypes}(::Type{Val{:(>=)}}, N, ::Type{T}) = "fcmp oge"
+llvmins{T<:FloatingTypes}(::Type{Val{:(<)}}, N, ::Type{T}) = "fcmp olt"
+llvmins{T<:FloatingTypes}(::Type{Val{:(<=)}}, N, ::Type{T}) = "fcmp ole"
 
-llvmins{T<:FloatingTypess}(::Type{Val{:^}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:^}}, N, ::Type{T}) =
     "@llvm.pow.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:abs}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:abs}}, N, ::Type{T}) =
     "@llvm.fabs.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:ceil}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:ceil}}, N, ::Type{T}) =
     "@llvm.ceil.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:copysign}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:copysign}}, N, ::Type{T}) =
     "@llvm.copysign.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:cos}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:cos}}, N, ::Type{T}) =
     "@llvm.cos.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:exp}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:exp}}, N, ::Type{T}) =
     "@llvm.exp.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:exp2}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:exp2}}, N, ::Type{T}) =
     "@llvm.exp2.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:floor}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:floor}}, N, ::Type{T}) =
     "@llvm.floor.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:fma}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:fma}}, N, ::Type{T}) =
     "@llvm.fma.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:log}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:log}}, N, ::Type{T}) =
     "@llvm.log.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:log10}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:log10}}, N, ::Type{T}) =
     "@llvm.log10.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:log2}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:log2}}, N, ::Type{T}) =
     "@llvm.log2.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:max}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:max}}, N, ::Type{T}) =
     "@llvm.maxnum.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:min}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:min}}, N, ::Type{T}) =
     "@llvm.minnum.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:muladd}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:muladd}}, N, ::Type{T}) =
     "@llvm.fmuladd.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:powi}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:powi}}, N, ::Type{T}) =
     "@llvm.powi.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:round}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:round}}, N, ::Type{T}) =
     "@llvm.rint.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:sin}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:sin}}, N, ::Type{T}) =
     "@llvm.sin.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:sqrt}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:sqrt}}, N, ::Type{T}) =
     "@llvm.sqrt.$(suffix(N,T))"
-llvmins{T<:FloatingTypess}(::Type{Val{:trunc}}, N, ::Type{T}) =
+llvmins{T<:FloatingTypes}(::Type{Val{:trunc}}, N, ::Type{T}) =
     "@llvm.trunc.$(suffix(N,T))"
 
 # Convert between LLVM scalars, vectors, and arrays
@@ -495,7 +495,7 @@ end
             @assert T1 <: IntegerTypes
             otherval = -1
         elseif Op === :inv
-            @assert T1 <: FloatingTypess
+            @assert T1 <: FloatingTypes
             otherval = 1.0
         else
             otherval = 0
@@ -786,39 +786,39 @@ for op in (:(==), :(!=), :(<), :(<=), :(>), :(>=))
             llvmwrap(Val{$(QuoteNode(op))}, v1, v2, Bool)
     end
 end
-# @inline Base.isfinite{N,T<:FloatingTypess}(v1::Vec{N,T}) =
+# @inline Base.isfinite{N,T<:FloatingTypes}(v1::Vec{N,T}) =
 #     !(isinf(v1) | isnan(v1))
-@inline function Base.isfinite{N,T<:FloatingTypess}(v1::Vec{N,T})
+@inline function Base.isfinite{N,T<:FloatingTypes}(v1::Vec{N,T})
     U = uint_type(T)
     em = Vec{N,U}(exponent_mask(T))
     iv = reinterpret(Vec{N,U}, v1)
     iv & em != em
 end
-@inline Base.isinf{N,T<:FloatingTypess}(v1::Vec{N,T}) = abs(v1) == Vec{N,T}(Inf)
-# @inline function Base.isinf{N,T<:FloatingTypess}(v1::Vec{N,T})
+@inline Base.isinf{N,T<:FloatingTypes}(v1::Vec{N,T}) = abs(v1) == Vec{N,T}(Inf)
+# @inline function Base.isinf{N,T<:FloatingTypes}(v1::Vec{N,T})
 #     U = uint_type(T)
 #     em = Vec{N,U}(exponent_mask(T))
 #     sm = Vec{N,U}(significand_mask(T))
 #     iv = reinterpret(Vec{N,U}, v1)
 #     iv & (em|sm) == em
 # end
-@inline Base.isnan{N,T<:FloatingTypess}(v1::Vec{N,T}) = v1 != v1
-# @inline function Base.isnan{N,T<:FloatingTypess}(v1::Vec{N,T})
+@inline Base.isnan{N,T<:FloatingTypes}(v1::Vec{N,T}) = v1 != v1
+# @inline function Base.isnan{N,T<:FloatingTypes}(v1::Vec{N,T})
 #     U = uint_type(T)
 #     em = Vec{N,U}(exponent_mask(T))
 #     sm = Vec{N,U}(significand_mask(T))
 #     iv = reinterpret(Vec{N,U}, v1)
 #     (iv & em == em)  & (iv & sm != Vec{N,U}(0))
 # end
-# @inline Base.isnormal{N,T<:FloatingTypess}(v1::Vec{N,T}) = ???
-@inline function Base.issubnormal{N,T<:FloatingTypess}(v1::Vec{N,T})
+# @inline Base.isnormal{N,T<:FloatingTypes}(v1::Vec{N,T}) = ???
+@inline function Base.issubnormal{N,T<:FloatingTypes}(v1::Vec{N,T})
     U = uint_type(T)
     em = Vec{N,U}(exponent_mask(T))
     sm = Vec{N,U}(significand_mask(T))
     iv = reinterpret(Vec{N,U}, v1)
     (iv & em == Vec{N,U}(0)) & (iv & sm != Vec{N,U}(0))
 end
-@inline function Base.signbit{N,T<:FloatingTypess}(v1::Vec{N,T})
+@inline function Base.signbit{N,T<:FloatingTypes}(v1::Vec{N,T})
     U = uint_type(T)
     sm = Vec{N,U}(sign_mask(T))
     iv = reinterpret(Vec{N,U}, v1)
@@ -938,28 +938,28 @@ for op in (
         :abs, :ceil, :cos, :exp, :exp2, :floor, :inv, :log, :log10, :log2,
         :round, :sin, :sqrt, :trunc)
     @eval begin
-        @inline Base.$op{N,T<:FloatingTypess}(v1::Vec{N,T}) =
+        @inline Base.$op{N,T<:FloatingTypes}(v1::Vec{N,T}) =
             llvmwrap(Val{$(QuoteNode(op))}, v1)
     end
 end
-@inline Base.exp10{N,T<:FloatingTypess}(v1::Vec{N,T}) = Vec{N,T}(10)^v1
-@inline Base.sign{N,T<:FloatingTypess}(v1::Vec{N,T}) =
+@inline Base.exp10{N,T<:FloatingTypes}(v1::Vec{N,T}) = Vec{N,T}(10)^v1
+@inline Base.sign{N,T<:FloatingTypes}(v1::Vec{N,T}) =
     ifelse(v1 == Vec{N,T}(0.0), Vec{N,T}(0.0), copysign(Vec{N,T}(1.0), v1))
 
 for op in (:+, :-, :*, :/, :^, :copysign, :max, :min, :rem)
     @eval begin
-        @inline Base.$op{N,T<:FloatingTypess}(v1::Vec{N,T}, v2::Vec{N,T}) =
+        @inline Base.$op{N,T<:FloatingTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
             llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
     end
 end
-@inline Base. ^{N,T<:FloatingTypess}(v1::Vec{N,T},x2::Integer) =
+@inline Base. ^{N,T<:FloatingTypes}(v1::Vec{N,T},x2::Integer) =
     llvmwrap(Val{:powi}, v1, Int(x2))
-@inline Base.flipsign{N,T<:FloatingTypess}(v1::Vec{N,T}, v2::Vec{N,T}) =
+@inline Base.flipsign{N,T<:FloatingTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
     ifelse(signbit(v2), -v1, v1)
 
 for op in (:fma, :muladd)
     @eval begin
-        @inline function Base.$op{N,T<:FloatingTypess}(v1::Vec{N,T}, v2::Vec{N,T},
+        @inline function Base.$op{N,T<:FloatingTypes}(v1::Vec{N,T}, v2::Vec{N,T},
                 v3::Vec{N,T})
             llvmwrap(Val{$(QuoteNode(op))}, v1, v2, v3)
         end
@@ -1024,9 +1024,9 @@ end
 
 @inline Base.all{N,T<:IntegerTypes}(v::Vec{N,T}) = llvmwrapreduce(Val{:&}, v)
 @inline Base.any{N,T<:IntegerTypes}(v::Vec{N,T}) = llvmwrapreduce(Val{:|}, v)
-@inline Base.maximum{N,T<:FloatingTypess}(v::Vec{N,T}) =
+@inline Base.maximum{N,T<:FloatingTypes}(v::Vec{N,T}) =
     llvmwrapreduce(Val{:max}, v)
-@inline Base.minimum{N,T<:FloatingTypess}(v::Vec{N,T}) =
+@inline Base.minimum{N,T<:FloatingTypes}(v::Vec{N,T}) =
     llvmwrapreduce(Val{:min}, v)
 @inline Base.prod{N,T}(v::Vec{N,T}) = llvmwrapreduce(Val{:*}, v)
 @inline Base.sum{N,T}(v::Vec{N,T}) = llvmwrapreduce(Val{:+}, v)
