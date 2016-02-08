@@ -92,6 +92,13 @@ for i in 1:L4
     @showtest V4F64(v4f64)[i] === v4f64[i]
 end
 
+let
+    v0 = zero(Vec{4, Float64})
+    v1 = one(Vec{4, Float64})
+    @test sum(v0*v0) == 0.0
+    @test sum(v1*v1) == 4.0
+end
+
 info("Integer arithmetic functions")
 
 const v8i32b = map(x->Int32(x+1), v8i32)

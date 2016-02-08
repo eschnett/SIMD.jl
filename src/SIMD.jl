@@ -118,6 +118,9 @@ Base.convert{N,T}(::Type{NTuple{N,T}}, v::Vec{N,T}) = v.elts
 # Type promotion only works for subtypes of Number!
 # Base.promote_rule{N,T<:ScalarTypes}(::Type{Vec{N,T}}, ::Type{T}) = Vec{N,T}
 
+Base.zero{N,T}(::Type{Vec{N,T}}) = create(Vec{N,T}, zero(T))
+Base.one{N,T}(::Type{Vec{N,T}}) = create(Vec{N,T}, one(T))
+
 # Floating point formats
 
 int_type(::Type{Float16}) = Int16
