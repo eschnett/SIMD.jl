@@ -64,7 +64,7 @@ ys = setindex(ys, 3, 5)   # cannot use ys[3] = 5
 
 Reduction operations reduce a SIMD vector to a scalar. The following reduction operations are provided:
 
-`all any maximum minimum sum proc`
+`all any maximum minimum sum prod`
 
 Example:
 ```Julia
