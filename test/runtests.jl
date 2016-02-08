@@ -282,6 +282,9 @@ for op in (maximum, minimum, sum, prod)
     @showtest op(V4F64(v4f64)) === op(v4f64)
 end
 
+@showtest sum(Vec{3,Float64}(1)) === 3.0
+@showtest prod(Vec{5,Float64}(2)) === 32.0
+
 info("Load and store functions")
 
 const arri32 = Int32[i for i in 1:(2*L8)]

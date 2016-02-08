@@ -216,6 +216,16 @@ function llvmconst(N::Integer, ::Type{Bool}, val)
     typ = "i1"
     "<" * join(["$typ $(Int(val))" for i in 1:N], ", ") * ">"
 end
+function llvmtypedconst{T}(::Type{T}, val)
+    typ = llvmtype(T)
+    T(val) === T(0) && return "$typ zeroinitializer"
+    "$typ $val"
+end
+function llvmtypedconst(::Type{Bool}, val)
+    typ = "i1"
+    Bool(val) === false && return "$typ zeroinitializer"
+    "$typ $(Int(val))"
+end
 
 # Type-dependent LLVM intrinsics
 llvmins{T<:IntegerTypes}(::Type{Val{:+}}, N, ::Type{T}) = "add"
@@ -373,13 +383,13 @@ function subvector(vec, siz, typ, rvec, rsiz, roff, tmp="$(rvec)_sv")
     instrs
 end
 
-function extendvector(vec, siz, typ, voff, vsiz, val, rvec)
+function extendvector(vec, siz, typ, voff, vsiz, val, rvec, tmp="$(rvec)_ev")
     instrs = []
-    accum(nam, i) = i<0 ? "undef" : i==siz-1 ? nam : "$(nam)_iter$i"
-    rsiz = siz1 + siz2
+    accum(nam, i) = i<0 ? "undef" : i==siz+vsiz-1 ? nam : "$(nam)_iter$i"
+    rsiz = siz + vsiz
     for i in 0:siz-1
         push!(instrs,
-            "$(tmp)_elem$i = extractelement <$siz1 x $typ> $vec1, i32 $i")
+            "$(tmp)_elem$i = extractelement <$siz x $typ> $vec, i32 $i")
         push!(instrs,
             "$(accum(rvec,i)) = "*
                 "insertelement <$rsiz x $typ> $(accum(rvec,i-1)), " *
@@ -1085,7 +1095,7 @@ function getneutral{T}(op::Symbol, ::Type{T})
     zs[op]
 end
 
-# We cannot pass in the neutral element via Val{}; if we try, Julia refused to
+# We cannot pass in the neutral element via Val{}; if we try, Julia refuses to
 # inline this function, which is then disastrous for performance
 @generated function llvmwrapreduce{Op,N,T}(::Type{Val{Op}}, v::Vec{N,T})
     @assert isa(Op, Symbol)
@@ -1098,8 +1108,8 @@ end
     nold,n = n,nextpow2(n)
     if n > nold
         append!(instrs,
-            extendvector("%vec_$nold", nold, typ, n, n-nold, llvmconst(T,z),
-                "%vec_$n"))
+            extendvector("%vec_$nold", nold, typ, n, n-nold,
+                llvmtypedconst(T,z), "%vec_$n"))
     end
     while n > 1
         nold,n = n, div(n, 2)
