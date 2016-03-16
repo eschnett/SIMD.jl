@@ -118,6 +118,13 @@ for op in (ifelsebool, muladd)
         map(op, v8i32, v8i32b, v8i32c)
 end
 
+for op in (<<, >>, >>>)
+    # @show op
+    @showtest Tuple(op(V8I32(v8i32), Val{3})) === map(x->op(x,3), v8i32)
+    @showtest Tuple(op(V8I32(v8i32), 3)) === map(x->op(x,3), v8i32)
+    @showtest Tuple(op(V8I32(v8i32), V8I32(v8i32))) === map(op, v8i32, v8i32)
+end
+
 info("Floating point arithmetic functions")
 
 const v4f64b = map(x->Float64(x+1), v4f64)
