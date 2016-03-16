@@ -1229,175 +1229,179 @@ end
 @inline Base.maximum{N,T<:IntegerTypes}(v::Vec{N,T}) = reduce(Val{:max}, v)
 @inline Base.minimum{N,T<:IntegerTypes}(v::Vec{N,T}) = reduce(Val{:min}, v)
 
-### Load and store functions
-##
-##export vload, vloada
-##@generated function vload{N,T,Aligned}(::Type{Vec{N,T}}, ptr::Ptr{T},
-##        ::Type{Val{Aligned}} = Val{false})
-##    @assert isa(Aligned, Bool)
-##    typ = llvmtype(T)
-##    atyp = "[$N x $typ]"
-##    vtyp = "<$N x $typ>"
-##    decls = []
-##    instrs = []
-##    if Aligned
-##        align = N * sizeof(T)
-##    else
-##        align = sizeof(T)   # This is overly optimistic
-##    end
-##    flags = ""
-##    if align > 0 flags *= ", align $align" end
-##    push!(instrs, "%ptr = bitcast $typ* %0 to $vtyp*")
-##    push!(instrs, "%res = load $vtyp, $vtyp* %ptr$flags")
-##    append!(instrs, vector2array("%resarr", N, typ, "%res"))
-##    push!(instrs, "ret $atyp %resarr")
-##    quote
-##        $(Expr(:meta, :inline))
-##        Vec{N,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-##            NTuple{N,T}, Tuple{Ptr{T}}, ptr))
-##    end
-##end
-##
-##@inline vloada{N,T}(::Type{Vec{N,T}}, ptr::Ptr{T}) =
-##    vload(Vec{N,T}, ptr, Val{true})
-##
-##@inline function vload{N,T,Aligned}(::Type{Vec{N,T}}, arr::Vector{T},
-##        i::Integer, ::Type{Val{Aligned}} = Val{false})
-##    # @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
-##    vload(Vec{N,T}, pointer(arr, i), Val{Aligned})
-##end
-##@inline vloada{N,T}(::Type{Vec{N,T}}, arr::Vector{T}, i::Integer) =
-##    vload(Vec{N,T}, arr, i, Val{true})
-##
-##@generated function vload{N,T,Aligned}(::Type{Vec{N,T}}, ptr::Ptr{T},
-##        mask::Vec{N,Bool}, ::Type{Val{Aligned}} = Val{false})
-##    @assert isa(Aligned, Bool)
-##    typ = llvmtype(T)
-##    atyp = "[$N x $typ]"
-##    vtyp = "<$N x $typ>"
-##    btyp = llvmtype(Bool)
-##    abtyp = "[$N x $btyp]"
-##    vbtyp = "<$N x $btyp>"
-##    decls = []
-##    instrs = []
-##    if Aligned
-##        align = N * sizeof(T)
-##    else
-##        align = sizeof(T)   # This is overly optimistic
-##    end
-##    push!(instrs, "%ptr = bitcast $typ* %0 to $vtyp*")
-##    append!(instrs, array2vector("%maskb", N, btyp, "%1", "%arg2arr"))
-##    push!(instrs, "%mask = trunc $vbtyp %maskb to <$N x i1>")
-##    push!(decls,
-##        "declare $vtyp @llvm.masked.load.$(suffix(N,T))($vtyp*, i32, " *
-##            "<$N x i1>, $vtyp)")
-##    push!(instrs,
-##        "%res = call $vtyp @llvm.masked.load.$(suffix(N,T))($vtyp* %ptr, " *
-##            "i32 $align, <$N x i1> %mask, $vtyp $(llvmconst(N, T, 0)))")
-##    append!(instrs, vector2array("%resarr", N, typ, "%res"))
-##    push!(instrs, "ret $atyp %resarr")
-##    quote
-##        $(Expr(:meta, :inline))
-##        Vec{N,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-##            NTuple{N,T}, Tuple{Ptr{T}, NTuple{N,Bool}}, ptr, mask.elts))
-##    end
-##end
-##
-##@inline vloada{N,T}(::Type{Vec{N,T}}, ptr::Ptr{T}, mask::Vec{N,Bool}) =
-##    vload(Vec{N,T}, ptr, mask, Val{true})
-##
-##@inline function vload{N,T,Aligned}(::Type{Vec{N,T}}, arr::Vector{T},
-##        i::Integer, mask::Vec{N,Bool}, ::Type{Val{Aligned}} = Val{false})
-##    # @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
-##    vload(Vec{N,T}, pointer(arr, i), mask, Val{Aligned})
-##end
-##@inline vloada{N,T}(::Type{Vec{N,T}}, arr::Vector{T}, i::Integer,
-##        mask::Vec{N,Bool}) =
-##    vload(Vec{N,T}, arr, i, mask, Val{true})
-##
-##export vstore, vstorea
-##@generated function vstore{N,T,Aligned}(v::Vec{N,T}, ptr::Ptr{T},
-##        ::Type{Val{Aligned}} = Val{false})
-##    @assert isa(Aligned, Bool)
-##    typ = llvmtype(T)
-##    atyp = "[$N x $typ]"
-##    vtyp = "<$N x $typ>"
-##    decls = []
-##    instrs = []
-##    if Aligned
-##        align = N * sizeof(T)
-##    else
-##        align = sizeof(T)   # This is overly optimistic
-##    end
-##    flags = ""
-##    if align > 0 flags *= ", align $align" end
-##    append!(instrs, array2vector("%arg1", N, typ, "%0", "%arg1arr"))
-##    push!(instrs, "%ptr = bitcast $typ* %1 to $vtyp*")
-##    push!(instrs, "store $vtyp %arg1, $vtyp* %ptr$flags")
-##    push!(instrs, "ret void")
-##    quote
-##        $(Expr(:meta, :inline))
-##        Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-##            Void, Tuple{NTuple{N,T}, Ptr{T}}, v.elts, ptr)
-##    end
-##end
-##
-##@inline vstorea{N,T}(v::Vec{N,T}, ptr::Ptr{T}) = vstore(v, ptr, Val{true})
-##
-##@inline function vstore{N,T,Aligned}(v::Vec{N,T}, arr::Vector{T}, i::Integer,
-##        ::Type{Val{Aligned}} = Val{false})
-##    @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
-##    vstore(v, pointer(arr, i), Val{Aligned})
-##end
-##@inline vstorea{N,T}(v::Vec{N,T}, arr::Vector{T}, i::Integer) =
-##    vstore(v, arr, i, Val{true})
-##
-##@generated function vstore{N,T,Aligned}(v::Vec{N,T}, ptr::Ptr{T},
-##        mask::Vec{N,Bool}, ::Type{Val{Aligned}} = Val{false})
-##    @assert isa(Aligned, Bool)
-##    typ = llvmtype(T)
-##    atyp = "[$N x $typ]"
-##    vtyp = "<$N x $typ>"
-##    btyp = llvmtype(Bool)
-##    abtyp = "[$N x $btyp]"
-##    vbtyp = "<$N x $btyp>"
-##    decls = []
-##    instrs = []
-##    if Aligned
-##        align = N * sizeof(T)
-##    else
-##        align = sizeof(T)   # This is overly optimistic
-##    end
-##    append!(instrs, array2vector("%arg1", N, typ, "%0", "%arg1arr"))
-##    push!(instrs, "%ptr = bitcast $typ* %1 to $vtyp*")
-##    append!(instrs, array2vector("%maskb", N, btyp, "%2", "%arg3arr"))
-##    push!(instrs, "%mask = trunc $vbtyp %maskb to <$N x i1>")
-##    push!(decls,
-##        "declare void @llvm.masked.store.$(suffix(N,T))($vtyp, $vtyp*, i32, " *
-##            "<$N x i1>)")
-##    push!(instrs,
-##        "call void @llvm.masked.store.$(suffix(N,T))($vtyp %arg1, " *
-##            "$vtyp* %ptr, i32 $align, <$N x i1> %mask)")
-##    push!(instrs, "ret void")
-##    quote
-##        $(Expr(:meta, :inline))
-##        Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-##            Void, Tuple{NTuple{N,T}, Ptr{T}, NTuple{N,Bool}}, v.elts, ptr,
-##                mask.elts)
-##    end
-##end
-##
-##@inline vstorea{N,T}(v::Vec{N,T}, ptr::Ptr{T}, mask::Vec{N,Bool}) =
-##    vstore(v, ptr, mask, Val{true})
-##
-##@inline function vstore{N,T,Aligned}(v::Vec{N,T}, arr::Vector{T}, i::Integer,
-##        mask::Vec{N,Bool}, ::Type{Val{Aligned}} = Val{false})
-##    # @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
-##    vstore(v, pointer(arr, i), mask, Val{Aligned})
-##end
-##@inline function vstorea{N,T}(v::Vec{N,T}, arr::Vector{T}, i::Integer,
-##        mask::Vec{N,Bool})
-##    vstore(v, arr, i, mask, Val{true})
-##end
+# Load and store functions
+
+export vload, vloada
+@generated function vload{N,T,Aligned}(::Type{Vec{N,T}}, ptr::Ptr{T},
+        ::Type{Val{Aligned}} = Val{false})
+    @assert isa(Aligned, Bool)
+    typ = llvmtype(T)
+    # atyp = "[$N x $typ]"
+    vtyp = "<$N x $typ>"
+    decls = []
+    instrs = []
+    if Aligned
+        align = N * sizeof(T)
+    else
+        align = sizeof(T)   # This is overly optimistic
+    end
+    flags = [""]
+    if align > 0
+        push!(flags, "align $align")
+    end
+    push!(instrs, "%ptr = bitcast $typ* %0 to $vtyp*")
+    push!(instrs, "%res = load $vtyp, $vtyp* %ptr" * join(flags, ", "))
+    # append!(instrs, vector2array("%resarr", N, typ, "%res"))
+    push!(instrs, "ret $vtyp %res")
+    quote
+        $(Expr(:meta, :inline))
+        Vec{N,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{N,VE{T}}, Tuple{Ptr{T}}, ptr))
+    end
+end
+
+@inline vloada{N,T}(::Type{Vec{N,T}}, ptr::Ptr{T}) =
+    vload(Vec{N,T}, ptr, Val{true})
+
+@inline function vload{N,T,Aligned}(::Type{Vec{N,T}}, arr::Vector{T},
+        i::Integer, ::Type{Val{Aligned}} = Val{false})
+    # @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
+    vload(Vec{N,T}, pointer(arr, i), Val{Aligned})
+end
+@inline vloada{N,T}(::Type{Vec{N,T}}, arr::Vector{T}, i::Integer) =
+    vload(Vec{N,T}, arr, i, Val{true})
+
+@generated function vload{N,T,Aligned}(::Type{Vec{N,T}}, ptr::Ptr{T},
+        mask::Vec{N,Bool}, ::Type{Val{Aligned}} = Val{false})
+    @assert isa(Aligned, Bool)
+    typ = llvmtype(T)
+    # atyp = "[$N x $typ]"
+    vtyp = "<$N x $typ>"
+    btyp = llvmtype(Bool)
+    # abtyp = "[$N x $btyp]"
+    vbtyp = "<$N x $btyp>"
+    decls = []
+    instrs = []
+    if Aligned
+        align = N * sizeof(T)
+    else
+        align = sizeof(T)   # This is overly optimistic
+    end
+    push!(instrs, "%ptr = bitcast $typ* %0 to $vtyp*")
+    # append!(instrs, array2vector("%maskb", N, btyp, "%1", "%arg2arr"))
+    push!(instrs, "%mask = trunc $vbtyp %1 to <$N x i1>")
+    push!(decls,
+        "declare $vtyp @llvm.masked.load.$(suffix(N,T))($vtyp*, i32, " *
+            "<$N x i1>, $vtyp)")
+    push!(instrs,
+        "%res = call $vtyp @llvm.masked.load.$(suffix(N,T))($vtyp* %ptr, " *
+            "i32 $align, <$N x i1> %mask, $vtyp $(llvmconst(N, T, 0)))")
+    # append!(instrs, vector2array("%resarr", N, typ, "%res"))
+    push!(instrs, "ret $vtyp %res")
+    quote
+        $(Expr(:meta, :inline))
+        Vec{N,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{N,VE{T}}, Tuple{Ptr{T}, NTuple{N,VE{Bool}}}, ptr, mask.elts))
+    end
+end
+
+@inline vloada{N,T}(::Type{Vec{N,T}}, ptr::Ptr{T}, mask::Vec{N,Bool}) =
+    vload(Vec{N,T}, ptr, mask, Val{true})
+
+@inline function vload{N,T,Aligned}(::Type{Vec{N,T}}, arr::Vector{T},
+        i::Integer, mask::Vec{N,Bool}, ::Type{Val{Aligned}} = Val{false})
+    # @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
+    vload(Vec{N,T}, pointer(arr, i), mask, Val{Aligned})
+end
+@inline vloada{N,T}(::Type{Vec{N,T}}, arr::Vector{T}, i::Integer,
+        mask::Vec{N,Bool}) =
+    vload(Vec{N,T}, arr, i, mask, Val{true})
+
+export vstore, vstorea
+@generated function vstore{N,T,Aligned}(v::Vec{N,T}, ptr::Ptr{T},
+        ::Type{Val{Aligned}} = Val{false})
+    @assert isa(Aligned, Bool)
+    typ = llvmtype(T)
+    # atyp = "[$N x $typ]"
+    vtyp = "<$N x $typ>"
+    decls = []
+    instrs = []
+    if Aligned
+        align = N * sizeof(T)
+    else
+        align = sizeof(T)   # This is overly optimistic
+    end
+    flags = [""]
+    if align > 0
+        push!(flags, "align $align")
+    end
+    # append!(instrs, array2vector("%arg1", N, typ, "%0", "%arg1arr"))
+    push!(instrs, "%ptr = bitcast $typ* %1 to $vtyp*")
+    push!(instrs, "store $vtyp %0, $vtyp* %ptr" * join(flags, ", "))
+    push!(instrs, "ret void")
+    quote
+        $(Expr(:meta, :inline))
+        Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            Void, Tuple{NTuple{N,VE{T}}, Ptr{T}}, v.elts, ptr)
+    end
+end
+
+@inline vstorea{N,T}(v::Vec{N,T}, ptr::Ptr{T}) = vstore(v, ptr, Val{true})
+
+@inline function vstore{N,T,Aligned}(v::Vec{N,T}, arr::Vector{T}, i::Integer,
+        ::Type{Val{Aligned}} = Val{false})
+    @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
+    vstore(v, pointer(arr, i), Val{Aligned})
+end
+@inline vstorea{N,T}(v::Vec{N,T}, arr::Vector{T}, i::Integer) =
+    vstore(v, arr, i, Val{true})
+
+@generated function vstore{N,T,Aligned}(v::Vec{N,T}, ptr::Ptr{T},
+        mask::Vec{N,Bool}, ::Type{Val{Aligned}} = Val{false})
+    @assert isa(Aligned, Bool)
+    typ = llvmtype(T)
+    # atyp = "[$N x $typ]"
+    vtyp = "<$N x $typ>"
+    btyp = llvmtype(Bool)
+    # abtyp = "[$N x $btyp]"
+    vbtyp = "<$N x $btyp>"
+    decls = []
+    instrs = []
+    if Aligned
+        align = N * sizeof(T)
+    else
+        align = sizeof(T)   # This is overly optimistic
+    end
+    # append!(instrs, array2vector("%arg1", N, typ, "%0", "%arg1arr"))
+    push!(instrs, "%ptr = bitcast $typ* %1 to $vtyp*")
+    # append!(instrs, array2vector("%maskb", N, btyp, "%2", "%arg3arr"))
+    push!(instrs, "%mask = trunc $vbtyp %2 to <$N x i1>")
+    push!(decls,
+        "declare void @llvm.masked.store.$(suffix(N,T))($vtyp, $vtyp*, i32, " *
+            "<$N x i1>)")
+    push!(instrs,
+        "call void @llvm.masked.store.$(suffix(N,T))($vtyp %0, $vtyp* %ptr, " *
+            "i32 $align, <$N x i1> %mask)")
+    push!(instrs, "ret void")
+    quote
+        $(Expr(:meta, :inline))
+        Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            Void, Tuple{NTuple{N,VE{T}}, Ptr{T}, NTuple{N,VE{Bool}}},
+            v.elts, ptr, mask.elts)
+    end
+end
+
+@inline vstorea{N,T}(v::Vec{N,T}, ptr::Ptr{T}, mask::Vec{N,Bool}) =
+    vstore(v, ptr, mask, Val{true})
+
+@inline function vstore{N,T,Aligned}(v::Vec{N,T}, arr::Vector{T}, i::Integer,
+        mask::Vec{N,Bool}, ::Type{Val{Aligned}} = Val{false})
+    # @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
+    vstore(v, pointer(arr, i), mask, Val{Aligned})
+end
+@inline function vstorea{N,T}(v::Vec{N,T}, arr::Vector{T}, i::Integer,
+        mask::Vec{N,Bool})
+    vstore(v, arr, i, mask, Val{true})
+end
 
 end

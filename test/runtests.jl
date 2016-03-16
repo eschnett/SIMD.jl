@@ -281,107 +281,107 @@ end
 # @showtest sum(Vec{3,Float64}(1)) === 3.0
 @showtest prod(Vec{5,Float64}(2)) === 32.0
 
-##info("Load and store functions")
-##
-##const arri32 = Int32[i for i in 1:(2*L8)]
-##for i in 1:length(arri32)-(L8-1)
-##    @showtest vload(V8I32, arri32, i) === V8I32(ntuple(j->i+j-1, L8))
-##end
-##for i in 1:L8:length(arri32)-(L8-1)
-##    @showtest vloada(V8I32, arri32, i) === V8I32(ntuple(j->i+j-1, L8))
-##end
-##vstorea(V8I32(0), arri32, 1)
-##vstore(V8I32(1), arri32, 2)
-##for i in 1:length(arri32)
-##    @showtest arri32[i] == if i==1 0 elseif i<=(L8+1) 1 else i end
-##end
-##
-##const arrf64 = Float64[i for i in 1:(4*L4)]
-##for i in 1:length(arrf64)-(L4-1)
-##    @showtest vload(V4F64, arrf64, i) === V4F64(ntuple(j->i+j-1, L4))
-##end
-##for i in 1:4:length(arrf64)-(L4-1)
-##    @showtest vloada(V4F64, arrf64, i) === V4F64(ntuple(j->i+j-1, L4))
-##end
-##vstorea(V4F64(0), arrf64, 1)
-##vstore(V4F64(1), arrf64, 2)
-##for i in 1:length(arrf64)
-##    @showtest arrf64[i] == if i==1 0 elseif i<=(L4+1) 1 else i end
-##end
-##
-##info("Real-world examples")
-##
-##function vadd!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
-##    @assert length(ys) == length(xs)
-##    @assert length(xs) % N == 0
-##    @inbounds for i in 1:N:length(xs)
-##        xv = vload(Vec{N,T}, xs, i)
-##        yv = vload(Vec{N,T}, ys, i)
-##        xv += yv
-##        vstore(xv, xs, i)
-##    end
-##end
-##
-##let xs = Float64[i for i in 1:(4*L4)];
-##    ys = Float64[1 for i in 1:(4*L4)]
-##    vadd!(xs, ys, V4F64)
-##    @showtest xs == Float64[i+1 for i in 1:(4*L4)]
-##    # @code_native vadd!(xs, ys, V4F64)
-##end
-##
-##function vsum{N,T}(xs::Vector{T}, ::Type{Vec{N,T}})
-##    @assert length(xs) % N == 0
-##    sv = Vec{N,T}(0)
-##    @inbounds for i in 1:N:length(xs)
-##        xv = vload(Vec{N,T}, xs, i)
-##        sv += xv
-##    end
-##    sum(sv)
-##end
-##
-##let xs = Float64[i for i in 1:(4*L4)]
-##    s = vsum(xs, V4F64)
-##    @showtest s === (x->(x^2+x)/2)(Float64(4*L4))
-##    # @code_native vsum(xs, V4F64)
-##end
-##
-##function vadd_masked!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
-##    @assert length(ys) == length(xs)
-##    limit = length(xs) - (N-1)
-##    vlimit = Vec{N,Int}(let l=length(xs); (l:l+N-1...) end)
-##    @inbounds for i in 1:N:length(xs)
-##        xv = vload(Vec{N,T}, xs, i)
-##        yv = vload(Vec{N,T}, ys, i)
-##        xv += yv
-##        if i <= limit
-##            vstore(xv, xs, i)
-##        else
-##            mask = Vec{N,Int}(i) <= vlimit
-##            vstore(xv, xs, i, mask)
-##        end
-##    end
-##end
-##
-##let xs = Float64[i for i in 1:13],
-##    ys = Float64[1 for i in 1:13]
-##    vadd_masked!(xs, ys, V4F64)
-##    @showtest xs == Float64[i+1 for i in 1:13]
-##    # @code_native vadd!(xs, ys, V4F64)
-##end
-##
-##function vsum_masked{N,T}(xs::Vector{T}, ::Type{Vec{N,T}})
-##    vlimit = Vec{N,Int}(let l=length(xs); (l:l+N-1...) end)
-##    sv = Vec{N,T}(0)
-##    @inbounds for i in 1:N:length(xs)
-##        mask = Vec{N,Int}(i) <= vlimit
-##        xv = vload(Vec{N,T}, xs, i, mask)
-##        sv += xv
-##    end
-##    sum(sv)
-##end
-##
-##let xs = Float64[i for i in 1:13]
-##    s = vsum_masked(xs, V4F64)
-##    @showtest s === sum(xs)
-##    # @code_native vsum(xs, V4F64)
-##end
+info("Load and store functions")
+
+const arri32 = Int32[i for i in 1:(2*L8)]
+for i in 1:length(arri32)-(L8-1)
+    @showtest vload(V8I32, arri32, i) === V8I32(ntuple(j->i+j-1, L8))
+end
+for i in 1:L8:length(arri32)-(L8-1)
+    @showtest vloada(V8I32, arri32, i) === V8I32(ntuple(j->i+j-1, L8))
+end
+vstorea(V8I32(0), arri32, 1)
+vstore(V8I32(1), arri32, 2)
+for i in 1:length(arri32)
+    @showtest arri32[i] == if i==1 0 elseif i<=(L8+1) 1 else i end
+end
+
+const arrf64 = Float64[i for i in 1:(4*L4)]
+for i in 1:length(arrf64)-(L4-1)
+    @showtest vload(V4F64, arrf64, i) === V4F64(ntuple(j->i+j-1, L4))
+end
+for i in 1:4:length(arrf64)-(L4-1)
+    @showtest vloada(V4F64, arrf64, i) === V4F64(ntuple(j->i+j-1, L4))
+end
+vstorea(V4F64(0), arrf64, 1)
+vstore(V4F64(1), arrf64, 2)
+for i in 1:length(arrf64)
+    @showtest arrf64[i] == if i==1 0 elseif i<=(L4+1) 1 else i end
+end
+
+info("Real-world examples")
+
+function vadd!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
+    @assert length(ys) == length(xs)
+    @assert length(xs) % N == 0
+    @inbounds for i in 1:N:length(xs)
+        xv = vload(Vec{N,T}, xs, i)
+        yv = vload(Vec{N,T}, ys, i)
+        xv += yv
+        vstore(xv, xs, i)
+    end
+end
+
+let xs = Float64[i for i in 1:(4*L4)];
+    ys = Float64[1 for i in 1:(4*L4)]
+    vadd!(xs, ys, V4F64)
+    @showtest xs == Float64[i+1 for i in 1:(4*L4)]
+    # @code_native vadd!(xs, ys, V4F64)
+end
+
+function vsum{N,T}(xs::Vector{T}, ::Type{Vec{N,T}})
+    @assert length(xs) % N == 0
+    sv = Vec{N,T}(0)
+    @inbounds for i in 1:N:length(xs)
+        xv = vload(Vec{N,T}, xs, i)
+        sv += xv
+    end
+    sum(sv)
+end
+
+let xs = Float64[i for i in 1:(4*L4)]
+    s = vsum(xs, V4F64)
+    @showtest s === (x->(x^2+x)/2)(Float64(4*L4))
+    # @code_native vsum(xs, V4F64)
+end
+
+function vadd_masked!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
+    @assert length(ys) == length(xs)
+    limit = length(xs) - (N-1)
+    vlimit = Vec{N,Int}(let l=length(xs); (l:l+N-1...) end)
+    @inbounds for i in 1:N:length(xs)
+        xv = vload(Vec{N,T}, xs, i)
+        yv = vload(Vec{N,T}, ys, i)
+        xv += yv
+        if i <= limit
+            vstore(xv, xs, i)
+        else
+            mask = Vec{N,Int}(i) <= vlimit
+            vstore(xv, xs, i, mask)
+        end
+    end
+end
+
+let xs = Float64[i for i in 1:13],
+    ys = Float64[1 for i in 1:13]
+    vadd_masked!(xs, ys, V4F64)
+    @showtest xs == Float64[i+1 for i in 1:13]
+    # @code_native vadd!(xs, ys, V4F64)
+end
+
+function vsum_masked{N,T}(xs::Vector{T}, ::Type{Vec{N,T}})
+    vlimit = Vec{N,Int}(let l=length(xs); (l:l+N-1...) end)
+    sv = Vec{N,T}(0)
+    @inbounds for i in 1:N:length(xs)
+        mask = Vec{N,Int}(i) <= vlimit
+        xv = vload(Vec{N,T}, xs, i, mask)
+        sv += xv
+    end
+    sum(sv)
+end
+
+let xs = Float64[i for i in 1:13]
+    s = vsum_masked(xs, V4F64)
+    @showtest s === sum(xs)
+    # @code_native vsum(xs, V4F64)
+end
