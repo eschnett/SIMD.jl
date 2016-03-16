@@ -329,7 +329,7 @@ function vadd!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
     end
 end
 
-let xs = Float64[i for i in 1:(4*L4)];
+let xs = Float64[i for i in 1:(4*L4)],
     ys = Float64[1 for i in 1:(4*L4)]
     vadd!(xs, ys, V4F64)
     @showtest xs == Float64[i+1 for i in 1:(4*L4)]
