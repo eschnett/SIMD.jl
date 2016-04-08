@@ -51,6 +51,8 @@ const v4f64 = ntuple(i->Float64(ifelse(isodd(i), i, -i)), L4)
 @showtest string(V8I32(v8i32)) == "Int32<" * string(v8i32)[2:end-1] * ">"
 @showtest string(V4F64(v4f64)) == "Float64<" * string(v4f64)[2:end-1] * ">"
 
+@showtest convert(V8I32, V8I32(v8i32)) === V8I32(v8i32)
+@showtest convert(Vec{L8,Int64}, V8I32(v8i32)) === Vec{L8, Int64}(convert(NTuple{L8,Int64}, v8i32))
 @showtest NTuple{L8,Int32}(V8I32(v8i32)) === v8i32
 @showtest NTuple{L4,Float64}(V4F64(v4f64)) === v4f64
 @showtest Tuple(V8I32(v8i32)) === v8i32
