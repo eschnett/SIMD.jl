@@ -89,8 +89,17 @@ end
 let
     v0 = zero(Vec{4, Float64})
     v1 = one(Vec{4, Float64})
-    @test sum(v0*v0) == 0.0
-    @test sum(v1*v1) == 4.0
+    @showtest sum(v0*v0) == 0.0
+    @showtest sum(v1*v1) == 4.0
+
+    srand(1234)
+    vr = rand(Vec{4, Float64})
+    srand(1234)
+    vr2 = rand(Vec{4, Float64})
+    @showtest sum(vr - vr2) == 0.0
+    vr_mersenne = rand(MersenneTwister(), Vec{4, Float64})
+    vr_mersenne2 = rand(MersenneTwister(), Vec{4, Float64})
+    @showtest sum(vr_mersenne - vr_mersenne2) == 0.0
 end
 
 info("Integer arithmetic functions")

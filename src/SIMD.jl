@@ -150,6 +150,8 @@ end
 
 Base.zero{N,T}(::Type{Vec{N,T}}) = Vec{N,T}(zero(T))
 Base.one{N,T}(::Type{Vec{N,T}}) = Vec{N,T}(one(T))
+Base.rand{N,T}(::Type{Vec{N,T}}) = Vec{N,T}(ntuple(n -> rand(T), Val{N}))
+Base.rand{N,T}(rng::AbstractRNG, ::Type{Vec{N,T}}) = Vec{N,T}(ntuple(n -> rand(rng, T), Val{N}))
 
 # Floating point formats
 
