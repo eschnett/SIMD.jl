@@ -48,8 +48,8 @@ info("Type conversion")
 const v8i32 = ntuple(i->Int32(ifelse(isodd(i), i, -i)), L8)
 const v4f64 = ntuple(i->Float64(ifelse(isodd(i), i, -i)), L4)
 
-@showtest string(V8I32(v8i32)) == "Int32<" * string(v8i32)[2:end-1] * ">"
-@showtest string(V4F64(v4f64)) == "Float64<" * string(v4f64)[2:end-1] * ">"
+@showtest string(V8I32(v8i32)) == "Int32⟨" * string(v8i32)[2:end-1] * "⟩"
+@showtest string(V4F64(v4f64)) == "Float64⟨" * string(v4f64)[2:end-1] * "⟩"
 
 @showtest NTuple{L8,Int32}(V8I32(v8i32)) === v8i32
 @showtest NTuple{L4,Float64}(V4F64(v4f64)) === v4f64
@@ -59,6 +59,7 @@ const v4f64 = ntuple(i->Float64(ifelse(isodd(i), i, -i)), L4)
 info("Element-wise access")
 
 for i in 1:L8
+    # @show i
     @showtest Tuple(setindex(V8I32(v8i32), Val{i}, 9.0)) ===
         ntuple(j->Int32(ifelse(j==i, 9, v8i32[j])), L8)
     @showtest Tuple(setindex(V8I32(v8i32), i, 9.0)) ===
@@ -121,7 +122,9 @@ end
 for op in (<<, >>, >>>)
     # @show op
     @showtest Tuple(op(V8I32(v8i32), Val{3})) === map(x->op(x,3), v8i32)
+    @showtest Tuple(op(V8I32(v8i32), Val{-3})) === map(x->op(x,-3), v8i32)
     @showtest Tuple(op(V8I32(v8i32), 3)) === map(x->op(x,3), v8i32)
+    @showtest Tuple(op(V8I32(v8i32), -3)) === map(x->op(x,-3), v8i32)
     @showtest Tuple(op(V8I32(v8i32), V8I32(v8i32))) === map(op, v8i32, v8i32)
 end
 
@@ -284,41 +287,47 @@ for op in (maximum, minimum, sum, prod)
     @showtest op(V4F64(v4f64)) === op(v4f64)
 end
 
-# TODO: This segfaults
-# @showtest sum(Vec{3,Float64}(1)) === 3.0
+@showtest sum(Vec{3,Float64}(1)) === 3.0
 @showtest prod(Vec{5,Float64}(2)) === 32.0
 
 info("Load and store functions")
 
-const arri32 = Int32[i for i in 1:(2*L8)]
+const arri32 = valloc(Int32, L8, 2*L8) do i i end
 for i in 1:length(arri32)-(L8-1)
+    # @show i
     @showtest vload(V8I32, arri32, i) === V8I32(ntuple(j->i+j-1, L8))
 end
 for i in 1:L8:length(arri32)-(L8-1)
+    # @show i
     @showtest vloada(V8I32, arri32, i) === V8I32(ntuple(j->i+j-1, L8))
 end
 vstorea(V8I32(0), arri32, 1)
 vstore(V8I32(1), arri32, 2)
 for i in 1:length(arri32)
+    # @show i
     @showtest arri32[i] == if i==1 0 elseif i<=(L8+1) 1 else i end
 end
 
-const arrf64 = Float64[i for i in 1:(4*L4)]
+const arrf64 = valloc(Float64, L4, 4*L4) do i i end
 for i in 1:length(arrf64)-(L4-1)
+    # @show i
     @showtest vload(V4F64, arrf64, i) === V4F64(ntuple(j->i+j-1, L4))
 end
 for i in 1:4:length(arrf64)-(L4-1)
+    # @show i
     @showtest vloada(V4F64, arrf64, i) === V4F64(ntuple(j->i+j-1, L4))
 end
 vstorea(V4F64(0), arrf64, 1)
 vstore(V4F64(1), arrf64, 2)
 for i in 1:length(arrf64)
+    # @show i
     @showtest arrf64[i] == if i==1 0 elseif i<=(L4+1) 1 else i end
 end
 
 info("Real-world examples")
 
-function vadd!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
+function vadd!{N,T}(xs::AbstractArray{T,1}, ys::AbstractArray{T,1},
+                    ::Type{Vec{N,T}})
     @assert length(ys) == length(xs)
     @assert length(xs) % N == 0
     @inbounds for i in 1:N:length(xs)
@@ -329,14 +338,14 @@ function vadd!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
     end
 end
 
-let xs = Float64[i for i in 1:(4*L4)],
-    ys = Float64[1 for i in 1:(4*L4)]
+let xs = valloc(Float64, L4, 4*L4) do i i end,
+    ys = valloc(Float64, L4, 4*L4) do i 1 end
     vadd!(xs, ys, V4F64)
     @showtest xs == Float64[i+1 for i in 1:(4*L4)]
     # @code_native vadd!(xs, ys, V4F64)
 end
 
-function vsum{N,T}(xs::Vector{T}, ::Type{Vec{N,T}})
+function vsum{N,T}(xs::AbstractArray{T,1}, ::Type{Vec{N,T}})
     @assert length(xs) % N == 0
     sv = Vec{N,T}(0)
     @inbounds for i in 1:N:length(xs)
@@ -346,13 +355,14 @@ function vsum{N,T}(xs::Vector{T}, ::Type{Vec{N,T}})
     sum(sv)
 end
 
-let xs = Float64[i for i in 1:(4*L4)]
+let xs = valloc(Float64, L4, 4*L4) do i i end
     s = vsum(xs, V4F64)
     @showtest s === (x->(x^2+x)/2)(Float64(4*L4))
     # @code_native vsum(xs, V4F64)
 end
 
-function vadd_masked!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
+function vadd_masked!{N,T}(xs::AbstractArray{T,1}, ys::AbstractArray{T,1},
+                           ::Type{Vec{N,T}})
     @assert length(ys) == length(xs)
     limit = length(xs) - (N-1)
     vlimit = Vec{N,Int}(let l=length(xs); (l:l+N-1...) end)
@@ -369,14 +379,14 @@ function vadd_masked!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
     end
 end
 
-let xs = Float64[i for i in 1:13],
-    ys = Float64[1 for i in 1:13]
+let xs = valloc(Float64, 4, 13) do i i end,
+    ys = valloc(Float64, 4, 13) do i 1 end
     vadd_masked!(xs, ys, V4F64)
     @showtest xs == Float64[i+1 for i in 1:13]
     # @code_native vadd!(xs, ys, V4F64)
 end
 
-function vsum_masked{N,T}(xs::Vector{T}, ::Type{Vec{N,T}})
+function vsum_masked{N,T}(xs::AbstractArray{T,1}, ::Type{Vec{N,T}})
     vlimit = Vec{N,Int}(let l=length(xs); (l:l+N-1...) end)
     sv = Vec{N,T}(0)
     @inbounds for i in 1:N:length(xs)
@@ -387,7 +397,7 @@ function vsum_masked{N,T}(xs::Vector{T}, ::Type{Vec{N,T}})
     sum(sv)
 end
 
-let xs = Float64[i for i in 1:13]
+let xs = valloc(Float64, 4, 13) do i i end
     s = vsum_masked(xs, V4F64)
     @showtest s === sum(xs)
     # @code_native vsum(xs, V4F64)
