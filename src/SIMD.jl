@@ -121,7 +121,8 @@ end
 (::Type{Vec}){N,T<:ScalarTypes}(xs::NTuple{N,T}) = Vec{N,T}(xs)
 
 # Convert between vectors
-@inline Base.convert{N,T}(::Type{Vec{N,T}}, v::Vec{N}) = Vec{N,T}(Tuple(v))
+@inline Base.convert{N,T1, T2}(::Type{Vec{N,T1}}, v::Vec{N, T2}) = Vec{N,T1}(Tuple(v))
+@inline Base.convert{N,T}(::Type{Vec{N,T}}, v::Vec{N, T}) = v
 @generated function Base. %{N,T}(v::Vec{N}, ::Type{Vec{N,T}})
     quote
         $(Expr(:meta, :inline))
