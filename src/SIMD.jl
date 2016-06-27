@@ -426,7 +426,7 @@ end
 # Element-wise access
 
 export setindex
-@generated function setindex{N,T,I}(v::Vec{N,T}, ::Type{Val{I}}, x::Number)
+@generated function setindex{N,T,I}(v::Vec{N,T}, x::Number, ::Type{Val{I}})
     @assert isa(I, Integer)
     1 <= I <= N || throw(BoundsError())
     typ = llvmtype(T)
@@ -443,7 +443,7 @@ export setindex
     end
 end
 
-@generated function setindex{N,T}(v::Vec{N,T}, i::Int, x::Number)
+@generated function setindex{N,T}(v::Vec{N,T}, x::Number, i::Int)
     typ = llvmtype(T)
     ityp = llvmtype(Int)
     vtyp = "<$N x $typ>"
@@ -459,10 +459,10 @@ end
             v.elts, i-1, T(x)))
     end
 end
-setindex{N,T}(v::Vec{N,T}, i::Integer, x::Number) = setindex(v, Int(i), x)
+setindex{N,T}(v::Vec{N,T}, x::Number, i) = setindex(v, Int(i), x)
 
 Base.getindex{N,T,I}(v::Vec{N,T}, ::Type{Val{I}}) = v.elts[I].value
-Base.getindex{N,T}(v::Vec{N,T}, i::Integer) = v.elts[i].value
+Base.getindex{N,T}(v::Vec{N,T}, i) = v.elts[i].value
 
 # Type conversion
 
