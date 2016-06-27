@@ -1210,7 +1210,7 @@ function valloc{T}(::Type{T}, N::Int, sz::Int)
     @assert mod(off, sizeof(T)) == 0
     off = fld(off, sizeof(T))
     @assert 0 <= off <= padding
-    res = sub(mem, off+1 : off+sz)
+    res = view(mem, off+1 : off+sz)
     addr2 = Int(pointer(res))
     @assert mod(addr2, N * sizeof(T)) == 0
     res
