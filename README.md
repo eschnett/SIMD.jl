@@ -57,7 +57,7 @@ ys1 = NTuple{4,Float32}(ys)
 y2 = ys[2]   # getindex
 
 # Update one element of a vector:
-ys = setindex(ys, 3, 5)   # cannot use ys[3] = 5
+ys = setindex(ys, 5, 3)   # cannot use ys[3] = 5
 ```
 
 ## Reduction operations

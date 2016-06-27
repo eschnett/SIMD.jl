@@ -60,27 +60,27 @@ info("Element-wise access")
 
 for i in 1:L8
     # @show i
-    @showtest Tuple(setindex(V8I32(v8i32), Val{i}, 9.0)) ===
+    @showtest Tuple(setindex(V8I32(v8i32), 9.0, Val{i})) ===
         ntuple(j->Int32(ifelse(j==i, 9, v8i32[j])), L8)
-    @showtest Tuple(setindex(V8I32(v8i32), i, 9.0)) ===
+    @showtest Tuple(setindex(V8I32(v8i32), 9.0, i)) ===
         ntuple(j->Int32(ifelse(j==i, 9, v8i32[j])), L8)
 
     @showtest V8I32(v8i32)[Val{i}] === v8i32[i]
     @showtest V8I32(v8i32)[i] === v8i32[i]
 end
-@test_throws BoundsError setindex(V8I32(v8i32), Val{0}, 0)
-@test_throws BoundsError setindex(V8I32(v8i32), Val{L8+1}, 0)
+@test_throws BoundsError setindex(V8I32(v8i32), 0, Val{0})
+@test_throws BoundsError setindex(V8I32(v8i32), 0, Val{L8+1})
 @test_throws BoundsError setindex(V8I32(v8i32), 0, 0)
-@test_throws BoundsError setindex(V8I32(v8i32), L8+1, 0)
+@test_throws BoundsError setindex(V8I32(v8i32), 0, L8+1)
 @test_throws BoundsError V8I32(v8i32)[Val{0}]
 @test_throws BoundsError V8I32(v8i32)[Val{L8+1}]
 @test_throws BoundsError V8I32(v8i32)[0]
 @test_throws BoundsError V8I32(v8i32)[L8+1]
 
 for i in 1:L4
-    @showtest Tuple(setindex(V4F64(v4f64), Val{i}, 9)) ===
+    @showtest Tuple(setindex(V4F64(v4f64), 9, Val{i})) ===
         ntuple(j->Float64(ifelse(j==i, 9.0, v4f64[j])), L4)
-    @showtest Tuple(setindex(V4F64(v4f64), i, 9)) ===
+    @showtest Tuple(setindex(V4F64(v4f64), 9, i)) ===
         ntuple(j->Float64(ifelse(j==i, 9.0, v4f64[j])), L4)
 
     @showtest V4F64(v4f64)[Val{i}] === v4f64[i]
