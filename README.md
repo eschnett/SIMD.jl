@@ -108,25 +108,23 @@ function +(x::Float64x4, y::Float64x4)
 end
 ```
 
-This code would work if Julia supported a datatype (here called `Float64x4`) that is internally represented as LLVM vector. Unfortunately, there is no such type, so that we need to employ a work-around.
+The Julia representation of the datatype `Float64x4` is slightly
+complex: It is an `NTuple{N,T}`, where the element type `T` is
+specially marked by being wrapped in the type `Base.VecElement`:
+`NTuple{4, Base.VecElement{Float64}}`. Julia implements a special rule
+that translates tuples with element type `Base.VecElement` into LLVM
+vectors. Other tuples are translated into LLVM arrays if all tuple
+elements have the same type, otherwise into LLVM structures.
 
-### Representing SIMD vectors as Julia tuples
+This representation has two drawbacks. First, it is rather tedious.
+Second, while we want to define arithmetic operations for SIMD
+vectors, we do not want to define arithmetic for Julia's tuple types
+-- if we defined additional methods for generic tuples, who knows what
+code would break as a result.
 
-Julia tuples (if all elements have the same type) are represented as LLVM arrays. LLVM arrays and vectors have similar representations, and it is straightforward to translate between them.
-
-Currently, the SIMD package represents vectors as tuples, declared as
+We thus define our own SIMD vector type `Vec{N,T}`:
 ```Julia
 immutable Vec{N,T} <: DenseArray{N,1}
     elts::NTuple{N,T}
 end
 ```
-
-### Possible alternative representations
-
-(Julia's optimizer used to be deficient, and the generated vector code was inefficient. With a recent patch to LLVM this seems to have been remedied, and this section is now mostly of historic interest.)
-
-I experimented with representing SIMD vectors as `bitstype` types in Julia. These become integers of the corresponding size in LLVM. For example, `Vec{4,Float32}` would become a 128-bit integer `i128` in LLVM.
-
-Since bitstypes are not parameteric in Julia (unlike `NTuple`), this is slightly inconvenient as one has to create the respective bitstypes as necessary, essentially simulating "generated type" (akin "generated functions"). Apart from this, LLVM has certain generation issues -- there are missed optimizations that lead to  convoluted code. (On x86-64, values are moved between vector and scalar registers, which is a very slow operation.)
-
-Another alternative would be to introduce a new, `NTuple`-like type to Julia that is translated to LLVM vectors instead of LLVM arrays. This would certainly be the cleanest approach from LLVM's perspective. Unfortunately, I do not know whether this would be feasible, or how much work this would be. I welcome feedback in this respect.
