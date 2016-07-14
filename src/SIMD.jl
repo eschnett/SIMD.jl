@@ -4,6 +4,9 @@ module SIMD
 
 # Various boolean types
 
+# Idea (from <Gaunard-simd.pdf>): Use Mask{N,T} instead of booleans
+# with different sizes
+
 abstract Boolean <: Integer
 
 for sz in (8, 16, 32, 64, 128)
