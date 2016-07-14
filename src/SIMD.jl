@@ -111,8 +111,7 @@ Base.size{N,T}(::Vec{N,T}, n::Integer) = (N,)[n]
 @generated function (::Type{Vec{N,T}}){N,T}(x::ScalarTypes)
     quote
         $(Expr(:meta, :inline))
-        # Vec{N,T}(tuple($([:(VE{T}(T(x))) for i in 1:N]...)))
-        Vec{N,T}((VE{T}(T(x)), VE{T}(T(x)), VE{T}(T(x)), VE{T}(T(x))))
+        Vec{N,T}(tuple($([:(VE{T}(T(x))) for i in 1:N]...)))
     end
 end
 (::Type{Vec{N,T}}){N,T<:ScalarTypes}(xs::Tuple{}) = error("illegal argument")
