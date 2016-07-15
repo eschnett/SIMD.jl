@@ -108,7 +108,7 @@ Base.size{N,T}(::Vec{N,T}, n::Integer) = (N,)[n]
 # Type conversion
 
 # Create vectors from scalars or tuples
-@generated function (::Type{Vec{N,T}}){N,T}(x::ScalarTypes)
+@generated function (::Type{Vec{N,T}}){N,T,S<:ScalarTypes}(x::S)
     quote
         $(Expr(:meta, :inline))
         Vec{N,T}(tuple($([:(VE{T}(T(x))) for i in 1:N]...)))
@@ -124,27 +124,24 @@ end
 (::Type{Vec}){N,T<:ScalarTypes}(xs::NTuple{N,T}) = Vec{N,T}(xs)
 
 # Convert between vectors
-@inline Base.convert{N,T}(::Type{Vec{N,T}}, v::Vec{N}) = Vec{N,T}(Tuple(v))
-@generated function Base. %{N,T}(v::Vec{N}, ::Type{Vec{N,T}})
+@inline Base.convert{N,T}(::Type{Vec{N,T}}, v::Vec{N,T}) = v
+@inline Base.convert{N,R,T}(::Type{Vec{N,R}}, v::Vec{N,T}) = Vec{N,R}(Tuple(v))
+@generated function Base. %{N,R,T}(v::Vec{N,T}, ::Type{Vec{N,R}})
     quote
         $(Expr(:meta, :inline))
-        Vec{N,T}(tuple($([:(v.elts[$i].value % T) for i in 1:N]...)))
+        Vec{N,R}(tuple($([:(v.elts[$i].value % R) for i in 1:N]...)))
     end
 end
 
 # Convert vectors to tuples
-@generated function Base.convert{N,T}(::Type{NTuple{N,T}}, v::Vec{N})
+@generated function Base.convert{N,R,T}(::Type{NTuple{N,R}}, v::Vec{N,T})
     quote
         $(Expr(:meta, :inline))
-        tuple($([:(T(v.elts[$i].value)) for i in 1:N]...))
+        tuple($([:(R(v.elts[$i].value)) for i in 1:N]...))
     end
 end
-@generated function Base.convert{N,T}(::Type{Tuple}, v::Vec{N,T})
-    quote
-        $(Expr(:meta, :inline))
-        tuple($([:(v.elts[$i].value) for i in 1:N]...))
-    end
-end
+@inline Base.convert{N,T}(::Type{Tuple}, v::Vec{N,T}) =
+    Base.convert(NTuple{N,T}, v)
 
 # Promotion rules
 
