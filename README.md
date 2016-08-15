@@ -43,7 +43,7 @@ The SIMD package provides the usual arithmetic and logical operations for SIMD v
 
 (Currently missing: `count_ones count_zeros exponent ldexp leading_ones leading_zeros significand trailing_ones trailing_zeros`, many trigonometric functions)
 
-(Also currently missing: Type conversions, reinterpretation that changes the vector size, vector shuffles, scatter/gather operations, masked load/store operations)
+(Also currently missing: Type conversions, reinterpretation that changes the vector size, scatter/gather operations, masked load/store operations)
 
 These operators and functions are always applied element-wise, i.e. they are applied to each element in parallel, yielding again a SIMD vector as result. This means that e.g. multiplying two vectors yields a vector, and comparing two vectors yields a vector of booleans. This behaviour might seem strange and slightly unusual, but corresponds to the machine instructions provided by the hardware. It is also what is usually needed to vectorize loops.
 
@@ -86,6 +86,32 @@ xs = vload(Vec{4,Float64}, arr, i)
 vstore(xs, arr, i)
 ```
 The `vload` call reads a vector of size 4 from the array, i.e. it reads `arr[i:i+3]`. Similarly, the `vstore` call writes the vector `xs` to the four array elements `arr[i:i+3]`.
+
+## Vector shuffles
+
+Vector shuffle is available through the `shufflevector` function.
+
+Example:
+```Julia
+a = Vec{4, Int32}((1,2,3,4))
+b = Vec{4, Int32}((5,6,7,8))
+mask = (2,3,4,5)
+shufflevector(a, b, Val{mask})
+Int32⟨3,4,5,6⟩
+```
+`a` and `b` must be of the same SIMD vector type. The result will be a
+SIMD vector with the same element type as `a` and `b` and the same
+length as the mask. The function must be specialized on the value of
+the mask, therefore the `Val{}` construction in the call.
+
+There is also a one operand version of the function:
+```Julia
+a = Vec{4, Int32}((1,2,3,4))
+mask = (0,3,1,2)
+shufflevector(a, Val{mask})
+Int32⟨1,4,2,3⟩
+```
+
 
 ## Representing SIMD vector types in Julia
 

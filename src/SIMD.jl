@@ -1403,4 +1403,48 @@ end
     vstore(v, arr, i, mask, Val{true})
 end
 
+# Vector shuffles
+
+export shufflevector
+@generated function shufflevector{N,T,I}(v1::Vec{N,T}, v2::Vec{N,T},
+                                         ::Type{Val{I}})
+    typ = llvmtype(T)
+    vtyp2 = vtyp1 = "<$N x $typ>"
+    M = length(I)
+    vtyp3 = "<$M x i32>"
+    vtypr = "<$M x $typ>"
+    mask = "<" * join(map(x->string("i32 ", x), I), ", ") * ">"
+    decls = []
+    instrs = []
+    push!(instrs, "%res = shufflevector $vtyp1 %0, $vtyp2 %1, $vtyp3 $mask")
+    push!(instrs, "ret $vtypr %res")
+    quote
+        $(Expr(:meta, :inline))
+        Vec{$M,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{$M,VE{T}},
+            Tuple{NTuple{N,VE{T}}, NTuple{N,VE{T}}},
+            v1.elts, v2.elts))
+    end
+end
+
+@generated function shufflevector{N,T,I}(v1::Vec{N,T}, ::Type{Val{I}})
+    typ = llvmtype(T)
+    vtyp2 = vtyp1 = "<$N x $typ>"
+    M = length(I)
+    vtyp3 = "<$M x i32>"
+    vtypr = "<$M x $typ>"
+    mask = "<" * join(map(x->string("i32 ", x), I), ", ") * ">"
+    decls = []
+    instrs = []
+    push!(instrs, "%res = shufflevector $vtyp1 %0, $vtyp2 undef, $vtyp3 $mask")
+    push!(instrs, "ret $vtypr %res")
+    quote
+        $(Expr(:meta, :inline))
+        Vec{$M,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{$M,VE{T}},
+            Tuple{NTuple{N,VE{T}}},
+            v1.elts))
+    end
+end
+
 end
