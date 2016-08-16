@@ -99,10 +99,13 @@ mask = (2,3,4,5)
 shufflevector(a, b, Val{mask})
 Int32⟨3,4,5,6⟩
 ```
-`a` and `b` must be of the same SIMD vector type. The result will be a
-SIMD vector with the same element type as `a` and `b` and the same
-length as the mask. The function must be specialized on the value of
-the mask, therefore the `Val{}` construction in the call.
+The mask specifies vector elements counted across `a` and `b`,
+starting at 0 to follow the LLVM convention. If you don't care about
+some of the values in the result vector, you can use the symbol
+`:undef`. `a` and `b` must be of the same SIMD vector type. The
+result will be a SIMD vector with the same element type as `a` and `b`
+and the same length as the mask. The function must be specialized on
+the value of the mask, therefore the `Val{}` construction in the call.
 
 There is also a one operand version of the function:
 ```Julia
@@ -111,7 +114,6 @@ mask = (0,3,1,2)
 shufflevector(a, Val{mask})
 Int32⟨1,4,2,3⟩
 ```
-
 
 ## Representing SIMD vector types in Julia
 
