@@ -372,3 +372,28 @@ let xs = valloc(Float64, 4, 13) do i i end
     @test s === sum(xs)
     # @code_native vsum(xs, V4F64)
 end
+
+info("Vector shuffles")
+
+for T in (Int8,UInt8,Int16,UInt16,Int32,UInt32,Int64,UInt64,Float32,Float64)
+    a = Vec{4,T}((1,2,3,4))
+    b = Vec{4,T}((5,6,7,8))
+    @test shufflevector(a, b, Val{(2,3,4,5)}) === Vec{4,T}((3,4,5,6))
+    @test shufflevector(a, b, Val{(1,7,5,5)}) === Vec{4,T}((2,8,6,6))
+    @test shufflevector(a, b, Val{0:3}) === a
+    @test shufflevector(a, b, Val{4:7}) === b
+    @test shufflevector(a, Val{(1,0,2,3)}) === Vec{4,T}((2,1,3,4))
+    @test shufflevector(a, b, Val{(0,1,4,5,2,3,6,7)}) === Vec{8,T}((1,2,5,6,3,4,7,8))
+    @test shufflevector(shufflevector(a, b, Val{(6,:undef,0,:undef)}), Val{(0,2)}) === Vec{2,T}((7,1))
+    @test isa(shufflevector(a, Val{(:undef,:undef,:undef,:undef)}), Vec{4,T})
+    c = Vec{8,T}((1:8...))
+    d = Vec{8,T}((9:16...))
+    @test shufflevector(c, d, Val{(0,1,8,15)}) === Vec{4,T}((1,2,9,16))
+    @test shufflevector(c, d, Val{1:2:15}) === Vec{8,T}((2:2:16...))
+end
+
+let
+    a = Vec{4,Bool}((true,false,true,false))
+    b = Vec{4,Bool}((false,false,true,true))
+    @test shufflevector(a, b, Val{(2,3,4,5)}) === Vec{4,Bool}((true,false,false,false))
+end
