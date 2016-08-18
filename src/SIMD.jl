@@ -1,58 +1,97 @@
 module SIMD
 
-#=
+# Various boolean types with different bit widths
 
-# Various boolean types
-
-# Idea (from <Gaunard-simd.pdf>): Use Mask{N,T} instead of booleans
-# with different sizes
+# See <https://github.com/stoklund/portable-simd/blob/master/portable-simd.md>
 
 abstract Boolean <: Integer
 
 for sz in (8, 16, 32, 64, 128)
+    Boolsz = Symbol(:Bool, sz)
     Intsz = Symbol(:Int, sz)
     UIntsz = Symbol(:UInt, sz)
-    Boolsz = Symbol(:Bool, sz)
+    Floatsz = Symbol(:Float, sz)
     @eval begin
+        export $Boolsz
         immutable $Boolsz <: Boolean
-            int::$UIntsz
-            $Boolsz(b::Bool) =
-                new(ifelse(b, typemax($UIntsz), typemin($UIntsz)))
+            int::$Intsz   # false: 0, true: -1
+            $Boolsz(b::Bool) = new(-b % $Intsz)
+            $Boolsz(b::Boolean) = new(b.int % $Intsz)
+            $Boolsz(i::Integer, ::Void) = new(i % $Intsz)
+            function $Boolsz(i::Integer)
+                i==0 || i==-1 || throw(InexactError())
+                new(i % $Intsz)
+            end
         end
         booltype(::Type{Val{$sz}}) = $Boolsz
         inttype(::Type{Val{$sz}}) = $Intsz
         uinttype(::Type{Val{$sz}}) = $UIntsz
+        floattype(::Type{Val{$sz}}) = $Floatsz
 
-        Base.convert(::Type{Bool}, b::$Boolsz) = b.int != 0
+        Base.show(io::IO, b::$Boolsz) = print(io, b.int)
+        Base.show(io::IO, ::Type{$Boolsz}) = print(io, $("Bool$sz"))
+        Base.print(io::IO, ::Type{$Boolsz}) = print(io, $("Bool$sz"))
 
-        Base. ~(b::$Boolsz) = $Boolsz(~b.int)
-        Base. !(b::$Boolsz) = ~b
-        Base. &(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int & b2.int)
-        Base. |(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int | b2.int)
-        Base.$(:$)(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int $ b2.int)
+        Base.convert(::Type{$Boolsz}, b::Bool) = $Boolsz(b)
+        Base.convert(::Type{$Boolsz}, b::Boolean) = $Boolsz(b)
+        Base.convert(::Type{$Boolsz}, i::Integer) = $Boolsz(i)
+        Base.:%(b::Bool, ::Type{$Boolsz}) = $Boolsz(b)
+        Base.:%(b::Boolean, ::Type{$Boolsz}) = $Boolsz(b)
+        Base.:%(i::Integer, ::Type{$Boolsz}) = $Boolsz(i, nothing)
+        Base.reinterpret{T}(::Type{T}, b::$Boolsz) = reinterpret(T, b.int)
+
+        Base.convert(::Type{Bool}, b::$Boolsz) = b.int < 0   # this is a choice
+        Base.:%(b::$Boolsz, ::Type{Bool}) = b.int < 0   # this is a choice
+        Base.reinterpret{T}(::Type{$Boolsz}, x::T) =
+            reinterpret(x, $Intsz) % $Boolsz
+
+        Base.promote_type(::Type{$Boolsz}, ::Type{Bool}) = $Boolsz
+        # Base.promote_type(::Type{$Boolsz}, ::Type{$Intsz}) = $Intsz
+        # Base.promote_type(::Type{$Boolsz}, ::Type{$UIntsz}) = $UIntsz
+
+        # These are unsafe but efficient
+        Base.:~(b::$Boolsz) = $Boolsz(~b.int)
+        Base.:!(b::$Boolsz) = ~b
+        Base.:&(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int & b2.int)
+        Base.:|(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int | b2.int)
+        Base.:$(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int $ b2.int)
 
         Base. ==(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int == b2.int)
-        Base. !=(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int != b2.int)
-        Base. <(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int < b2.int)
-        Base. <=(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int <= b2.int)
-        Base. >(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int > b2.int)
-        Base. >=(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int >= b2.int)
+        Base.isless(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int < b2.int)
     end
 end
-Base.convert(::Type{Bool}, b::Boolean) = error("impossible")
+
+for sz in (8, 16, 32, 64, 128)
+    Boolsz = Symbol(:Bool, sz)
+    Intsz = Symbol(:Int, sz)
+    UIntsz = Symbol(:UInt, sz)
+    for sz1 in (8, 16, 32, 64, 128)
+        Boolsz1 = Symbol(:Bool, sz1)
+        if sz1 < sz
+            @eval begin
+                Base.promote_type(::Type{$Boolsz1}, ::Type{$Boolsz}) = $Boolsz
+            end
+        end
+        @eval begin
+            Base.promote_type(::Type{$Boolsz1}, ::Type{$Intsz}) = $Intsz
+            Base.promote_type(::Type{$Boolsz1}, ::Type{$UIntsz}) = $UIntsz
+        end
+    end
+end
+
+Base.convert(::Type{Bool}, b::Boolean) = error("unreachable")
 Base.convert{I<:Integer}(::Type{I}, b::Boolean) = I(Bool(b))
 Base.convert{B<:Boolean}(::Type{B}, b::Boolean) = B(Bool(b))
-Base.convert{B<:Boolean}(::Type{B}, i::Integer) = B(i!=0)
+Base.convert{B<:Boolean}(::Type{B}, i::Integer) = B(i < 0)
 
 booltype{T}(::Type{T}) = booltype(Val{8*sizeof(T)})
 inttype{T}(::Type{T}) = inttype(Val{8*sizeof(T)})
 uinttype{T}(::Type{T}) = uinttype(Val{8*sizeof(T)})
-
-=#
+floattype{T}(::Type{T}) = floattype(Val{8*sizeof(T)})
 
 # The Julia SIMD vector type
 
-const BoolTypes = Union{Bool}
+const BoolTypes = Union{Bool, Bool8, Bool16, Bool32, Bool64, Bool128}
 const IntTypes = Union{Int8, Int16, Int32, Int64, Int128}
 const UIntTypes = Union{UInt8, UInt16, UInt32, UInt64, UInt128}
 const IntegerTypes = Union{BoolTypes, IntTypes, UIntTypes}
@@ -111,14 +150,14 @@ Base.size{N,T}(::Vec{N,T}, n::Integer) = (N,)[n]
 @generated function (::Type{Vec{N,T}}){N,T,S<:ScalarTypes}(x::S)
     quote
         $(Expr(:meta, :inline))
-        Vec{N,T}(tuple($([:(VE{T}(T(x))) for i in 1:N]...)))
+        Vec{N,T}(tuple($((:(VE{T}(T(x))) for i in 1:N)...)))
     end
 end
 (::Type{Vec{N,T}}){N,T<:ScalarTypes}(xs::Tuple{}) = error("illegal argument")
 @generated function (::Type{Vec{N,T}}){N,T,S<:ScalarTypes}(xs::NTuple{N,S})
     quote
         $(Expr(:meta, :inline))
-        Vec{N,T}(tuple($([:(VE{T}(T(xs[$i]))) for i in 1:N]...)))
+        Vec{N,T}(tuple($((:(VE{T}(T(xs[$i]))) for i in 1:N)...)))
     end
 end
 (::Type{Vec}){N,T<:ScalarTypes}(xs::NTuple{N,T}) = Vec{N,T}(xs)
@@ -126,10 +165,10 @@ end
 # Convert between vectors
 @inline Base.convert{N,T}(::Type{Vec{N,T}}, v::Vec{N,T}) = v
 @inline Base.convert{N,R,T}(::Type{Vec{N,R}}, v::Vec{N,T}) = Vec{N,R}(Tuple(v))
-@generated function Base. %{N,R,T}(v::Vec{N,T}, ::Type{Vec{N,R}})
+@generated function Base.:%{N,R,T}(v::Vec{N,T}, ::Type{Vec{N,R}})
     quote
         $(Expr(:meta, :inline))
-        Vec{N,R}(tuple($([:(v.elts[$i].value % R) for i in 1:N]...)))
+        Vec{N,R}(tuple($((:(v.elts[$i].value % R) for i in 1:N)...)))
     end
 end
 
@@ -137,7 +176,7 @@ end
 @generated function Base.convert{N,R,T}(::Type{NTuple{N,R}}, v::Vec{N,T})
     quote
         $(Expr(:meta, :inline))
-        tuple($([:(R(v.elts[$i].value)) for i in 1:N]...))
+        tuple($((:(R(v.elts[$i].value)) for i in 1:N)...))
     end
 end
 @inline Base.convert{N,T}(::Type{Tuple}, v::Vec{N,T}) =
@@ -153,54 +192,41 @@ Base.one{N,T}(::Type{Vec{N,T}}) = Vec{N,T}(one(T))
 
 # Floating point formats
 
-int_type(::Type{Float16}) = Int16
-int_type(::Type{Float32}) = Int32
-int_type(::Type{Float64}) = Int64
-# int_type(::Type{Float128}) = Int128
-# int_type(::Type{Float256}) = Int256
-
-uint_type(::Type{Float16}) = UInt16
-uint_type(::Type{Float32}) = UInt32
-uint_type(::Type{Float64}) = UInt64
-# uint_type(::Type{Float128}) = UInt128
-# uint_type(::Type{Float256}) = UInt256
-
+# TODO: Use Base.* for these
 significand_bits(::Type{Float16}) = 10
 significand_bits(::Type{Float32}) = 23
 significand_bits(::Type{Float64}) = 52
-# significand_bits(::Type{Float128}) = 112
-# significand_bits(::Type{Float256}) = 136
 
 exponent_bits{T<:FloatingTypes}(::Type{T}) =
     8*sizeof(T) - 1 - significand_bits(T)
 sign_bits{T<:FloatingTypes}(::Type{T}) = 1
 
 significand_mask{T<:FloatingTypes}(::Type{T}) =
-    uint_type(T)(uint_type(T)(1) << significand_bits(T) - 1)
+    uinttype(T)(uinttype(T)(1) << significand_bits(T) - 1)
 exponent_mask{T<:FloatingTypes}(::Type{T}) =
-    uint_type(T)(uint_type(T)(1) << exponent_bits(T) - 1) << significand_bits(T)
+    uinttype(T)(uinttype(T)(1) << exponent_bits(T) - 1) << significand_bits(T)
 sign_mask{T<:FloatingTypes}(::Type{T}) =
-    uint_type(T)(1) << (significand_bits(T) + exponent_bits(T))
+    uinttype(T)(1) << (significand_bits(T) + exponent_bits(T))
 
 for T in (Float16, Float32, Float64)
-    @assert sizeof(int_type(T)) == sizeof(T)
-    @assert sizeof(uint_type(T)) == sizeof(T)
+    @assert sizeof(inttype(T)) == sizeof(T)
+    @assert sizeof(uinttype(T)) == sizeof(T)
     @assert significand_bits(T) + exponent_bits(T) + sign_bits(T) == 8*sizeof(T)
     @assert significand_mask(T) | exponent_mask(T) | sign_mask(T) ==
-        typemax(uint_type(T))
+        typemax(uinttype(T))
     @assert significand_mask(T) $ exponent_mask(T) $ sign_mask(T) ==
-        typemax(uint_type(T))
+        typemax(uinttype(T))
 end
 
 # Convert Julia types to LLVM types
 
 llvmtype(::Type{Bool}) = "i8"   # Julia represents Tuple{Bool} as [1 x i8]
 
-# llvmtype(::Type{Bool8}) = "i8"
-# llvmtype(::Type{Bool16}) = "i16"
-# llvmtype(::Type{Bool32}) = "i32"
-# llvmtype(::Type{Bool64}) = "i64"
-# llvmtype(::Type{Bool128}) = "i128"
+llvmtype(::Type{Bool8}) = "i8"
+llvmtype(::Type{Bool16}) = "i16"
+llvmtype(::Type{Bool32}) = "i32"
+llvmtype(::Type{Bool64}) = "i64"
+llvmtype(::Type{Bool128}) = "i128"
 
 llvmtype(::Type{Int8}) = "i8"
 llvmtype(::Type{Int16}) = "i16"
@@ -522,23 +548,32 @@ end
 end
 
 # Functions taking one Bool argument
-@generated function llvmwrap{Op,N}(::Type{Val{Op}}, v1::Vec{N,Bool},
+@generated function llvmwrap{Op,N,B<:BoolTypes}(::Type{Val{Op}}, v1::Vec{N,B},
         ::Type{Bool} = Bool)
     @assert isa(Op, Symbol)
-    btyp = llvmtype(Bool)
+    btyp = llvmtype(B)
     vbtyp = "<$N x $btyp>"
     ins = llvmins(Val{Op}, N, Bool)
     decls = []
     instrs = []
-    push!(instrs, "%arg1 = trunc $vbtyp %0 to <$N x i1>")
+    if B === Bool
+        # Julia uses this condition; we could also use "icmp ne 0" instead
+        push!(instrs, "%arg1 = trunc $vbtyp %0 to <$N x i1>")
+    else
+        push!(instrs, "%arg1 = icmp lt %0, zeroinitializer")
+    end
     otherarg = llvmconst(N, Bool, true)
     push!(instrs, "%res = $ins <$N x i1> $otherarg, %arg1")
-    push!(instrs, "%resb = zext <$N x i1> %res to $vbtyp")
+    if B === Bool
+        push!(instrs, "%resb = zext <$N x i1> %res to $vbtyp")
+    else
+        push!(instrs, "%resb = sext <$N x i1> %res to $vbtyp")
+    end
     push!(instrs, "ret $vbtyp %resb")
     quote
         $(Expr(:meta, :inline))
-        Vec{N,Bool}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-            NTuple{N,VE{Bool}}, Tuple{NTuple{N,VE{Bool}}}, v1.elts))
+        Vec{N,B}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{N,VE{B}}, Tuple{NTuple{N,VE{B}}}, v1.elts))
     end
 end
 
@@ -571,7 +606,7 @@ end
 end
 
 # Functions taking two arguments, returning Bool
-@generated function llvmwrap{Op,N,T1,T2}(::Type{Val{Op}}, v1::Vec{N,T1},
+@generated function llvmwrapb{Op,N,T1,T2}(::Type{Val{Op}}, v1::Vec{N,T1},
         v2::Vec{N,T2}, ::Type{Bool})
     @assert isa(Op, Symbol)
     btyp = llvmtype(Bool)
@@ -602,6 +637,32 @@ end
         $(Expr(:meta, :inline))
         Vec{N,Bool}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
             NTuple{N,VE{Bool}}, Tuple{NTuple{N,VE{T1}}, NTuple{N,VE{T2}}},
+            v1.elts, v2.elts))
+    end
+end
+
+# Functions taking two arguments, returning a Boolean
+@generated function llvmwrap{Op,N,T1,T2}(::Type{Val{Op}}, v1::Vec{N,T1},
+        v2::Vec{N,T2}, ::Type{Bool})
+    @assert isa(Op, Symbol)
+    B = booltype(T1)
+    I = inttype(T1)
+    btyp = llvmtype(B)
+    vbtyp = "<$N x $btyp>"
+    typ1 = llvmtype(T1)
+    vtyp1 = "<$N x $typ1>"
+    typ2 = llvmtype(T2)
+    vtyp2 = "<$N x $typ2>"
+    ins = llvmins(Val{Op}, N, T1)
+    decls = []
+    instrs = []
+    push!(instrs, "%res = $ins $vtyp1 %0, %1")
+    push!(instrs, "%resb = sext <$N x i1> %res to $vbtyp")
+    push!(instrs, "ret $vbtyp %resb")
+    quote
+        $(Expr(:meta, :inline))
+        Vec{N,$B}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{N,VE{$B}}, Tuple{NTuple{N,VE{T1}}, NTuple{N,VE{T2}}},
             v1.elts, v2.elts))
     end
 end
@@ -637,23 +698,32 @@ end
 # end
 
 # Functions taking two Bool arguments, returning Bool
-@generated function llvmwrap{Op,N}(::Type{Val{Op}}, v1::Vec{N,Bool},
-        v2::Vec{N,Bool}, ::Type{Bool} = Bool)
+@generated function llvmwrap{Op,N,B<:BoolTypes}(::Type{Val{Op}}, v1::Vec{N,B},
+        v2::Vec{N,B}, ::Type{Bool} = Bool)
     @assert isa(Op, Symbol)
-    btyp = llvmtype(Bool)
+    btyp = llvmtype(B)
     vbtyp = "<$N x $btyp>"
     ins = llvmins(Val{Op}, N, Bool)
     decls = []
     instrs = []
-    push!(instrs, "%arg1 = trunc $vbtyp %0 to <$N x i1>")
-    push!(instrs, "%arg2 = trunc $vbtyp %1 to <$N x i1>")
+    if B === Bool
+        push!(instrs, "%arg1 = trunc $vbtyp %0 to <$N x i1>")
+        push!(instrs, "%arg2 = trunc $vbtyp %1 to <$N x i1>")
+    else
+        push!(instrs, "%arg1 = icmp lt $vbtyp %0, zeroinitializer")
+        push!(instrs, "%arg2 = icmp lt $vbtyp %1, zeroinitializer")
+    end
     push!(instrs, "%res = $ins <$N x i1> %arg1, %arg2")
-    push!(instrs, "%resb = zext <$N x i1> %res to $vbtyp")
+    if B === Bool
+        push!(instrs, "%resb = zext <$N x i1> %res to $vbtyp")
+    else
+        push!(instrs, "%resb = sext <$N x i1> %res to $vbtyp")
+    end
     push!(instrs, "ret $vbtyp %resb")
     quote
         $(Expr(:meta, :inline))
-        Vec{N,Bool}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-            NTuple{N,VE{Bool}}, Tuple{NTuple{N,VE{Bool}}, NTuple{N,VE{Bool}}},
+        Vec{N,$B}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{N,VE{$B}}, Tuple{NTuple{N,VE{$B}}, NTuple{N,VE{$B}}},
             v1.elts, v2.elts))
     end
 end
@@ -847,7 +917,7 @@ for op in (:(==), :(!=), :(<), :(<=), :(>), :(>=))
     end
 end
 @inline function Base.isfinite{N,T<:FloatingTypes}(v1::Vec{N,T})
-    U = uint_type(T)
+    U = uinttype(T)
     em = Vec{N,U}(exponent_mask(T))
     iv = reinterpret(Vec{N,U}, v1)
     iv & em != em
@@ -855,47 +925,42 @@ end
 @inline Base.isinf{N,T<:FloatingTypes}(v1::Vec{N,T}) = abs(v1) == Vec{N,T}(Inf)
 @inline Base.isnan{N,T<:FloatingTypes}(v1::Vec{N,T}) = v1 != v1
 @inline function Base.issubnormal{N,T<:FloatingTypes}(v1::Vec{N,T})
-    U = uint_type(T)
+    U = uinttype(T)
     em = Vec{N,U}(exponent_mask(T))
     sm = Vec{N,U}(significand_mask(T))
     iv = reinterpret(Vec{N,U}, v1)
     (iv & em == Vec{N,U}(0)) & (iv & sm != Vec{N,U}(0))
 end
 @inline function Base.signbit{N,T<:FloatingTypes}(v1::Vec{N,T})
-    U = uint_type(T)
+    U = uinttype(T)
     sm = Vec{N,U}(sign_mask(T))
     iv = reinterpret(Vec{N,U}, v1)
     iv & sm != Vec{N,U}(0)
 end
 
-@generated function Base.ifelse{N,T}(v1::Vec{N,Bool}, v2::Vec{N,T},
+@generated function Base.ifelse{N,B<:BoolTypes,T}(v1::Vec{N,B}, v2::Vec{N,T},
         v3::Vec{N,T})
-    btyp = llvmtype(Bool)
+    btyp = llvmtype(B)
     vbtyp = "<$N x $btyp>"
-    abtyp = "[$N x $btyp]"
     typ = llvmtype(T)
     vtyp = "<$N x $typ>"
-    atyp = "[$N x $typ]"
     decls = []
     instrs = []
-    if false && N == 1
-        append!(instrs, array2vector("%arg1", N, btyp, "%0", "%arg1arr"))
-        append!(instrs, array2vector("%arg2", N, typ, "%1", "%arg2arr"))
-        append!(instrs, array2vector("%arg3", N, typ, "%2", "%arg3arr"))
-        push!(instrs, "%cond = trunc $vbtyp %arg1 to <$N x i1>")
-        push!(instrs, "%res = select <$N x i1> %cond, $vtyp %arg2, $vtyp %arg3")
-        append!(instrs, vector2array("%resarr", N, typ, "%res"))
-        push!(instrs, "ret $atyp %resarr")
-    else
+    if B === Bool
+        # Julia uses this condition; we could also use "icmp ne 0" instead
         push!(instrs, "%cond = trunc $vbtyp %0 to <$N x i1>")
-        push!(instrs, "%res = select <$N x i1> %cond, $vtyp %1, $vtyp %2")
-        push!(instrs, "ret $vtyp %res")
+    else
+        # push!(instrs, "%cond1 = ashr $vbtyp %0, $(8*sizeof(B)-1)")
+        # push!(instrs, "%cond = trunc $vbtyp %cond1 to <$N x i1>")
+        push!(instrs, "%cond = icmp lt %0, zeroinitializer")
     end
+    push!(instrs, "%res = select <$N x i1> %cond, $vtyp %1, $vtyp %2")
+    push!(instrs, "ret $vtyp %res")
     quote
         $(Expr(:meta, :inline))
         Vec{N,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
             NTuple{N,VE{T}},
-            Tuple{NTuple{N,VE{Bool}}, NTuple{N,VE{T}}, NTuple{N,VE{T}}},
+            Tuple{NTuple{N,VE{B}}, NTuple{N,VE{T}}, NTuple{N,VE{T}}},
             v1.elts, v2.elts, v3.elts))
     end
 end
@@ -908,7 +973,11 @@ for op in (:~, :+, :-)
             llvmwrap(Val{$(QuoteNode(op))}, v1)
     end
 end
-@inline Base. !{N}(v1::Vec{N,Bool}) = ~v1
+# @inline Base.:!{N,B<:BoolTypes}(v1::Vec{N,B}) = ~v1
+@inline function Base.:!{N,B<:BoolTypes}(v1::Vec{N,B})
+    I = inttype(B)
+    reinterpret(Vec{N,B}, ~reinterpret(Vec{N,I}, v1))
+end
 @inline function Base.abs{N,T<:IntTypes}(v1::Vec{N,T})
     # s = -Vec{N,T}(signbit(v1))
     s = v1 >> Val{8*sizeof(T)}
@@ -994,7 +1063,7 @@ for op in (:+, :-, :*, :/, :^, :copysign, :max, :min, :rem)
             llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
     end
 end
-@inline Base. ^{N,T<:FloatingTypes}(v1::Vec{N,T}, x2::Integer) =
+@inline Base.:^{N,T<:FloatingTypes}(v1::Vec{N,T}, x2::Integer) =
     llvmwrap(Val{:powi}, v1, Int(x2))
 @inline Base.flipsign{N,T<:FloatingTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
     ifelse(signbit(v2), -v1, v1)
@@ -1197,6 +1266,88 @@ end
 @inline Base.maximum{N,T<:IntegerTypes}(v::Vec{N,T}) = reduce(Val{:max}, v)
 @inline Base.minimum{N,T<:IntegerTypes}(v::Vec{N,T}) = reduce(Val{:min}, v)
 
+# Trigonometric functions and friends
+
+# @inline function Base.FastMath.exp2_fast{N,T<:FloatingTypes}(x0::Vec{N,T})
+#     # Rescale
+#     ix = round(x0)
+#     x = x0 - ix
+# 
+#     # Polynomial expansion
+#     if T === Float32
+#         # Float32, error=1.62772721960621336664735896836e-7
+#         r = Vec{N,T}(0.00133952915439234389712105060319)
+#         r = muladd(r, x, Vec{N,T}(0.009670773148229417605024318985))
+#         r = muladd(r, x, Vec{N,T}(0.055503406540531310853149866446))
+#         r = muladd(r, x, Vec{N,T}(0.240222115700585316818177639177))
+#         r = muladd(r, x, Vec{N,T}(0.69314720007380208630542805293))
+#         r = muladd(r, x, Vec{N,T}(1.00000005230745711373079206024))
+#     elseif T === Float64
+#         # Float64, error=3.74939899823302048807873981077e-14
+#         r = Vec{N,T}(1.02072375599725694063203809188e-7)
+#         r = muladd(r, x, Vec{N,T}(1.32573274434801314145133004073e-6))
+#         r = muladd(r, x, Vec{N,T}(0.0000152526647170731944840736190013))
+#         r = muladd(r, x, Vec{N,T}(0.000154034441925859828261898614555))
+#         r = muladd(r, x, Vec{N,T}(0.00133335582175770747495287552557))
+#         r = muladd(r, x, Vec{N,T}(0.0096181291794939392517233403183))
+#         r = muladd(r, x, Vec{N,T}(0.055504108664525029438908798685))
+#         r = muladd(r, x, Vec{N,T}(0.240226506957026959772247598695))
+#         r = muladd(r, x, Vec{N,T}(0.6931471805599487321347668143))
+#         r = muladd(r, x, Vec{N,T}(1.00000000000000942892870993489))
+#     else
+#         @assert false
+#     end
+# 
+#     # Undo rescaling
+#     IT = inttype(T)
+#     r = ldexp(r, IT(ix))
+# 
+#     # Handle small inputs that would lead to denormal results
+#     r = ifelse(x < Vec{N,T}(1 - Base.exponent_bias(T)), Vec{N,T}(0), r)
+# 
+#     r
+# end
+
+# Vector shuffles
+
+function shufflevector_instrs(N, T, I, two_operands)
+    typ = llvmtype(T)
+    vtyp2 = vtyp1 = "<$N x $typ>"
+    M = length(I)
+    vtyp3 = "<$M x i32>"
+    vtypr = "<$M x $typ>"
+    mask = "<" * join(map(x->string("i32 ", x), I), ", ") * ">"
+    instrs = []
+    v2 = two_operands ? "%1" : "undef"
+    push!(instrs, "%res = shufflevector $vtyp1 %0, $vtyp2 $v2, $vtyp3 $mask")
+    push!(instrs, "ret $vtypr %res")
+    return M, [], instrs
+end
+
+export shufflevector
+@generated function shufflevector{N,T,I}(v1::Vec{N,T}, v2::Vec{N,T},
+                                         ::Type{Val{I}})
+    M, decls, instrs = shufflevector_instrs(N, T, I, true)
+    quote
+        $(Expr(:meta, :inline))
+        Vec{$M,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{$M,VE{T}},
+            Tuple{NTuple{N,VE{T}}, NTuple{N,VE{T}}},
+            v1.elts, v2.elts))
+    end
+end
+
+@generated function shufflevector{N,T,I}(v1::Vec{N,T}, ::Type{Val{I}})
+    M, decls, instrs = shufflevector_instrs(N, T, I, false)
+    quote
+        $(Expr(:meta, :inline))
+        Vec{$M,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{$M,VE{T}},
+            Tuple{NTuple{N,VE{T}}},
+            v1.elts))
+    end
+end
+
 # Load and store functions
 
 export valloc
@@ -1266,6 +1417,7 @@ end
     vload(Vec{N,T}, arr, i, Val{true})
 end
 
+# TODO: Boolean
 @generated function vload{N,T,Aligned}(::Type{Vec{N,T}}, ptr::Ptr{T},
                                        mask::Vec{N,Bool},
                                        ::Type{Val{Aligned}} = Val{false})
@@ -1354,6 +1506,7 @@ end
     vstore(v, arr, i, Val{true})
 end
 
+# TODO: Boolean
 @generated function vstore{N,T,Aligned}(v::Vec{N,T}, ptr::Ptr{T},
                                         mask::Vec{N,Bool},
                                         ::Type{Val{Aligned}} = Val{false})
@@ -1401,46 +1554,6 @@ end
                               arr::Union{Array{T,1},SubArray{T,1}},
                               i::Integer, mask::Vec{N,Bool})
     vstore(v, arr, i, mask, Val{true})
-end
-
-# Vector shuffles
-
-function shufflevector_instrs(N, T, I, two_operands)
-    typ = llvmtype(T)
-    vtyp2 = vtyp1 = "<$N x $typ>"
-    M = length(I)
-    vtyp3 = "<$M x i32>"
-    vtypr = "<$M x $typ>"
-    mask = "<" * join(map(x->string("i32 ", x), I), ", ") * ">"
-    instrs = []
-    v2 = two_operands ? "%1" : "undef"
-    push!(instrs, "%res = shufflevector $vtyp1 %0, $vtyp2 $v2, $vtyp3 $mask")
-    push!(instrs, "ret $vtypr %res")
-    return M, [], instrs
-end
-
-export shufflevector
-@generated function shufflevector{N,T,I}(v1::Vec{N,T}, v2::Vec{N,T},
-                                         ::Type{Val{I}})
-    M, decls, instrs = shufflevector_instrs(N, T, I, true)
-    quote
-        $(Expr(:meta, :inline))
-        Vec{$M,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-            NTuple{$M,VE{T}},
-            Tuple{NTuple{N,VE{T}}, NTuple{N,VE{T}}},
-            v1.elts, v2.elts))
-    end
-end
-
-@generated function shufflevector{N,T,I}(v1::Vec{N,T}, ::Type{Val{I}})
-    M, decls, instrs = shufflevector_instrs(N, T, I, false)
-    quote
-        $(Expr(:meta, :inline))
-        Vec{$M,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-            NTuple{$M,VE{T}},
-            Tuple{NTuple{N,VE{T}}},
-            v1.elts))
-    end
 end
 
 end

@@ -156,3 +156,17 @@ immutable Vec{N,T} <: DenseArray{N,1}
     elts::NTuple{N,T}
 end
 ```
+
+### Booleans
+
+Vectors of Booleans are currently handled inefficiently by LLVM. A
+work-around is described e.g. at
+[https://github.com/stoklund/portable-simd/blob/master/portable-simd.md](https://github.com/stoklund/portable-simd/blob/master/portable-simd.md).
+This consists of defining several boolean types, each with a different
+number of bits, such as `Bool8`, `Bool16`, `Bool32`, and `Bool64`.
+Operations acting on vectors with `n`-bit elements yield `n`-bit
+booleans. The internal representation of these booleans should
+probably be machine-specific for best performance. It could possibly
+follow the OpenCL convention where `0` is false and `-1` is true,
+although this convention does not define how other integer values are
+interpreted.

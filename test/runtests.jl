@@ -12,11 +12,15 @@ const L8 = nbytes÷4
 const L4 = nbytes÷8
 
 typealias V8I32 Vec{L8,Int32}
+typealias V8B32 Vec{L8,Bool32}
+typealias V8B Vec{L8,Bool}
 typealias V4F64 Vec{L4,Float64}
 
 info("Type properties")
 
 @test eltype(V8I32) === Int32
+@test eltype(V8B32) === Bool32
+@test eltype(V8B) === Bool
 @test eltype(V4F64) === Float64
 @test length(V8I32) == L8
 @test length(V4F64) == L4
@@ -30,14 +34,37 @@ info("Type properties")
 info("Type conversion")
 
 const v8i32 = ntuple(i->Int32(ifelse(isodd(i), i, -i)), L8)
+const v8b32 = ntuple(i->Bool32(ifelse(isodd(i), true, false)), L8)
+const v8b = ntuple(i->Bool(ifelse(isodd(i), true, false)), L8)
 const v4f64 = ntuple(i->Float64(ifelse(isodd(i), i, -i)), L4)
 
 @test string(V8I32(v8i32)) == "Int32⟨" * string(v8i32)[2:end-1] * "⟩"
+@test string(V8B32(v8b32)) == "Bool32⟨" * string(v8b32)[2:end-1] * "⟩"
+@test string(V8B(v8b)) == "Bool⟨" * string(v8b)[2:end-1] * "⟩"
 @test string(V4F64(v4f64)) == "Float64⟨" * string(v4f64)[2:end-1] * "⟩"
 
 @test convert(V8I32, V8I32(v8i32)) === V8I32(v8i32)
 @test convert(Vec{L8,Int64}, V8I32(v8i32)) ===
+    Vec{L8,Int64}(convert(NTuple{L8,Int64}, v8i32))
+@test_throws InexactError convert(Vec{L8,Bool32}, V8I32(v8i32))
+@test_throws InexactError convert(Vec{L8,Bool}, V8I32(v8i32))
+@test convert(Vec{L8,Float32}, V8I32(v8i32)) ===
+    Vec{L8,Float32}(convert(NTuple{L8,Float32}, v8i32))
+@test convert(Vec{L8,Bool}, V8B32(v8b32)) ===
+    Vec{L8,Bool}(convert(NTuple{L8,Bool}, v8b32))
+@test convert(Vec{L8,Bool32}, V8B(v8b)) ===
+    Vec{L8,Bool32}(convert(NTuple{L8,Bool32}, v8b))
+
+@test V8I32(v8i32) % V8I32 === V8I32(v8i32)
+@test V8I32(v8i32) % Vec{L8,Int64} ===
     Vec{L8, Int64}(convert(NTuple{L8,Int64}, v8i32))
+@test V8I32(v8i32) % Vec{L8,Bool32} ===
+    Vec{L8,Bool32}(map(x -> x % Bool32, v8i32))
+@test V8I32(v8i32) % Vec{L8,Bool} ===
+    Vec{L8,Bool}(map(x -> x % Bool, v8i32))
+@test V8B32(v8b32) % Vec{L8,Bool} ===
+    Vec{L8,Bool}(map(x -> x % Bool, v8b32))
+@test V8B(v8b) % Vec{L8,Bool32}  === Vec{L8,Bool32}(map(x -> x % Bool32, v8b))
 
 @test NTuple{L8,Int32}(V8I32(v8i32)) === v8i32
 @test NTuple{L4,Float64}(V4F64(v4f64)) === v4f64
@@ -87,7 +114,17 @@ const v8i32b = map(x->Int32(x+1), v8i32)
 const v8i32c = map(x->Int32(x*2), v8i32)
 
 notbool(x) = !(x>=typeof(x)(0))
+@show v8i32
+@show V8I32(v8i32)
+@show V8I32(v8i32) >= V8I32(0)
+@show notbool(V8I32(v8i32))
 for op in (~, +, -, abs, notbool, sign, signbit)
+    @show op
+    @show v8i32
+    @show V8I32(v8i32)
+    @show V8I32(v8i32) >= V8I32(0)
+    @show op(V8I32(v8i32))
+    @show Tuple(op(V8I32(v8i32)))
     @test Tuple(op(V8I32(v8i32))) === map(op, v8i32)
 end
 
