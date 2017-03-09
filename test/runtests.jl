@@ -11,8 +11,8 @@ const nbytes = 32
 const L8 = nbytes÷4
 const L4 = nbytes÷8
 
-typealias V8I32 Vec{L8,Int32}
-typealias V4F64 Vec{L4,Float64}
+const V8I32 = Vec{L8,Int32}
+const V4F64 = Vec{L4,Float64}
 
 info("Type properties")
 

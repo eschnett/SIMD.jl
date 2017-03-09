@@ -1,4 +1,5 @@
 module SIMD
+import Compat: ⊻
 
 #=
 
@@ -59,19 +60,22 @@ const IntegerTypes = Union{BoolTypes, IntTypes, UIntTypes}
 const FloatingTypes = Union{Float16, Float32, Float64}
 const ScalarTypes = Union{IntegerTypes, FloatingTypes}
 
-typealias VE Base.VecElement
+const VE = Base.VecElement
 
 export Vec
 immutable Vec{N,T<:ScalarTypes} <: DenseArray{T,1}   # <: Number
     elts::NTuple{N,VE{T}}
-    @inline Vec() = new()
-    @inline Vec(elts::NTuple{N,VE{T}}) = new(elts)
+    @inline (::Type{Vec{N,T}}){N,T}(elts::NTuple{N, VE{T}}) = new{N,T}(elts)
 end
 
 function Base.show{N,T}(io::IO, v::Vec{N,T})
     print(io, T, "⟨")
     for i in 1:N
-        i>1 && print(io, ",")
+        @static if VERSION < v"0.6-"
+            i>1 && print(io, ",")
+        else
+            i>1 && print(io, ", ")
+        end
         print(io, v.elts[i].value)
     end
     print(io, "⟩")
@@ -188,7 +192,7 @@ for T in (Float16, Float32, Float64)
     @assert significand_bits(T) + exponent_bits(T) + sign_bits(T) == 8*sizeof(T)
     @assert significand_mask(T) | exponent_mask(T) | sign_mask(T) ==
         typemax(uint_type(T))
-    @assert significand_mask(T) $ exponent_mask(T) $ sign_mask(T) ==
+    @assert significand_mask(T) ⊻ exponent_mask(T) ⊻ sign_mask(T) ==
         typemax(uint_type(T))
 end
 
