@@ -1234,6 +1234,7 @@ export vload, vloada
                                        ::Type{Val{Aligned}} = Val{false})
     @assert isa(Aligned, Bool)
     typ = llvmtype(T)
+    ptrtyp = llvmtype(UInt)
     vtyp = "<$N x $typ>"
     decls = []
     instrs = []
@@ -1246,13 +1247,13 @@ export vload, vloada
     if align > 0
         push!(flags, "align $align")
     end
-    push!(instrs, "%ptr = bitcast $typ* %0 to $vtyp*")
+    push!(instrs, "%ptr = inttoptr $ptrtyp %0 to $vtyp*")
     push!(instrs, "%res = load $vtyp, $vtyp* %ptr" * join(flags, ", "))
     push!(instrs, "ret $vtyp %res")
     quote
         $(Expr(:meta, :inline))
         Vec{N,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-            NTuple{N,VE{T}}, Tuple{Ptr{T}}, ptr))
+                               NTuple{N,VE{T}}, Tuple{UInt}, UInt(ptr)))
     end
 end
 
@@ -1277,6 +1278,7 @@ end
                                        ::Type{Val{Aligned}} = Val{false})
     @assert isa(Aligned, Bool)
     typ = llvmtype(T)
+    ptrtyp = llvmtype(UInt)
     vtyp = "<$N x $typ>"
     btyp = llvmtype(Bool)
     vbtyp = "<$N x $btyp>"
@@ -1287,7 +1289,7 @@ end
     else
         align = sizeof(T)   # This is overly optimistic
     end
-    push!(instrs, "%ptr = bitcast $typ* %0 to $vtyp*")
+    push!(instrs, "%ptr = inttoptr $ptrtyp %0 to $vtyp*")
     push!(instrs, "%mask = trunc $vbtyp %1 to <$N x i1>")
     push!(decls,
         "declare $vtyp @llvm.masked.load.$(suffix(N,T))($vtyp*, i32, " *
@@ -1299,7 +1301,7 @@ end
     quote
         $(Expr(:meta, :inline))
         Vec{N,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-            NTuple{N,VE{T}}, Tuple{Ptr{T}, NTuple{N,VE{Bool}}}, ptr, mask.elts))
+                               NTuple{N,VE{T}}, Tuple{UInt, NTuple{N,VE{Bool}}}, UInt(ptr), mask.elts))
     end
 end
 
@@ -1324,6 +1326,7 @@ export vstore, vstorea
                                         ::Type{Val{Aligned}} = Val{false})
     @assert isa(Aligned, Bool)
     typ = llvmtype(T)
+    ptrtyp = llvmtype(UInt)
     vtyp = "<$N x $typ>"
     decls = []
     instrs = []
@@ -1336,13 +1339,13 @@ export vstore, vstorea
     if align > 0
         push!(flags, "align $align")
     end
-    push!(instrs, "%ptr = bitcast $typ* %1 to $vtyp*")
+    push!(instrs, "%ptr = inttoptr $ptrtyp %1 to $vtyp*")
     push!(instrs, "store $vtyp %0, $vtyp* %ptr" * join(flags, ", "))
     push!(instrs, "ret void")
     quote
         $(Expr(:meta, :inline))
         Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-            Void, Tuple{NTuple{N,VE{T}}, Ptr{T}}, v.elts, ptr)
+                      Void, Tuple{NTuple{N,VE{T}}, UInt}, v.elts, UInt(ptr))
     end
 end
 
@@ -1365,6 +1368,7 @@ end
                                         ::Type{Val{Aligned}} = Val{false})
     @assert isa(Aligned, Bool)
     typ = llvmtype(T)
+    ptrtyp = llvmtype(UInt)
     vtyp = "<$N x $typ>"
     btyp = llvmtype(Bool)
     vbtyp = "<$N x $btyp>"
@@ -1375,7 +1379,7 @@ end
     else
         align = sizeof(T)   # This is overly optimistic
     end
-    push!(instrs, "%ptr = bitcast $typ* %1 to $vtyp*")
+    push!(instrs, "%ptr = inttoptr $ptrtyp %1 to $vtyp*")
     push!(instrs, "%mask = trunc $vbtyp %2 to <$N x i1>")
     push!(decls,
         "declare void @llvm.masked.store.$(suffix(N,T))($vtyp, $vtyp*, i32, " *
@@ -1387,8 +1391,8 @@ end
     quote
         $(Expr(:meta, :inline))
         Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
-            Void, Tuple{NTuple{N,VE{T}}, Ptr{T}, NTuple{N,VE{Bool}}},
-            v.elts, ptr, mask.elts)
+            Void, Tuple{NTuple{N,VE{T}}, UInt, NTuple{N,VE{Bool}}},
+            v.elts, UInt(ptr), mask.elts)
     end
 end
 
