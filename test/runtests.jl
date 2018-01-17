@@ -1,5 +1,5 @@
 using SIMD
-using Base.Test
+using Compat.Test
 
 info("Basic definitions")
 
@@ -296,8 +296,8 @@ end
 
 info("Real-world examples")
 
-function vadd!{N,T}(xs::AbstractArray{T,1}, ys::AbstractArray{T,1},
-                    ::Type{Vec{N,T}})
+function vadd!(xs::AbstractArray{T,1}, ys::AbstractArray{T,1},
+               ::Type{Vec{N,T}}) where {N,T}
     @assert length(ys) == length(xs)
     @assert length(xs) % N == 0
     @inbounds for i in 1:N:length(xs)
@@ -315,7 +315,7 @@ let xs = valloc(Float64, L4, 4*L4) do i i end,
     # @code_native vadd!(xs, ys, V4F64)
 end
 
-function vsum{N,T}(xs::AbstractArray{T,1}, ::Type{Vec{N,T}})
+function vsum(xs::AbstractArray{T,1}, ::Type{Vec{N,T}}) where {N,T}
     @assert length(xs) % N == 0
     sv = Vec{N,T}(0)
     @inbounds for i in 1:N:length(xs)
@@ -331,11 +331,11 @@ let xs = valloc(Float64, L4, 4*L4) do i i end
     # @code_native vsum(xs, V4F64)
 end
 
-function vadd_masked!{N,T}(xs::AbstractArray{T,1}, ys::AbstractArray{T,1},
-                           ::Type{Vec{N,T}})
+function vadd_masked!(xs::AbstractArray{T,1}, ys::AbstractArray{T,1},
+                      ::Type{Vec{N,T}}) where {N, T}
     @assert length(ys) == length(xs)
     limit = length(xs) - (N-1)
-    vlimit = Vec{N,Int}(let l=length(xs); (l:l+N-1...) end)
+    vlimit = Vec{N,Int}(let l=length(xs); (l:l+N-1...,) end)
     @inbounds for i in 1:N:length(xs)
         xv = vload(Vec{N,T}, xs, i)
         yv = vload(Vec{N,T}, ys, i)
@@ -356,8 +356,8 @@ let xs = valloc(Float64, 4, 13) do i i end,
     # @code_native vadd!(xs, ys, V4F64)
 end
 
-function vsum_masked{N,T}(xs::AbstractArray{T,1}, ::Type{Vec{N,T}})
-    vlimit = Vec{N,Int}(let l=length(xs); (l:l+N-1...) end)
+function vsum_masked(xs::AbstractArray{T,1}, ::Type{Vec{N,T}}) where {N,T}
+    vlimit = Vec{N,Int}(let l=length(xs); (l:l+N-1...,) end)
     sv = Vec{N,T}(0)
     @inbounds for i in 1:N:length(xs)
         mask = Vec{N,Int}(i) <= vlimit
@@ -386,10 +386,10 @@ for T in (Int8,UInt8,Int16,UInt16,Int32,UInt32,Int64,UInt64,Float32,Float64)
     @test shufflevector(a, b, Val{(0,1,4,5,2,3,6,7)}) === Vec{8,T}((1,2,5,6,3,4,7,8))
     @test shufflevector(shufflevector(a, b, Val{(6,:undef,0,:undef)}), Val{(0,2)}) === Vec{2,T}((7,1))
     @test isa(shufflevector(a, Val{(:undef,:undef,:undef,:undef)}), Vec{4,T})
-    c = Vec{8,T}((1:8...))
-    d = Vec{8,T}((9:16...))
+    c = Vec{8,T}((1:8...,))
+    d = Vec{8,T}((9:16...,))
     @test shufflevector(c, d, Val{(0,1,8,15)}) === Vec{4,T}((1,2,9,16))
-    @test shufflevector(c, d, Val{1:2:15}) === Vec{8,T}((2:2:16...))
+    @test shufflevector(c, d, Val{1:2:15}) === Vec{8,T}((2:2:16...,))
 end
 
 let
