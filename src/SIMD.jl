@@ -276,7 +276,7 @@ llvmins{T<:UIntTypes}(::Type{Val{:rem}}, N, ::Type{T}) = "urem"
 llvmins{T<:IntegerTypes}(::Type{Val{:~}}, N, ::Type{T}) = "xor"
 llvmins{T<:IntegerTypes}(::Type{Val{:&}}, N, ::Type{T}) = "and"
 llvmins{T<:IntegerTypes}(::Type{Val{:|}}, N, ::Type{T}) = "or"
-llvmins{T<:IntegerTypes}(::Type{Val{:$}}, N, ::Type{T}) = "xor"
+llvmins{T<:IntegerTypes}(::Type{Val{:⊻}}, N, ::Type{T}) = "xor"
 
 llvmins{T<:IntegerTypes}(::Type{Val{:<<}}, N, ::Type{T}) = "shl"
 llvmins{T<:IntegerTypes}(::Type{Val{:>>>}}, N, ::Type{T}) = "lshr"
@@ -919,7 +919,7 @@ end
     # s = -Vec{N,T}(signbit(v1))
     s = v1 >> Val{8*sizeof(T)}
     # Note: -v1 == ~v1 + 1
-    (s $ v1) - s
+    (s ⊻ v1) - s
 end
 @inline Base.abs{N,T<:UIntTypes}(v1::Vec{N,T}) = v1
 # TODO: Try T(v1>0) - T(v1<0)
@@ -933,7 +933,7 @@ end
 @inline Base.signbit{N,T<:IntTypes}(v1::Vec{N,T}) = v1 < Vec{N,T}(0)
 @inline Base.signbit{N,T<:UIntTypes}(v1::Vec{N,T}) = Vec{N,Bool}(false)
 
-for op in (:&, :|, :$, :+, :-, :*, :div, :rem)
+for op in (:&, :|, :⊻, :+, :-, :*, :div, :rem)
     @eval begin
         @inline Base.$op{N,T<:IntegerTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
             llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
@@ -1021,7 +1021,7 @@ end
 
 for op in (
         :(==), :(!=), :(<), :(<=), :(>), :(>=),
-        :&, :|, :$, :+, :-, :*, :copysign, :div, :flipsign, :max, :min, :rem)
+        :&, :|, :⊻, :+, :-, :*, :copysign, :div, :flipsign, :max, :min, :rem)
     @eval begin
         @inline Base.$op{N}(s1::Bool, v2::Vec{N,Bool}) =
             $op(Vec{N,Bool}(s1), v2)

@@ -203,7 +203,7 @@ info("Type promotion")
 
 for op in (
         ==, !=, <, <=, >, >=,
-        &, |, $, +, -, *, copysign, div, flipsign, max, min, rem)
+        &, |, ⊻, +, -, *, copysign, div, flipsign, max, min, rem)
     @test op(42, V8I32(v8i32)) === op(V8I32(42), V8I32(v8i32))
     @test op(V8I32(v8i32), 42) === op(V8I32(v8i32), V8I32(42))
 end
