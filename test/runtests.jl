@@ -1,7 +1,8 @@
 using SIMD
 using Compat.Test
+using Compat: @info
 
-info("Basic definitions")
+@info "Basic definitions"
 
 # The vector we are testing. Ideally, we should be able to use any vector size
 # anywhere, but LLVM codegen bugs prevent us from doing so -- thus we make this
@@ -14,7 +15,7 @@ const L4 = nbytes÷8
 const V8I32 = Vec{L8,Int32}
 const V4F64 = Vec{L4,Float64}
 
-info("Type properties")
+@info "Type properties"
 
 @test eltype(V8I32) === Int32
 @test eltype(V4F64) === Float64
@@ -27,7 +28,7 @@ info("Type properties")
 @test size(V8I32) == (L8,)
 @test size(V4F64) == (L4,)
 
-info("Type conversion")
+@info "Type conversion"
 
 const v8i32 = ntuple(i->Int32(ifelse(isodd(i), i, -i)), L8)
 const v4f64 = ntuple(i->Float64(ifelse(isodd(i), i, -i)), L4)
@@ -44,7 +45,7 @@ const v4f64 = ntuple(i->Float64(ifelse(isodd(i), i, -i)), L4)
 @test Tuple(V8I32(v8i32)) === v8i32
 @test Tuple(V4F64(v4f64)) === v4f64
 
-info("Element-wise access")
+@info "Element-wise access"
 
 for i in 1:L8
     @test Tuple(setindex(V8I32(v8i32), 9.0, Val{i})) ===
@@ -81,7 +82,7 @@ let
     @test sum(v1*v1) == 4.0
 end
 
-info("Integer arithmetic functions")
+@info "Integer arithmetic functions"
 
 const v8i32b = map(x->Int32(x+1), v8i32)
 const v8i32c = map(x->Int32(x*2), v8i32)
@@ -111,7 +112,7 @@ for op in (<<, >>, >>>)
     @test Tuple(op(V8I32(v8i32), V8I32(v8i32))) === map(op, v8i32, v8i32)
 end
 
-info("Floating point arithmetic functions")
+@info "Floating point arithmetic functions"
 
 const v4f64b = map(x->Float64(x+1), v4f64)
 const v4f64c = map(x->Float64(x*2), v4f64)
@@ -199,7 +200,7 @@ for op in (fma, ifelsebool, muladd)
         map(op, v4f64, v4f64b, v4f64c)
 end
 
-info("Type promotion")
+@info "Type promotion"
 
 for op in (
         ==, !=, <, <=, >, >=,
@@ -251,7 +252,7 @@ for op in (fma, muladd)
         op(V4F64(v4f64), V4F64(42), V4F64(42))
 end
 
-info("Reduction operations")
+@info "Reduction operations"
 
 for op in (maximum, minimum, sum, prod)
     @test op(V8I32(v8i32)) === op(v8i32)
@@ -266,7 +267,7 @@ end
 @test sum(Vec{3,Float64}(1)) === 3.0
 @test prod(Vec{5,Float64}(2)) === 32.0
 
-info("Load and store functions")
+@info "Load and store functions"
 
 const arri32 = valloc(Int32, L8, 2*L8) do i i end
 for i in 1:length(arri32)-(L8-1)
@@ -294,7 +295,7 @@ for i in 1:length(arrf64)
     @test arrf64[i] == if i==1 0 elseif i<=(L4+1) 1 else i end
 end
 
-info("Real-world examples")
+@info "Real-world examples"
 
 function vadd!(xs::AbstractArray{T,1}, ys::AbstractArray{T,1},
                ::Type{Vec{N,T}}) where {N,T}
@@ -373,7 +374,7 @@ let xs = valloc(Float64, 4, 13) do i i end
     # @code_native vsum(xs, V4F64)
 end
 
-info("Vector shuffles")
+@info "Vector shuffles"
 
 for T in (Int8,UInt8,Int16,UInt16,Int32,UInt32,Int64,UInt64,Float32,Float64)
     a = Vec{4,T}((1,2,3,4))
