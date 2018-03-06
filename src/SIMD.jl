@@ -276,7 +276,7 @@ llvmins{T<:UIntTypes}(::Type{Val{:rem}}, N, ::Type{T}) = "urem"
 llvmins{T<:IntegerTypes}(::Type{Val{:~}}, N, ::Type{T}) = "xor"
 llvmins{T<:IntegerTypes}(::Type{Val{:&}}, N, ::Type{T}) = "and"
 llvmins{T<:IntegerTypes}(::Type{Val{:|}}, N, ::Type{T}) = "or"
-llvmins{T<:IntegerTypes}(::Type{Val{:$}}, N, ::Type{T}) = "xor"
+llvmins{T<:IntegerTypes}(::Type{Val{:⊻}}, N, ::Type{T}) = "xor"
 
 llvmins{T<:IntegerTypes}(::Type{Val{:<<}}, N, ::Type{T}) = "shl"
 llvmins{T<:IntegerTypes}(::Type{Val{:>>>}}, N, ::Type{T}) = "lshr"
@@ -919,7 +919,7 @@ end
     # s = -Vec{N,T}(signbit(v1))
     s = v1 >> Val{8*sizeof(T)}
     # Note: -v1 == ~v1 + 1
-    (s $ v1) - s
+    (s ⊻ v1) - s
 end
 @inline Base.abs{N,T<:UIntTypes}(v1::Vec{N,T}) = v1
 # TODO: Try T(v1>0) - T(v1<0)
@@ -933,7 +933,7 @@ end
 @inline Base.signbit{N,T<:IntTypes}(v1::Vec{N,T}) = v1 < Vec{N,T}(0)
 @inline Base.signbit{N,T<:UIntTypes}(v1::Vec{N,T}) = Vec{N,Bool}(false)
 
-for op in (:&, :|, :$, :+, :-, :*, :div, :rem)
+for op in (:&, :|, :⊻, :+, :-, :*, :div, :rem)
     @eval begin
         @inline Base.$op{N,T<:IntegerTypes}(v1::Vec{N,T}, v2::Vec{N,T}) =
             llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
@@ -1021,7 +1021,7 @@ end
 
 for op in (
         :(==), :(!=), :(<), :(<=), :(>), :(>=),
-        :&, :|, :$, :+, :-, :*, :copysign, :div, :flipsign, :max, :min, :rem)
+        :&, :|, :⊻, :+, :-, :*, :copysign, :div, :flipsign, :max, :min, :rem)
     @eval begin
         @inline Base.$op{N}(s1::Bool, v2::Vec{N,Bool}) =
             $op(Vec{N,Bool}(s1), v2)
@@ -1233,6 +1233,7 @@ export vload, vloada
 @generated function vload{N,T,Aligned}(::Type{Vec{N,T}}, ptr::Ptr{T},
                                        ::Type{Val{Aligned}} = Val{false})
     @assert isa(Aligned, Bool)
+    ptyp = llvmtype(Int)
     typ = llvmtype(T)
     vtyp = "<$N x $typ>"
     decls = []
@@ -1246,7 +1247,11 @@ export vload, vloada
     if align > 0
         push!(flags, "align $align")
     end
-    push!(instrs, "%ptr = bitcast $typ* %0 to $vtyp*")
+    if VERSION < v"v0.7.0-DEV"
+        push!(instrs, "%ptr = bitcast $typ* %0 to $vtyp*")
+    else
+        push!(instrs, "%ptr = inttoptr $ptyp %0 to $vtyp*")
+    end
     push!(instrs, "%res = load $vtyp, $vtyp* %ptr" * join(flags, ", "))
     push!(instrs, "ret $vtyp %res")
     quote
@@ -1276,6 +1281,7 @@ end
                                        mask::Vec{N,Bool},
                                        ::Type{Val{Aligned}} = Val{false})
     @assert isa(Aligned, Bool)
+    ptyp = llvmtype(Int)
     typ = llvmtype(T)
     vtyp = "<$N x $typ>"
     btyp = llvmtype(Bool)
@@ -1287,7 +1293,12 @@ end
     else
         align = sizeof(T)   # This is overly optimistic
     end
-    push!(instrs, "%ptr = bitcast $typ* %0 to $vtyp*")
+
+    if VERSION < v"v0.7.0-DEV"
+        push!(instrs, "%ptr = bitcast $typ* %0 to $vtyp*")
+    else
+        push!(instrs, "%ptr = inttoptr $ptyp %0 to $vtyp*")
+    end
     push!(instrs, "%mask = trunc $vbtyp %1 to <$N x i1>")
     push!(decls,
         "declare $vtyp @llvm.masked.load.$(suffix(N,T))($vtyp*, i32, " *
@@ -1323,6 +1334,7 @@ export vstore, vstorea
 @generated function vstore{N,T,Aligned}(v::Vec{N,T}, ptr::Ptr{T},
                                         ::Type{Val{Aligned}} = Val{false})
     @assert isa(Aligned, Bool)
+    ptyp = llvmtype(Int)
     typ = llvmtype(T)
     vtyp = "<$N x $typ>"
     decls = []
@@ -1336,7 +1348,11 @@ export vstore, vstorea
     if align > 0
         push!(flags, "align $align")
     end
-    push!(instrs, "%ptr = bitcast $typ* %1 to $vtyp*")
+    if VERSION < v"v0.7.0-DEV"
+        push!(instrs, "%ptr = bitcast $typ* %1 to $vtyp*")
+    else
+        push!(instrs, "%ptr = inttoptr $ptyp %1 to $vtyp*")
+    end
     push!(instrs, "store $vtyp %0, $vtyp* %ptr" * join(flags, ", "))
     push!(instrs, "ret void")
     quote
@@ -1364,6 +1380,7 @@ end
                                         mask::Vec{N,Bool},
                                         ::Type{Val{Aligned}} = Val{false})
     @assert isa(Aligned, Bool)
+    ptyp = llvmtype(Int)
     typ = llvmtype(T)
     vtyp = "<$N x $typ>"
     btyp = llvmtype(Bool)
@@ -1375,7 +1392,11 @@ end
     else
         align = sizeof(T)   # This is overly optimistic
     end
-    push!(instrs, "%ptr = bitcast $typ* %1 to $vtyp*")
+    if VERSION < v"v0.7.0-DEV"
+        push!(instrs, "%ptr = bitcast $typ* %1 to $vtyp*")
+    else
+        push!(instrs, "%ptr = inttoptr $ptyp %1 to $vtyp*")
+    end
     push!(instrs, "%mask = trunc $vbtyp %2 to <$N x i1>")
     push!(decls,
         "declare void @llvm.masked.store.$(suffix(N,T))($vtyp, $vtyp*, i32, " *
