@@ -370,8 +370,9 @@ end
 
 let xs = valloc(Float64, 4, 13) do i i end
     s = vsum_masked(xs, V4F64)
+    @code_llvm vsum(xs, V4F64)
+    @code_native vsum(xs, V4F64)
     @test s === sum(xs)
-    # @code_native vsum(xs, V4F64)
 end
 
 @info "Vector shuffles"
