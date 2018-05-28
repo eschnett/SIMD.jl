@@ -20,7 +20,7 @@ for sz in (8, 16, 32, 64, 128)
         immutable $Boolsz <: Boolean
             int::$UIntsz
             $Boolsz(b::Bool) =
-                new(ifelse(b, typemax($UIntsz), typemin($UIntsz)))
+                new(select(b, typemax($UIntsz), typemin($UIntsz)))
         end
         booltype(::Type{Val{$sz}}) = $Boolsz
         inttype(::Type{Val{$sz}}) = $Intsz
@@ -290,7 +290,7 @@ llvmins(::Type{Val{:(>=)}}, N, ::Type{T}) where {T <: UIntTypes} = "icmp uge"
 llvmins(::Type{Val{:(<)}}, N, ::Type{T}) where {T <: UIntTypes} = "icmp ult"
 llvmins(::Type{Val{:(<=)}}, N, ::Type{T}) where {T <: UIntTypes} = "icmp ule"
 
-llvmins(::Type{Val{:ifelse}}, N, ::Type{T}) where {T} = "select"
+llvmins(::Type{Val{:select}}, N, ::Type{T}) where {T} = "select"
 
 llvmins(::Type{Val{:+}}, N, ::Type{T}) where {T <: FloatingTypes} = "fadd"
 llvmins(::Type{Val{:-}}, N, ::Type{T}) where {T <: FloatingTypes} = "fsub"
@@ -834,7 +834,7 @@ end
     ValNegOp = Val{NegOp}
     quote
         $(Expr(:meta, :inline))
-        ifelse(v2 >= 0,
+        select(v2 >= 0,
                llvmwrapshift($ValOp, v1, v2 % Vec{N,unsigned(U)}),
                llvmwrapshift($ValNegOp, v1, -v2 % Vec{N,unsigned(U)}))
     end
@@ -870,7 +870,7 @@ end
     iv & sm != Vec{N,U}(0)
 end
 
-@generated function Base.ifelse(v1::Vec{N,Bool}, v2::Vec{N,T},
+@generated function select(v1::Vec{N,Bool}, v2::Vec{N,T},
         v3::Vec{N,T}) where {N,T}
     btyp = llvmtype(Bool)
     vbtyp = "<$N x $btyp>"
@@ -902,6 +902,13 @@ end
     end
 end
 
+# Base.select is deprecated in Julia 0.7 and should be gone in 1.0.
+if isdefined(Base, :select)
+    Base.select(v1::Vec{N,Bool}, v2::Vec{N,T}, v3::Vec{N,T}) where {N,T} = select(v1, v2, v3)
+else
+    export select
+end
+
 # Integer arithmetic functions
 
 for op in (:~, :+, :-)
@@ -922,10 +929,10 @@ end
 #       use a shift for v1<0
 #       evaluate v1>0 as -v1<0 ?
 @inline Base.sign(v1::Vec{N,T}) where {N,T<:IntTypes} =
-    ifelse(v1 == Vec{N,T}(0), Vec{N,T}(0),
-        ifelse(v1 < Vec{N,T}(0), Vec{N,T}(-1), Vec{N,T}(1)))
+    select(v1 == Vec{N,T}(0), Vec{N,T}(0),
+        select(v1 < Vec{N,T}(0), Vec{N,T}(-1), Vec{N,T}(1)))
 @inline Base.sign(v1::Vec{N,T}) where {N,T<:UIntTypes} =
-    ifelse(v1 == Vec{N,T}(0), Vec{N,T}(0), Vec{N,T}(1))
+    select(v1 == Vec{N,T}(0), Vec{N,T}(0), Vec{N,T}(1))
 @inline Base.signbit(v1::Vec{N,T}) where {N,T<:IntTypes} = v1 < Vec{N,T}(0)
 @inline Base.signbit(v1::Vec{N,T}) where {N,T<:UIntTypes} = Vec{N,Bool}(false)
 
@@ -936,15 +943,15 @@ for op in (:&, :|, :⊻, :+, :-, :*, :div, :rem)
     end
 end
 @inline Base.copysign(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T<:IntTypes} =
-    ifelse(signbit(v2), -abs(v1), abs(v1))
+    select(signbit(v2), -abs(v1), abs(v1))
 @inline Base.copysign(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T<:UIntTypes} = v1
 @inline Base.flipsign(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T<:IntTypes} =
-    ifelse(signbit(v2), -v1, v1)
+    select(signbit(v2), -v1, v1)
 @inline Base.flipsign(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T<:UIntTypes} = v1
 @inline Base.max(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T<:IntegerTypes} =
-    ifelse(v1>=v2, v1, v2)
+    select(v1>=v2, v1, v2)
 @inline Base.min(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T<:IntegerTypes} =
-    ifelse(v1>=v2, v2, v1)
+    select(v1>=v2, v2, v1)
 
 @inline function Base.muladd(v1::Vec{N,T}, v2::Vec{N,T},
         v3::Vec{N,T}) where {N,T<:IntegerTypes}
@@ -952,8 +959,8 @@ end
 end
 
 # TODO: Handle negative shift counts
-#       use ifelse
-#       ensure ifelse is efficient
+#       use select
+#       ensure select is efficient
 for op in (:<<, :>>, :>>>)
     @eval begin
         @inline Base.$op(v1::Vec{N,T}, ::Type{Val{I}}) where {N,T<:IntegerTypes,I} =
@@ -988,7 +995,7 @@ for op in (
 end
 @inline Base.exp10(v1::Vec{N,T}) where {N,T<:FloatingTypes} = Vec{N,T}(10)^v1
 @inline Base.sign(v1::Vec{N,T}) where {N,T<:FloatingTypes} =
-    ifelse(v1 == Vec{N,T}(0.0), Vec{N,T}(0.0), copysign(Vec{N,T}(1.0), v1))
+    select(v1 == Vec{N,T}(0.0), Vec{N,T}(0.0), copysign(Vec{N,T}(1.0), v1))
 
 for op in (:+, :-, :*, :/, :^, :copysign, :max, :min, :rem)
     @eval begin
@@ -999,7 +1006,7 @@ end
 @inline Base. ^(v1::Vec{N,T}, x2::Integer) where {N,T<:FloatingTypes} =
     llvmwrap(Val{:powi}, v1, Int(x2))
 @inline Base.flipsign(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T<:FloatingTypes} =
-    ifelse(signbit(v2), -v1, v1)
+    select(signbit(v2), -v1, v1)
 
 for op in (:fma, :muladd)
     @eval begin
@@ -1027,12 +1034,12 @@ for op in (
             $op(v1, Vec{N,T}(s2))
     end
 end
-@inline Base.ifelse(c::Vec{N,Bool}, s1::IntegerTypes,
+@inline Base.select(c::Vec{N,Bool}, s1::IntegerTypes,
         v2::Vec{N,T}) where {N,T<:IntegerTypes} =
-    ifelse(c, Vec{N,T}(s1), v2)
-@inline Base.ifelse(c::Vec{N,Bool}, v1::Vec{N,T},
+    select(c, Vec{N,T}(s1), v2)
+@inline Base.select(c::Vec{N,Bool}, v1::Vec{N,T},
         s2::IntegerTypes) where {N,T<:IntegerTypes} =
-    ifelse(c, v1, Vec{N,T}(s2))
+    select(c, v1, Vec{N,T}(s2))
 
 for op in (:muladd,)
     @eval begin
@@ -1070,12 +1077,12 @@ for op in (
             $op(v1, Vec{N,T}(s2))
     end
 end
-@inline Base.ifelse(c::Vec{N,Bool}, s1::ScalarTypes,
+@inline Base.select(c::Vec{N,Bool}, s1::ScalarTypes,
         v2::Vec{N,T}) where {N,T<:FloatingTypes} =
-    ifelse(c, Vec{N,T}(s1), v2)
-@inline Base.ifelse(c::Vec{N,Bool}, v1::Vec{N,T},
+    select(c, Vec{N,T}(s1), v2)
+@inline Base.select(c::Vec{N,Bool}, v1::Vec{N,T},
         s2::ScalarTypes) where {N,T<:FloatingTypes} =
-    ifelse(c, v1, Vec{N,T}(s2))
+    select(c, v1, Vec{N,T}(s2))
 
 for op in (:fma, :muladd)
     @eval begin
