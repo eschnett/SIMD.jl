@@ -1,7 +1,7 @@
 using SIMD
 using Compat.Test
 using Compat: @info
-using InteractiveUtils
+using Compat.InteractiveUtils
 
 @info "Basic definitions"
 
