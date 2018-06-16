@@ -1206,7 +1206,7 @@ function valloc(::Type{T}, N::Int, sz::Int) where T
     @assert N > 0
     @assert sz >= 0
     padding = N-1
-    mem = Vector{T}(uninitialized, sz + padding)
+    mem = Vector{T}(undef, sz + padding)
     addr = Int(pointer(mem))
     off = mod(-addr, N * sizeof(T))
     @assert mod(off, sizeof(T)) == 0
