@@ -100,6 +100,7 @@ for op in (
 end
 
 ifelsebool(x,y,z) = ifelse(x>=typeof(x)(0),y,z)
+ifelsebool(x::Vec,y,z) = vifelse(x>=typeof(x)(0),y,z)
 for op in (ifelsebool, muladd)
     @test Tuple(op(V8I32(v8i32), V8I32(v8i32b), V8I32(v8i32c))) ===
         map(op, v8i32, v8i32b, v8i32c)
@@ -209,10 +210,10 @@ for op in (
     @test op(42, V8I32(v8i32)) === op(V8I32(42), V8I32(v8i32))
     @test op(V8I32(v8i32), 42) === op(V8I32(v8i32), V8I32(42))
 end
-@test ifelse(signbit(V8I32(v8i32)), 42, V8I32(v8i32)) ===
-    ifelse(signbit(V8I32(v8i32)), V8I32(42), V8I32(v8i32))
-@test ifelse(signbit(V8I32(v8i32)), V8I32(v8i32), 42) ===
-    ifelse(signbit(V8I32(v8i32)), V8I32(v8i32), V8I32(42))
+@test vifelse(signbit(V8I32(v8i32)), 42, V8I32(v8i32)) ===
+    vifelse(signbit(V8I32(v8i32)), V8I32(42), V8I32(v8i32))
+@test vifelse(signbit(V8I32(v8i32)), V8I32(v8i32), 42) ===
+    vifelse(signbit(V8I32(v8i32)), V8I32(v8i32), V8I32(42))
 for op in (muladd,)
     @test op(42, 42, V8I32(v8i32)) ===
         op(V8I32(42), V8I32(42), V8I32(v8i32))
@@ -234,10 +235,10 @@ for op in (
     @test op(42, V4F64(v4f64)) === op(V4F64(42), V4F64(v4f64))
     @test op(V4F64(v4f64), 42) === op(V4F64(v4f64), V4F64(42))
 end
-@test ifelse(signbit(V4F64(v4f64)), 42, V4F64(v4f64)) ===
-    ifelse(signbit(V4F64(v4f64)), V4F64(42), V4F64(v4f64))
-@test ifelse(signbit(V4F64(v4f64)), V4F64(v4f64), 42) ===
-    ifelse(signbit(V4F64(v4f64)), V4F64(v4f64), V4F64(42))
+@test vifelse(signbit(V4F64(v4f64)), 42, V4F64(v4f64)) ===
+    vifelse(signbit(V4F64(v4f64)), V4F64(42), V4F64(v4f64))
+@test vifelse(signbit(V4F64(v4f64)), V4F64(v4f64), 42) ===
+    vifelse(signbit(V4F64(v4f64)), V4F64(v4f64), V4F64(42))
 for op in (fma, muladd)
     @test op(42, 42, V4F64(v4f64)) ===
         op(V4F64(42), V4F64(42), V4F64(v4f64))
