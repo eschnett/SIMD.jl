@@ -1129,7 +1129,11 @@ end
     instrs = []
     n = N
     nam = "%0"
-    nold,n = n,nextpow2(n)
+    if VERSION < v"0.7.0-beta2.195"
+        nold,n = n,nextpow2(n)
+    else
+        nold,n = n,nextpow(2, n)
+    end
     if n > nold
         namold,nam = nam,"%vec_$n"
         append!(instrs,
@@ -1175,7 +1179,11 @@ end
     stmts = []
     n = N
     push!(stmts, :($(Symbol(:v,n)) = v))
-    nold,n = n,nextpow2(n)
+    if VERSION < v"0.7.0-beta2.195"
+        nold,n = n,nextpow2(n)
+    else
+        nold,n = n,nextpow(2, n)
+    end
     if n > nold
         push!(stmts,
             :($(Symbol(:v,n)) = Vec{$n,T}($(Expr(:tuple,
