@@ -1119,6 +1119,10 @@ function getneutral(op::Symbol, ::Type{T}) where T
     zs[op]
 end
 
+if VERSION >= v"0.7.0-beta2.195"
+    nextpow2(n) = nextpow(2, n)
+end
+
 # We cannot pass in the neutral element via Val{}; if we try, Julia refuses to
 # inline this function, which is then disastrous for performance
 @generated function llvmwrapreduce(::Type{Val{Op}}, v::Vec{N,T}) where {Op,N,T}
@@ -1129,11 +1133,7 @@ end
     instrs = []
     n = N
     nam = "%0"
-    if VERSION < v"0.7.0-beta2.195"
-        nold,n = n,nextpow2(n)
-    else
-        nold,n = n,nextpow(2, n)
-    end
+    nold,n = n,nextpow2(n)
     if n > nold
         namold,nam = nam,"%vec_$n"
         append!(instrs,
@@ -1179,11 +1179,7 @@ end
     stmts = []
     n = N
     push!(stmts, :($(Symbol(:v,n)) = v))
-    if VERSION < v"0.7.0-beta2.195"
-        nold,n = n,nextpow2(n)
-    else
-        nold,n = n,nextpow(2, n)
-    end
+    nold,n = n,nextpow2(n)
     if n > nold
         push!(stmts,
             :($(Symbol(:v,n)) = Vec{$n,T}($(Expr(:tuple,
