@@ -10,7 +10,7 @@ julia:
 notifications:
   email: false
 script:
-  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+  - if [ -a .git/shallow ]; then git fetch --unshallow; fi
   - julia -e 'VERSION >= v"0.7.0-DEV.3630" && using Pkg; Pkg.clone(pwd()); Pkg.build("SIMD"); Pkg.test("SIMD"; coverage=true)'
 after_success:
-  - julia -e 'VERSION >= v"0.7.0-DEV.3630" && using Pkg; cd(Pkg.dir("SIMD")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
+  - if [ "$TRAVIS_JULIA_VERSION" = nightly ]; then julia -e 'using Pkg; cd(Pkg.dir("SIMD")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'; fi
