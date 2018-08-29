@@ -1,7 +1,4 @@
-__precompile__()
-
 module SIMD
-using Compat
 
 #=
 
