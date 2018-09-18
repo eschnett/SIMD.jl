@@ -3,10 +3,26 @@ os:
   - osx
   - linux
 julia:
-  - 0.7
+  - "0.7"
   - "1.0"
-  - nightly
+  - "nightly"
 notifications:
   email: false
+script:
+  - |
+    if [ -a .git/shallow ]; then
+        git fetch --unshallow
+    fi
+  - |
+    julia -e 'if VERSION >= v"0.7.0-DEV.3630"
+                  using Pkg
+              end
+              Pkg.clone(pwd())
+              Pkg.build("SIMD")
+              Pkg.test("SIMD"; coverage=true)'
 after_success:
-  - julia -e 'using Pkg; Pkg.dir("SIMD"); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())';
+  - julia -e 'using Pkg
+              Pkg.dir("SIMD")
+              Pkg.add("Coverage")
+              using Coverage
+              Coveralls.submit(Coveralls.process_folder())'
