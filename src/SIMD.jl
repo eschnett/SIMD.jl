@@ -62,47 +62,30 @@ const ScalarTypes = Union{IntegerTypes, FloatingTypes}
 const VE = Base.VecElement
 
 export Vec
-struct Vec{N,T<:ScalarTypes} <: DenseArray{T,1}   # <: Number
+struct Vec{N,T<:ScalarTypes} # <: Number
     elts::NTuple{N,VE{T}}
     @inline Vec{N,T}(elts::NTuple{N, VE{T}}) where {N,T} = new{N,T}(elts)
 end
 
 function Base.show(io::IO, v::Vec{N,T}) where {N,T}
-    print(io, T, "⟨")
-    for i in 1:N
-        i>1 && print(io, ", ")
-        print(io, v.elts[i].value)
-    end
-    print(io, "⟩")
-end
-
-# Base.print_matrix wants to access a second dimension that doesn't exist for
-# Vec. (In Julia, every array can be accessed as N-dimensional array, for
-# arbitrary N.) Instead of implementing this, output our Vec the usual way.
-function Base.print_matrix(io::IO, X::Vec,
-        pre::AbstractString = " ",  # pre-matrix string
-        sep::AbstractString = "  ", # separator between elements
-        post::AbstractString = "",  # post-matrix string
-        hdots::AbstractString = "  \u2026  ",
-        vdots::AbstractString = "\u22ee",
-        ddots::AbstractString = "  \u22f1  ",
-        hmod::Integer = 5, vmod::Integer = 5)
-    print(io, X)
+    print(io, "<$N x $T>[")
+    join(io, [x.value for x in v.elts], ", ")
+    print(io, "]")
 end
 
 # Type properties
-
-# eltype and ndims are provided by DenseArray
-# Base.eltype{N,T}(::Type{Vec{N,T}}) = T
-# Base.ndims{N,T}(::Type{Vec{N,T}}) = 1
+Base.eltype(::Type{Vec{N,T}}) where {N,T} = T
+Base.ndims( ::Type{Vec{N,T}}) where {N,T} = 1
 Base.length(::Type{Vec{N,T}}) where {N,T} = N
-Base.size(::Type{Vec{N,T}}) where {N,T} = (N,)
+Base.size(  ::Type{Vec{N,T}}) where {N,T} = (N,)
+# TODO: This doesn't follow Base, e.g. `size([], 3) == 1`
 Base.size(::Type{Vec{N,T}}, n::Integer) where {N,T} = (N,)[n]
-# Base.eltype{N,T}(::Vec{N,T}) = T
-# Base.ndims{N,T}(::Vec{N,T}) = 1
-Base.length(::Vec{N,T}) where {N,T} = N
-Base.size(::Vec{N,T}) where {N,T} = (N,)
-Base.size(::Vec{N,T}, n::Integer) where {N,T} = (N,)[n]
+
+Base.eltype(V::Vec) = eltype(typeof(V))
+Base.ndims( V::Vec) = ndims(typeof(V))
+Base.length(V::Vec) = length(typeof(V))
+Base.size(  V::Vec) = size(typeof(V))
+Base.size(  V::Vec, n::Integer) = size(typeof(V), n)
 
 # Type conversion
 
@@ -124,7 +107,13 @@ Vec(xs::NTuple{N,T}) where {N,T<:ScalarTypes} = Vec{N,T}(xs)
 
 # Convert between vectors
 @inline Base.convert(::Type{Vec{N,T}}, v::Vec{N,T}) where {N,T} = v
-@inline Base.convert(::Type{Vec{N,R}}, v::Vec{N,T}) where {N,R,T} = Vec{N,R}(Tuple(v))
+
+@inline Base.convert(::Type{Vec{N,R}}, v::Vec{N}) where {N,R} =
+    Vec{N,R}(NTuple{N, R}(v))
+
+@inline Tuple(v::Vec{N}) where {N} = ntuple(i -> v.elts[i].value, Val(N))
+@inline NTuple{N, T}(v::Vec{N}) where{N, T} = ntuple(i -> convert(T, v.elts[i].value), Val(N))
+
 @generated function Base. %(v::Vec{N,T}, ::Type{Vec{N,R}}) where {N,R,T}
     quote
         $(Expr(:meta, :inline))
