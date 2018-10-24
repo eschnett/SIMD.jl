@@ -32,17 +32,17 @@ using Test, InteractiveUtils
         global const v8i32 = ntuple(i->Int32(ifelse(isodd(i), i, -i)), L8)
         global const v4f64 = ntuple(i->Float64(ifelse(isodd(i), i, -i)), L4)
 
-        @test string(V8I32(v8i32)) == "Int32⟨" * string(v8i32)[2:end-1] * "⟩"
-        @test string(V4F64(v4f64)) == "Float64⟨" * string(v4f64)[2:end-1] * "⟩"
+        @test string(V8I32(v8i32)) == "<8 x Int32>[" * string(v8i32)[2:end-1] * "]"
+        @test string(V4F64(v4f64)) == "<4 x Float64>[" * string(v4f64)[2:end-1] * "]"
 
         @test convert(V8I32, V8I32(v8i32)) === V8I32(v8i32)
         @test convert(Vec{L8,Int64}, V8I32(v8i32)) ===
             Vec{L8, Int64}(convert(NTuple{L8,Int64}, v8i32))
 
-        @test NTuple{L8,Int32}(V8I32(v8i32)) === v8i32
-        @test NTuple{L4,Float64}(V4F64(v4f64)) === v4f64
-        @test Tuple(V8I32(v8i32)) === v8i32
-        @test Tuple(V4F64(v4f64)) === v4f64
+        @test NTuple{L8,Int32}(V8I32(v8i32)) === Tuple(v8i32)
+        @test NTuple{L4,Float64}(V4F64(v4f64)) === Tuple(v4f64)
+        @test Tuple(V8I32(v8i32)) === Tuple(v8i32)
+        @test Tuple(V4F64(v4f64)) === Tuple(v4f64)
     end
 
     @testset "Element-wise access" begin
