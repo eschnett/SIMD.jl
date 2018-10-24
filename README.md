@@ -16,7 +16,7 @@ By exposing SIMD vector types and corresponding operations, the programmer can e
 Here is a simple example for a manually vectorized code that adds two arrays:
 ```Julia
 using SIMD
-function vadd!{N,T}(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}})
+function vadd!(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}}) where {N, T}
     @assert length(ys) == length(xs)
     @assert length(xs) % N == 0
     @inbounds for i in 1:N:length(xs)
@@ -79,7 +79,7 @@ sum(v)
 When using explicit SIMD vectorization, it is convenient to allocate arrays still as arrays of scalars, not as arrays of vectors. The `vload` and `vstore` functions allow reading vectors from and writing vectors into arrays, accessing several contiguous array elements.
 
 ```Julia
-arr = Vector{Float64}(100)
+arr = Vector{Float64}(undef, 100)
 ...
 xs = vload(Vec{4,Float64}, arr, i)
 ...
@@ -97,7 +97,7 @@ a = Vec{4, Int32}((1,2,3,4))
 b = Vec{4, Int32}((5,6,7,8))
 mask = (2,3,4,5)
 shufflevector(a, b, Val{mask})
-Int32⟨3,4,5,6⟩
+<4 x Int32>[3, 4, 5, 6]
 ```
 The mask specifies vector elements counted across `a` and `b`,
 starting at 0 to follow the LLVM convention. If you don't care about
@@ -112,7 +112,7 @@ There is also a one operand version of the function:
 a = Vec{4, Int32}((1,2,3,4))
 mask = (0,3,1,2)
 shufflevector(a, Val{mask})
-Int32⟨1,4,2,3⟩
+<4 x Int32>[1, 4, 2, 3]
 ```
 
 ## Representing SIMD vector types in Julia
@@ -152,7 +152,7 @@ code would break as a result.
 
 We thus define our own SIMD vector type `Vec{N,T}`:
 ```Julia
-immutable Vec{N,T} <: DenseArray{N,1}
-    elts::NTuple{N,T}
+struct Vec{N,T}
+    elts::NTuple{N,VecElement{T}}
 end
 ```
