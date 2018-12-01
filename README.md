@@ -87,6 +87,13 @@ vstore(xs, arr, i)
 ```
 The `vload` call reads a vector of size 4 from the array, i.e. it reads `arr[i:i+3]`. Similarly, the `vstore` call writes the vector `xs` to the four array elements `arr[i:i+3]`.
 
+When the values to be read are stored in non-contiguous locations, the `vgather` function can be used to load them into a vector (so-called gather operation).
+
+```Julia
+idx = Vec((1, 5, 6, 9))
+vgather(arr, idx)
+```
+
 ## Vector shuffles
 
 Vector shuffle is available through the `shufflevector` function.

@@ -302,6 +302,20 @@ using Test, InteractiveUtils
         end
     end
 
+    @testset "Gather function" begin
+        arri32 .= 1:length(arri32)
+        idx = Vec(Tuple(floor.(
+            Int, range(1, stop=length(arri32), length=length(V8I32)))))
+        @test vgather(arri32, idx) === convert(V8I32, idx)
+        @test vgathera(arri32, idx) === convert(V8I32, idx)
+
+        arrf64 .= 1:length(arrf64)
+        idx = Vec(Tuple(floor.(
+            Int, range(1, stop=length(arrf64), length=length(V4F64)))))
+        @test vgather(arrf64, idx) === convert(V4F64, idx)
+        @test vgathera(arrf64, idx) === convert(V4F64, idx)
+    end
+
     @testset "Real-world examples" begin
 
         function vadd!(xs::AbstractArray{T,1}, ys::AbstractArray{T,1},
