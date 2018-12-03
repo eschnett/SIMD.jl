@@ -303,17 +303,23 @@ using Test, InteractiveUtils
     end
 
     @testset "Gather function" begin
-        arri32 .= 1:length(arri32)
-        idx = Vec(Tuple(floor.(
-            Int, range(1, stop=length(arri32), length=length(V8I32)))))
-        @test vgather(arri32, idx) === convert(V8I32, idx)
-        @test vgathera(arri32, idx) === convert(V8I32, idx)
+        for (arr, VT) in [(arri32, V8I32), (arrf64, V4F64)]
+            arr .= 1:length(arr)
+            idxarr = floor.(Int, range(1, stop=length(arr), length=length(VT)))
 
-        arrf64 .= 1:length(arrf64)
-        idx = Vec(Tuple(floor.(
-            Int, range(1, stop=length(arrf64), length=length(V4F64)))))
-        @test vgather(arrf64, idx) === convert(V4F64, idx)
-        @test vgathera(arrf64, idx) === convert(V4F64, idx)
+            idx = Vec(Tuple(idxarr))
+            @test vgather(arr, idx) === convert(VT, idx)
+            @test vgathera(arr, idx) === convert(VT, idx)
+
+            # Masked gather
+            maskarr = zeros(Bool, length(VT))
+            for i in 1:length(VT)
+                maskarr[i] = true
+                mask = Vec(Tuple(maskarr))
+                @test vgather(arr, idx, mask) === VT(Tuple(idxarr .* maskarr))
+                @test vgathera(arr, idx, mask) === VT(Tuple(idxarr .* maskarr))
+            end
+        end
     end
 
     @testset "Real-world examples" begin
