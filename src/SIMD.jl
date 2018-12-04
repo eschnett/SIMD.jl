@@ -1497,6 +1497,62 @@ end
                  mask::Vec{N,Bool} = Vec(ntuple(_ -> true, N))) where {N,T} =
     vgather(arr, idx, mask, Val{true})
 
+export vscatter, vscattera
+
+@generated function vscatter(
+        v::Vec{N,T}, ptrs::Vec{N,Ptr{T}}, mask::Vec{N,Bool},
+        ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
+    @assert isa(Aligned, Bool)
+    ptyp = llvmtype(Int)
+    typ = llvmtype(T)
+    vptyp = "<$N x $typ*>"
+    vtyp = "<$N x $typ>"
+    btyp = llvmtype(Bool)
+    vbtyp = "<$N x $btyp>"
+    decls = []
+    instrs = []
+    if Aligned
+        align = N * sizeof(T)
+    else
+        align = sizeof(T)   # This is overly optimistic
+    end
+    if VERSION < v"v0.7.0-DEV"
+        push!(instrs, "%ptrs = bitcast <$N x $typ*> %1 to $vptyp")
+    else
+        push!(instrs, "%ptrs = inttoptr <$N x $ptyp> %1 to $vptyp")
+    end
+    push!(instrs, "%mask = trunc $vbtyp %2 to <$N x i1>")
+    push!(decls,
+        "declare void @llvm.masked.scatter.$(suffix(N,T))" *
+            "($vtyp, $vptyp, i32, <$N x i1>)")
+    push!(instrs,
+        "call void @llvm.masked.scatter.$(suffix(N,T))" *
+            "($vtyp %0, $vptyp %ptrs, i32 $align, <$N x i1> %mask)")
+    push!(instrs, "ret void")
+    quote
+        $(Expr(:meta, :inline))
+        Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            Cvoid,
+            Tuple{NTuple{N,VE{T}}, NTuple{N,VE{Ptr{T}}}, NTuple{N,VE{Bool}}},
+            v.elts, ptrs.elts, mask.elts)
+    end
+end
+
+@inline vscattera(v::Vec{N,T}, ptrs::Vec{N,Ptr{T}},
+                  mask::Vec{N,Bool}) where {N,T} =
+    vscatter(v, ptrs, mask, Val{true})
+
+@inline vscatter(v::Vec{N,T}, arr::Union{Array{T,1},SubArray{T,1}},
+                 idx::Vec{N,<:Integer},
+                 mask::Vec{N,Bool} = Vec(ntuple(_ -> true, N)),
+                 ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned} =
+    vscatter(v, pointer(arr) + sizeof(T) * (idx - 1), mask, Val{Aligned})
+
+@inline vscattera(v::Vec{N,T}, arr::Union{Array{T,1},SubArray{T,1}},
+                  idx::Vec{N,<:Integer},
+                  mask::Vec{N,Bool} = Vec(ntuple(_ -> true, N))) where {N,T} =
+    vscatter(v, arr, idx, mask, Val{true})
+
 # Vector shuffles
 
 function shufflevector_instrs(N, T, I, two_operands)

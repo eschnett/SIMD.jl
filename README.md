@@ -43,7 +43,7 @@ The SIMD package provides the usual arithmetic and logical operations for SIMD v
 
 (Currently missing: `count_ones count_zeros exponent ldexp leading_ones leading_zeros significand trailing_ones trailing_zeros`, many trigonometric functions)
 
-(Also currently missing: Type conversions, reinterpretation that changes the vector size, scatter/gather operations, masked load/store operations)
+(Also currently missing: Type conversions, reinterpretation that changes the vector size)
 
 These operators and functions are always applied element-wise, i.e. they are applied to each element in parallel, yielding again a SIMD vector as result. This means that e.g. multiplying two vectors yields a vector, and comparing two vectors yields a vector of booleans. This behaviour might seem strange and slightly unusual, but corresponds to the machine instructions provided by the hardware. It is also what is usually needed to vectorize loops.
 
@@ -92,6 +92,15 @@ When the values to be read are stored in non-contiguous locations, the `vgather`
 ```Julia
 idx = Vec((1, 5, 6, 9))
 vgather(arr, idx)
+```
+
+Likewise, storing to non-contiguous locations (scatter) can be done by the `vscatter` function.
+
+```Julia
+arr = zeros(10)
+v = Vec((1.0, 2.0, 3.0, 4.0))
+idx = Vec((1, 3, 4, 7))
+vscatter(v, arr, idx)
 ```
 
 ## Vector shuffles
