@@ -302,6 +302,46 @@ using Test, InteractiveUtils
         end
     end
 
+    @testset "Gather and scatter function" begin
+        for (arr, VT) in [(arri32, V8I32), (arrf64, V4F64)]
+            arr .= 1:length(arr)
+            idxarr = floor.(Int, range(1, stop=length(arr), length=length(VT)))
+
+            idx = Vec(Tuple(idxarr))
+            @test vgather(arr, idx) === convert(VT, idx)
+            @test vgathera(arr, idx) === convert(VT, idx)
+
+            # Masked gather
+            maskarr = zeros(Bool, length(VT))
+            for i in 1:length(VT)
+                maskarr[i] = true
+                mask = Vec(Tuple(maskarr))
+                @test vgather(arr, idx, mask) === VT(Tuple(idxarr .* maskarr))
+                @test vgathera(arr, idx, mask) === VT(Tuple(idxarr .* maskarr))
+            end
+
+            # Scatter
+            varr = convert.(eltype(VT), idxarr .* 123)
+            v = Vec(Tuple(varr))
+
+            vscatter(v, fill!(arr, 0), idx)
+            @test arr[idxarr] == varr
+            vscattera(v, fill!(arr, 0), idx)
+            @test arr[idxarr] == varr
+
+            # Masked scatter
+            maskarr = zeros(Bool, length(VT))
+            for i in 1:length(VT)
+                maskarr[i] = true
+                mask = Vec(Tuple(maskarr))
+                vscatter(v, fill!(arr, 0), idx, mask)
+                @test arr[idxarr] == varr .* maskarr
+                vscattera(v, fill!(arr, 0), idx, mask)
+                @test arr[idxarr] == varr .* maskarr
+            end
+        end
+    end
+
     @testset "Real-world examples" begin
 
         function vadd!(xs::AbstractArray{T,1}, ys::AbstractArray{T,1},

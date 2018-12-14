@@ -56,8 +56,9 @@ const BoolTypes = Union{Bool}
 const IntTypes = Union{Int8, Int16, Int32, Int64, Int128}
 const UIntTypes = Union{UInt8, UInt16, UInt32, UInt64, UInt128}
 const IntegerTypes = Union{BoolTypes, IntTypes, UIntTypes}
+const IndexTypes = Union{IntegerTypes, Ptr}
 const FloatingTypes = Union{Float16, Float32, Float64}
-const ScalarTypes = Union{IntegerTypes, FloatingTypes}
+const ScalarTypes = Union{IndexTypes, FloatingTypes}
 
 const VE = Base.VecElement
 
@@ -195,6 +196,7 @@ llvmtype(::Type{Int16}) = "i16"
 llvmtype(::Type{Int32}) = "i32"
 llvmtype(::Type{Int64}) = "i64"
 llvmtype(::Type{Int128}) = "i128"
+llvmtype(::Type{<:Ptr}) = llvmtype(Int)
 
 llvmtype(::Type{UInt8}) = "i8"
 llvmtype(::Type{UInt16}) = "i16"
@@ -247,8 +249,8 @@ function llvmtypedconst(::Type{Bool}, val)
 end
 
 # Type-dependent LLVM intrinsics
-llvmins(::Type{Val{:+}}, N, ::Type{T}) where {T <: IntegerTypes} = "add"
-llvmins(::Type{Val{:-}}, N, ::Type{T}) where {T <: IntegerTypes} = "sub"
+llvmins(::Type{Val{:+}}, N, ::Type{T}) where {T <: IndexTypes} = "add"
+llvmins(::Type{Val{:-}}, N, ::Type{T}) where {T <: IndexTypes} = "sub"
 llvmins(::Type{Val{:*}}, N, ::Type{T}) where {T <: IntegerTypes} = "mul"
 llvmins(::Type{Val{:div}}, N, ::Type{T}) where {T <: IntTypes} = "sdiv"
 llvmins(::Type{Val{:rem}}, N, ::Type{T}) where {T <: IntTypes} = "srem"
@@ -1088,6 +1090,22 @@ for op in (:fma, :muladd)
     end
 end
 
+# Poitner arithmetics between Ptr, IntegerTypes, and vectors of them.
+
+for op in (:+, :-)
+    @eval begin
+        @inline Base.$op(v1::Vec{N,<:Ptr}, v2::Vec{N,<:IntegerTypes}) where {N} =
+            llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
+        @inline Base.$op(v1::Vec{N,<:IntegerTypes}, v2::Vec{N,<:Ptr}) where {N} =
+            llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
+        @inline Base.$op(s1::P, v2::Vec{N,<:IntegerTypes}) where {N,P<:Ptr} =
+            $op(Vec{N,P}(s1), v2)
+        @inline Base.$op(v1::Vec{N,<:IntegerTypes}, s2::P) where {N,P<:Ptr} =
+            $op(v1, Vec{N,P}(s2))
+    end
+end
+
+
 # Reduction operations
 
 # TODO: map, mapreduce
@@ -1420,6 +1438,120 @@ end
                          i::Integer, mask::Vec{N,Bool}) where {N,T}
     vstore(v, arr, i, mask, Val{true})
 end
+
+export vgather, vgathera
+
+@generated function vgather(
+        ::Type{Vec{N,T}}, ptrs::Vec{N,Ptr{T}}, mask::Vec{N,Bool},
+        ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
+    @assert isa(Aligned, Bool)
+    ptyp = llvmtype(Int)
+    typ = llvmtype(T)
+    vptyp = "<$N x $typ*>"
+    vtyp = "<$N x $typ>"
+    btyp = llvmtype(Bool)
+    vbtyp = "<$N x $btyp>"
+    decls = []
+    instrs = []
+    if Aligned
+        align = N * sizeof(T)
+    else
+        align = sizeof(T)   # This is overly optimistic
+    end
+
+    if VERSION < v"v0.7.0-DEV"
+        push!(instrs, "%ptrs = bitcast <$N x $typ*> %0 to $vptyp")
+    else
+        push!(instrs, "%ptrs = inttoptr <$N x $ptyp> %0 to $vptyp")
+    end
+    push!(instrs, "%mask = trunc $vbtyp %1 to <$N x i1>")
+    push!(decls,
+        "declare $vtyp @llvm.masked.gather.$(suffix(N,T))($vptyp, i32, " *
+            "<$N x i1>, $vtyp)")
+    push!(instrs,
+        "%res = call $vtyp @llvm.masked.gather.$(suffix(N,T))($vptyp %ptrs, " *
+            "i32 $align, <$N x i1> %mask, $vtyp $(llvmconst(N, T, 0)))")
+    push!(instrs, "ret $vtyp %res")
+    quote
+        $(Expr(:meta, :inline))
+        Vec{N,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{N,VE{T}}, Tuple{NTuple{N,VE{Ptr{T}}}, NTuple{N,VE{Bool}}},
+            ptrs.elts, mask.elts))
+    end
+end
+
+@inline vgathera(::Type{Vec{N,T}}, ptrs::Vec{N,Ptr{T}},
+                 mask::Vec{N,Bool}) where {N,T} =
+    vgather(Vec{N,T}, ptrs, mask, Val{true})
+
+@inline vgather(arr::Union{Array{T,1},SubArray{T,1}},
+                idx::Vec{N,<:Integer},
+                mask::Vec{N,Bool} = Vec(ntuple(_ -> true, N)),
+                ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned} =
+    vgather(Vec{N,T},
+            pointer(arr) + sizeof(T) * (idx - 1),
+            mask, Val{Aligned})
+
+@inline vgathera(arr::Union{Array{T,1},SubArray{T,1}},
+                 idx::Vec{N,<:Integer},
+                 mask::Vec{N,Bool} = Vec(ntuple(_ -> true, N))) where {N,T} =
+    vgather(arr, idx, mask, Val{true})
+
+export vscatter, vscattera
+
+@generated function vscatter(
+        v::Vec{N,T}, ptrs::Vec{N,Ptr{T}}, mask::Vec{N,Bool},
+        ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
+    @assert isa(Aligned, Bool)
+    ptyp = llvmtype(Int)
+    typ = llvmtype(T)
+    vptyp = "<$N x $typ*>"
+    vtyp = "<$N x $typ>"
+    btyp = llvmtype(Bool)
+    vbtyp = "<$N x $btyp>"
+    decls = []
+    instrs = []
+    if Aligned
+        align = N * sizeof(T)
+    else
+        align = sizeof(T)   # This is overly optimistic
+    end
+    if VERSION < v"v0.7.0-DEV"
+        push!(instrs, "%ptrs = bitcast <$N x $typ*> %1 to $vptyp")
+    else
+        push!(instrs, "%ptrs = inttoptr <$N x $ptyp> %1 to $vptyp")
+    end
+    push!(instrs, "%mask = trunc $vbtyp %2 to <$N x i1>")
+    push!(decls,
+        "declare void @llvm.masked.scatter.$(suffix(N,T))" *
+            "($vtyp, $vptyp, i32, <$N x i1>)")
+    push!(instrs,
+        "call void @llvm.masked.scatter.$(suffix(N,T))" *
+            "($vtyp %0, $vptyp %ptrs, i32 $align, <$N x i1> %mask)")
+    push!(instrs, "ret void")
+    quote
+        $(Expr(:meta, :inline))
+        Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            Cvoid,
+            Tuple{NTuple{N,VE{T}}, NTuple{N,VE{Ptr{T}}}, NTuple{N,VE{Bool}}},
+            v.elts, ptrs.elts, mask.elts)
+    end
+end
+
+@inline vscattera(v::Vec{N,T}, ptrs::Vec{N,Ptr{T}},
+                  mask::Vec{N,Bool}) where {N,T} =
+    vscatter(v, ptrs, mask, Val{true})
+
+@inline vscatter(v::Vec{N,T}, arr::Union{Array{T,1},SubArray{T,1}},
+                 idx::Vec{N,<:Integer},
+                 mask::Vec{N,Bool} = Vec(ntuple(_ -> true, N)),
+                 ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned} =
+    vscatter(v, pointer(arr) + sizeof(T) * (idx - 1), mask, Val{Aligned})
+
+@inline vscattera(v::Vec{N,T}, arr::Union{Array{T,1},SubArray{T,1}},
+                  idx::Vec{N,<:Integer},
+                  mask::Vec{N,Bool} = Vec(ntuple(_ -> true, N))) where {N,T} =
+    vscatter(v, arr, idx, mask, Val{true})
 
 # Vector shuffles
 
