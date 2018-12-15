@@ -449,8 +449,8 @@ end
 end
 setindex(v::Vec{N,T}, x::Number, i) where {N,T} = setindex(v, Int(i), x)
 
-Base.getindex(v::Vec{N,T}, ::Type{Val{I}}) where {N,T,I} = v.elts[I].value
-Base.getindex(v::Vec{N,T}, i) where {N,T} = v.elts[i].value
+Base.@propagate_inbounds Base.getindex(v::Vec{N,T}, ::Type{Val{I}}) where {N,T,I} = v.elts[I].value
+Base.@propagate_inbounds Base.getindex(v::Vec{N,T}, i) where {N,T} = v.elts[i].value
 
 # Type conversion
 
