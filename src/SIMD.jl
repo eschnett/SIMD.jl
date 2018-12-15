@@ -1286,6 +1286,10 @@ end
     vload(Vec{N,T}, arr, i, Val{true})
 end
 
+@inline vload(::Type{Vec{N,T}}, ptr::Ptr{T}, mask::Nothing,
+              ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned} =
+    vload(Vec{N,T}, ptr, Val{Aligned})
+
 @generated function vload(::Type{Vec{N,T}}, ptr::Ptr{T},
                           mask::Vec{N,Bool},
                           ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
@@ -1323,19 +1327,20 @@ end
     end
 end
 
-@inline vloada(::Type{Vec{N,T}}, ptr::Ptr{T}, mask::Vec{N,Bool}) where {N,T} =
+@inline vloada(::Type{Vec{N,T}}, ptr::Ptr{T},
+               mask::Union{Vec{N,Bool}, Nothing}) where {N,T} =
     vload(Vec{N,T}, ptr, mask, Val{true})
 
 @inline function vload(::Type{Vec{N,T}},
                        arr::Union{Array{T,1},SubArray{T,1}},
-                       i::Integer, mask::Vec{N,Bool},
+                       i::Integer, mask::Union{Vec{N,Bool}, Nothing},
                        ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
     #TODO @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
     vload(Vec{N,T}, pointer(arr, i), mask, Val{Aligned})
 end
 @inline function vloada(::Type{Vec{N,T}},
                         arr::Union{Array{T,1},SubArray{T,1}}, i::Integer,
-                        mask::Vec{N,Bool}) where {N,T}
+                        mask::Union{Vec{N,Bool}, Nothing}) where {N,T}
     vload(Vec{N,T}, arr, i, mask, Val{true})
 end
 
@@ -1385,6 +1390,10 @@ end
     vstore(v, arr, i, Val{true})
 end
 
+@inline vstore(v::Vec{N,T}, ptr::Ptr{T}, mask::Nothing,
+               ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned} =
+    vstore(v, ptr, Val{Aligned})
+
 @generated function vstore(v::Vec{N,T}, ptr::Ptr{T},
                            mask::Vec{N,Bool},
                            ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
@@ -1422,24 +1431,31 @@ end
     end
 end
 
-@inline vstorea(v::Vec{N,T}, ptr::Ptr{T}, mask::Vec{N,Bool}) where {N,T} =
+@inline vstorea(v::Vec{N,T}, ptr::Ptr{T},
+                mask::Union{Vec{N,Bool}, Nothing}) where {N,T} =
     vstore(v, ptr, mask, Val{true})
 
 @inline function vstore(v::Vec{N,T},
                         arr::Union{Array{T,1},SubArray{T,1}},
                         i::Integer,
-                        mask::Vec{N,Bool},
+                        mask::Union{Vec{N,Bool}, Nothing},
                         ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
     #TODO @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
     vstore(v, pointer(arr, i), mask, Val{Aligned})
 end
 @inline function vstorea(v::Vec{N,T},
                          arr::Union{Array{T,1},SubArray{T,1}},
-                         i::Integer, mask::Vec{N,Bool}) where {N,T}
+                         i::Integer,
+                         mask::Union{Vec{N,Bool}, Nothing}) where {N,T}
     vstore(v, arr, i, mask, Val{true})
 end
 
 export vgather, vgathera
+
+@inline vgather(
+        ::Type{Vec{N,T}}, ptrs::Vec{N,Ptr{T}}, mask::Nothing,
+        ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned} =
+    vgather(Vec{N,T}, ptrs, Vec(ntuple(_ -> true, N)), Val{Aligned})
 
 @generated function vgather(
         ::Type{Vec{N,T}}, ptrs::Vec{N,Ptr{T}}, mask::Vec{N,Bool},
@@ -1481,12 +1497,12 @@ export vgather, vgathera
 end
 
 @inline vgathera(::Type{Vec{N,T}}, ptrs::Vec{N,Ptr{T}},
-                 mask::Vec{N,Bool}) where {N,T} =
+                 mask::Union{Vec{N,Bool}, Nothing}) where {N,T} =
     vgather(Vec{N,T}, ptrs, mask, Val{true})
 
 @inline vgather(arr::Union{Array{T,1},SubArray{T,1}},
                 idx::Vec{N,<:Integer},
-                mask::Vec{N,Bool} = Vec(ntuple(_ -> true, N)),
+                mask::Union{Vec{N,Bool}, Nothing} = nothing,
                 ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned} =
     vgather(Vec{N,T},
             pointer(arr) + sizeof(T) * (idx - 1),
@@ -1494,10 +1510,15 @@ end
 
 @inline vgathera(arr::Union{Array{T,1},SubArray{T,1}},
                  idx::Vec{N,<:Integer},
-                 mask::Vec{N,Bool} = Vec(ntuple(_ -> true, N))) where {N,T} =
+                 mask::Union{Vec{N,Bool}, Nothing} = nothing) where {N,T} =
     vgather(arr, idx, mask, Val{true})
 
 export vscatter, vscattera
+
+@inline vscatter(
+        v::Vec{N,T}, ptrs::Vec{N,Ptr{T}}, mask::Nothing,
+        ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned} =
+    vscatter(v, ptrs, Vec(ntuple(_ -> true, N)), Val{Aligned})
 
 @generated function vscatter(
         v::Vec{N,T}, ptrs::Vec{N,Ptr{T}}, mask::Vec{N,Bool},
@@ -1539,18 +1560,18 @@ export vscatter, vscattera
 end
 
 @inline vscattera(v::Vec{N,T}, ptrs::Vec{N,Ptr{T}},
-                  mask::Vec{N,Bool}) where {N,T} =
+                  mask::Union{Vec{N,Bool}, Nothing}) where {N,T} =
     vscatter(v, ptrs, mask, Val{true})
 
 @inline vscatter(v::Vec{N,T}, arr::Union{Array{T,1},SubArray{T,1}},
                  idx::Vec{N,<:Integer},
-                 mask::Vec{N,Bool} = Vec(ntuple(_ -> true, N)),
+                 mask::Union{Vec{N,Bool}, Nothing} = nothing,
                  ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned} =
     vscatter(v, pointer(arr) + sizeof(T) * (idx - 1), mask, Val{Aligned})
 
 @inline vscattera(v::Vec{N,T}, arr::Union{Array{T,1},SubArray{T,1}},
                   idx::Vec{N,<:Integer},
-                  mask::Vec{N,Bool} = Vec(ntuple(_ -> true, N))) where {N,T} =
+                  mask::Union{Vec{N,Bool}, Nothing} = nothing) where {N,T} =
     vscatter(v, arr, idx, mask, Val{true})
 
 # Vector shuffles
@@ -1591,6 +1612,117 @@ end
             Tuple{NTuple{N,VE{T}}},
             v1.elts))
     end
+end
+
+export VecRange
+
+"""
+    VecRange{N}(i::Int)
+
+Analogous to `UnitRange` but for loading SIMD vector of width `N` at
+index `i`.
+
+# Examples
+```jldoctest
+julia> xs = ones(4);
+
+julia> xs[VecRange{4}(1)]  # calls `vload(Vec{4,Float64}, xs, 1)`
+<4 x Float64>[1.0, 1.0, 1.0, 1.0]
+```
+"""
+struct VecRange{N}
+    i::Int
+end
+
+@inline Base.length(idx::VecRange{N}) where {N} = N
+@inline Base.first(idx::VecRange) = idx.i
+@inline Base.last(idx::VecRange) = idx.i + length(idx) - 1
+
+@inline Base.:+(idx::VecRange{N}, j::Integer) where N = VecRange{N}(idx.i + j)
+@inline Base.:+(j::Integer, idx::VecRange{N}) where N = VecRange{N}(idx.i + j)
+@inline Base.:-(idx::VecRange{N}, j::Integer) where N = VecRange{N}(idx.i - j)
+
+Base.checkindex(::Type{Bool}, inds::AbstractUnitRange, idx::VecRange) =
+    (first(inds) <= first(idx)) && (last(idx) <= last(inds))
+
+Base.checkindex(::Type{Bool}, inds::AbstractUnitRange, idx::Vec) =
+    all(first(inds) <= idx) && all(idx <= last(inds))
+
+@inline _checkarity(::AbstractArray{<:Any,N}, ::Vararg{<:Any,N}) where {N} =
+    nothing
+
+@inline _checkarity(::AbstractArray, ::Any) = nothing
+
+_checkarity(::AbstractArray{<:Any,N}, ::Vararg{<:Any,M}) where {N,M} =
+    throw(ArgumentError("""
+    $M indices are given to $N-dimensional array.
+    Exactly $N (non-mask) indices have to be specified when using SIMD.
+    """))
+
+# Combined with `_preprocessindices`, helper function `_extractmask`
+# extracts `mask` in the tail position.  As slicing tuple is not
+# type-stable, we use reverse-of-tail-of-reverse hack to extract
+# `mask` at the end of `args`.
+@inline _extractmask(mask::Vec{N,Bool}, R::Vararg{Integer}) where N =
+    (reverse(R), mask)
+@inline _extractmask(R::Vararg{Integer}) = (reverse(R), nothing)
+@inline _extractmask(mask::Vec{N,Bool}) where {N} = ((), mask)
+@inline _extractmask() = ((), nothing)
+
+@noinline _extractmask(rargs...) =
+    throw(ArgumentError("""
+    Using SIMD indexing `array[idx, i2, ..., iN, mask]` for `N`-dimensional
+    array requires `i2` to `iN` to be all integers and `mask` to be optionally
+    a SIMD vector `Vec` of `Bool`s.  Given `(i2, ..., iN, mask)` is
+    $(summary(reverse(rargs)))
+    """))
+
+_maskedidx(idx, ::Nothing, ::Any) = idx
+_maskedidx(idx::Vec, mask::Vec, fst) = vifelse(mask, idx, fst)
+_maskedidx(idx::VecRange, mask::Vec, fst) =
+    _maskedidx(Vec(ntuple(i -> i - 1 + idx.i, length(mask))), mask, fst)
+
+Base.@propagate_inbounds function _preprocessindices(arr, idx, args)
+    I, mask = _extractmask(reverse(args)...)
+    _checkarity(arr, idx, I...)
+    @boundscheck checkbounds(arr,
+                             _maskedidx(idx, mask, first(axes(arr, 1))),
+                             I...)
+    return I, mask
+end
+
+Base.@propagate_inbounds function Base.getindex(
+        arr::Union{Array{T},SubArray{T}}, idx::VecRange{N},
+        args::Vararg{Union{Integer,Vec{N,Bool}}}) where {N,T}
+    I, mask = _preprocessindices(arr, idx, args)
+    return vload(Vec{N,T}, pointer(arr, LinearIndices(arr)[idx.i, I...]), mask)
+end
+
+Base.@propagate_inbounds function Base.setindex!(
+        arr::Union{Array{T},SubArray{T}}, v::Vec{N,T}, idx::VecRange{N},
+        args::Vararg{Union{Integer,Vec{N,Bool}}}) where {N,T}
+    I, mask = _preprocessindices(arr, idx, args)
+    vstore(v, pointer(arr, LinearIndices(arr)[idx.i, I...]), mask)
+    return arr
+end
+
+Base.@propagate_inbounds function Base.getindex(
+        arr::Union{Array{T},SubArray{T}}, idx::Vec{N,<:Integer},
+        args::Vararg{Union{Integer,Vec{N,Bool}}}) where {N,T}
+    I, mask = _preprocessindices(arr, idx, args)
+    ptrs = pointer(arr, LinearIndices(arr)[1, I...]) - sizeof(T) +
+        sizeof(T) * idx
+    return vgather(Vec{N,T}, ptrs, mask)
+end
+
+Base.@propagate_inbounds function Base.setindex!(
+        arr::Union{Array{T},SubArray{T}}, v::Vec{N,T}, idx::Vec{N,<:Integer},
+        args::Vararg{Union{Integer,Vec{N,Bool}}}) where {N,T}
+    I, mask = _preprocessindices(arr, idx, args)
+    ptrs = pointer(arr, LinearIndices(arr)[1, I...]) - sizeof(T) +
+        sizeof(T) * idx
+    vscatter(v, ptrs, mask)
+    return arr
 end
 
 end

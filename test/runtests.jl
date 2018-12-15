@@ -310,6 +310,7 @@ using Test, InteractiveUtils
             idx = Vec(Tuple(idxarr))
             @test vgather(arr, idx) === convert(VT, idx)
             @test vgathera(arr, idx) === convert(VT, idx)
+            @test arr[idx] === convert(VT, idx)
 
             # Masked gather
             maskarr = zeros(Bool, length(VT))
@@ -318,6 +319,7 @@ using Test, InteractiveUtils
                 mask = Vec(Tuple(maskarr))
                 @test vgather(arr, idx, mask) === VT(Tuple(idxarr .* maskarr))
                 @test vgathera(arr, idx, mask) === VT(Tuple(idxarr .* maskarr))
+                @test arr[idx, mask] === VT(Tuple(idxarr .* maskarr))
             end
 
             # Scatter
@@ -327,6 +329,9 @@ using Test, InteractiveUtils
             vscatter(v, fill!(arr, 0), idx)
             @test arr[idxarr] == varr
             vscattera(v, fill!(arr, 0), idx)
+            @test arr[idxarr] == varr
+            fill!(arr, 0)
+            arr[idx] = v
             @test arr[idxarr] == varr
 
             # Masked scatter
@@ -338,6 +343,114 @@ using Test, InteractiveUtils
                 @test arr[idxarr] == varr .* maskarr
                 vscattera(v, fill!(arr, 0), idx, mask)
                 @test arr[idxarr] == varr .* maskarr
+                fill!(arr, 0)
+                arr[idx, mask] = v
+                @test arr[idxarr] == varr .* maskarr
+            end
+        end
+    end
+
+    @testset "Index-based load/store" begin
+        for (arr, VT) in [(arri32, V8I32), (arrf64, V4F64)]
+            @testset "Vector ($VT)" begin
+                fill!(arr.parent, 0)
+                arr .= 1:length(arr)
+                idx = VecRange{length(VT)}(1)
+                @test arr[idx] === VT(Tuple(1:length(VT)))
+
+                maskarr = zeros(Bool, length(VT))
+                maskarr[1] = true
+                mask = Vec(Tuple(maskarr))
+                varr = zeros(length(VT))
+                varr[1] = 1
+                @test arr[idx, mask] === VT(Tuple(varr))
+
+                @test_throws ArgumentError arr[idx, 1]
+                @test_throws ArgumentError arr[idx, 1, mask]
+                @test_throws ArgumentError arr[idx, mask, 1]
+                @test_throws ArgumentError arr[idx, 1, mask, 1]
+
+                lane = VecRange{length(VT)}(0)
+                @test_throws BoundsError arr[lane]
+                @test_throws BoundsError arr[lane + end]
+
+                # Out-of-bound access (OK with valloc)
+                slice = LinearIndices(arr)[end-length(VT)+2:end]
+                varr = zeros(length(VT))
+                varr[1:length(slice)] .= arr[slice]
+                i = lane + first(slice)
+                @test_throws BoundsError arr[i]
+                f(x, i) = @inbounds x[i]
+                @test f(arr, i) === VT(Tuple(varr))
+            end
+
+            @testset "Matrix ($VT)" begin
+                arr .= 1:length(arr)
+                mat = repeat(arr, outer=(1, 3))
+                idx = VecRange{length(VT)}(1)
+                @test mat[idx, 1] === VT(Tuple(1:length(VT)))
+                @test mat[idx, 2] === VT(Tuple(1:length(VT)))
+                @test mat[idx] === VT(Tuple(1:length(VT)))
+
+                maskarr = zeros(Bool, length(VT))
+                maskarr[1] = true
+                mask = Vec(Tuple(maskarr))
+                varr = zeros(length(VT))
+                varr[1] = 1
+                @test mat[idx, 1, mask] === VT(Tuple(varr))
+                @test mat[idx, mask] === VT(Tuple(varr))
+
+                @test_throws ArgumentError mat[idx, 1, 1]
+                @test_throws ArgumentError mat[idx, 1, 1, mask]
+                @test_throws ArgumentError mat[idx, mask, 1]
+                @test_throws ArgumentError mat[idx, 1, mask, 1]
+
+                lane = VecRange{length(VT)}(0)
+                @test_throws BoundsError mat[lane, 1]
+                @test_throws BoundsError mat[lane + end, 1]
+                @test_throws BoundsError mat[lane + end]
+
+                # Out-of-bound access
+                varr = collect(1:length(VT))
+                i = lane + size(mat, 1) + 1
+                @test_throws BoundsError mat[i, 1]
+                f(x, i) = @inbounds x[i, 1]
+                @test f(mat, i) === VT(Tuple(varr))
+            end
+
+            @testset "3D array ($VT)" begin
+                arr .= 1:length(arr)
+                arr3d = repeat(arr, outer=(1, 3, 5))
+                idx = VecRange{length(VT)}(1)
+                @test arr3d[idx, 1, 1] === VT(Tuple(1:length(VT)))
+                @test arr3d[idx, 2, 1] === VT(Tuple(1:length(VT)))
+                @test arr3d[idx, 1, 2] === VT(Tuple(1:length(VT)))
+                @test arr3d[idx] === VT(Tuple(1:length(VT)))
+
+                maskarr = zeros(Bool, length(VT))
+                maskarr[1] = true
+                mask = Vec(Tuple(maskarr))
+                varr = zeros(length(VT))
+                varr[1] = 1
+                @test arr3d[idx, 1, 1, mask] === VT(Tuple(varr))
+                @test arr3d[idx, mask] === VT(Tuple(varr))
+
+                @test_throws ArgumentError arr3d[idx, 1, 1, 1]
+                @test_throws ArgumentError arr3d[idx, 1, 1, 1, mask]
+                @test_throws ArgumentError arr3d[idx, mask, 1]
+                @test_throws ArgumentError arr3d[idx, 1, mask, 1]
+
+                lane = VecRange{length(VT)}(0)
+                @test_throws BoundsError arr3d[lane, 1, 1]
+                @test_throws BoundsError arr3d[lane + end, 1, 1]
+                @test_throws BoundsError arr3d[lane + end]
+
+                # Out-of-bound access
+                varr = collect(1:length(VT))
+                i = lane + size(arr3d, 1) + 1
+                @test_throws BoundsError arr3d[i, 1, 1]
+                f(x, i) = @inbounds x[i, 1, 1]
+                @test f(arr3d, i) === VT(Tuple(varr))
             end
         end
     end
@@ -348,11 +461,9 @@ using Test, InteractiveUtils
                        ::Type{Vec{N,T}}) where {N,T}
             @assert length(ys) == length(xs)
             @assert length(xs) % N == 0
+            lane = VecRange{N}(0)
             @inbounds for i in 1:N:length(xs)
-                xv = vload(Vec{N,T}, xs, i)
-                yv = vload(Vec{N,T}, ys, i)
-                xv += yv
-                vstore(xv, xs, i)
+                xs[lane + i] += ys[lane + i]
             end
         end
 
@@ -366,9 +477,9 @@ using Test, InteractiveUtils
         function vsum(xs::AbstractArray{T,1}, ::Type{Vec{N,T}}) where {N,T}
             @assert length(xs) % N == 0
             sv = Vec{N,T}(0)
+            lane = VecRange{N}(0)
             @inbounds for i in 1:N:length(xs)
-                xv = vload(Vec{N,T}, xs, i)
-                sv += xv
+                sv += xs[lane + i]
             end
             sum(sv)
         end
@@ -383,16 +494,14 @@ using Test, InteractiveUtils
                               ::Type{Vec{N,T}}) where {N, T}
             @assert length(ys) == length(xs)
             limit = length(xs) - (N-1)
-            vlimit = Vec{N,Int}(let l=length(xs); (l:l+N-1...,) end)
+            vlimit = Vec{N,Int}(let l=length(xs); (l:-1:l-N+1...,) end)
+            lane = VecRange{N}(0)
             @inbounds for i in 1:N:length(xs)
-                xv = vload(Vec{N,T}, xs, i)
-                yv = vload(Vec{N,T}, ys, i)
-                xv += yv
                 if i <= limit
-                    vstore(xv, xs, i)
+                    xs[lane + i] += ys[lane + i]
                 else
                     mask = Vec{N,Int}(i) <= vlimit
-                    vstore(xv, xs, i, mask)
+                    xs[lane + i, mask] = xs[lane + i] + ys[lane + i]
                 end
             end
         end
@@ -405,12 +514,12 @@ using Test, InteractiveUtils
         end
 
         function vsum_masked(xs::AbstractArray{T,1}, ::Type{Vec{N,T}}) where {N,T}
-            vlimit = Vec{N,Int}(let l=length(xs); (l:l+N-1...,) end)
+            vlimit = Vec{N,Int}(let l=length(xs); (l:-1:l-N+1...,) end)
             sv = Vec{N,T}(0)
+            lane = VecRange{N}(0)
             @inbounds for i in 1:N:length(xs)
                 mask = Vec{N,Int}(i) <= vlimit
-                xv = vload(Vec{N,T}, xs, i, mask)
-                sv += xv
+                sv += xs[lane + i, mask]
             end
             sum(sv)
         end
