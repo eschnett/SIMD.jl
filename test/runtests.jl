@@ -509,7 +509,7 @@ using Test, InteractiveUtils
                     xs[lane + i] += ys[lane + i]
                 else
                     mask = Vec{N,Int}(i) <= vlimit
-                    xs[lane + i, mask] = xs[lane + i] + ys[lane + i]
+                    xs[lane + i, mask] = xs[lane + i, mask] + ys[lane + i, mask]
                 end
             end
         end
