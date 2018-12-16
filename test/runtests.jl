@@ -14,6 +14,8 @@ using Test, InteractiveUtils
         global const V8I32 = Vec{L8,Int32}
         global const V4F64 = Vec{L4,Float64}
 
+        is_checking_bounds = Core.Compiler.inbounds_option() == :on
+
     @testset "Type properties" begin
         @test eltype(V8I32) === Int32
         @test eltype(V4F64) === Float64
@@ -381,7 +383,9 @@ using Test, InteractiveUtils
                 i = lane + first(slice)
                 @test_throws BoundsError arr[i]
                 f(x, i) = @inbounds x[i]
-                @test f(arr, i) === VT(Tuple(varr))
+                if !is_checking_bounds
+                    @test f(arr, i) === VT(Tuple(varr))
+                end
             end
 
             @testset "Matrix ($VT)" begin
@@ -415,7 +419,9 @@ using Test, InteractiveUtils
                 i = lane + size(mat, 1) + 1
                 @test_throws BoundsError mat[i, 1]
                 f(x, i) = @inbounds x[i, 1]
-                @test f(mat, i) === VT(Tuple(varr))
+                if !is_checking_bounds
+                    @test f(mat, i) === VT(Tuple(varr))
+                end
             end
 
             @testset "3D array ($VT)" begin
@@ -450,7 +456,9 @@ using Test, InteractiveUtils
                 i = lane + size(arr3d, 1) + 1
                 @test_throws BoundsError arr3d[i, 1, 1]
                 f(x, i) = @inbounds x[i, 1, 1]
-                @test f(arr3d, i) === VT(Tuple(varr))
+                if !is_checking_bounds
+                    @test f(arr3d, i) === VT(Tuple(varr))
+                end
             end
         end
     end
