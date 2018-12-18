@@ -1,6 +1,13 @@
 using SIMD
 using Test, InteractiveUtils
 
+"""
+    llvm_ir(f, args) :: String
+
+Get LLVM IR of `f(args...)` as a string.
+"""
+llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
+
 @testset "SIMD" begin
 
         # The vector we are testing. Ideally, we should be able to use any vector size
@@ -480,6 +487,11 @@ using Test, InteractiveUtils
             vadd!(xs, ys, V4F64)
             @test xs == Float64[i+1 for i in 1:(4*L4)]
             # @code_native vadd!(xs, ys, V4F64)
+
+            ir = llvm_ir(vadd!, (xs, ys, V4F64))
+            @test occursin(r"( load <4 x double>.*){2}"s, ir)
+            @test occursin(" store <4 x double>", ir)
+            @test occursin(" fadd <4 x double>", ir)
         end
 
         function vsum(xs::AbstractArray{T,1}, ::Type{Vec{N,T}}) where {N,T}
@@ -496,13 +508,18 @@ using Test, InteractiveUtils
             s = vsum(xs, V4F64)
             @test s === (x->(x^2+x)/2)(Float64(4*L4))
             # @code_native vsum(xs, V4F64)
+
+            ir = llvm_ir(vsum, (xs, V4F64))
+            @test occursin(" load <4 x double>", ir)
+            @test occursin(" fadd <4 x double>", ir)
+            @test occursin(r"( shufflevector <4 x double>.*){2}"s, ir)
         end
 
         function vadd_masked!(xs::AbstractArray{T,1}, ys::AbstractArray{T,1},
                               ::Type{Vec{N,T}}) where {N, T}
             @assert length(ys) == length(xs)
             limit = length(xs) - (N-1)
-            vlimit = Vec{N,Int}(let l=length(xs); (l:-1:l-N+1...,) end)
+            vlimit = Vec(ntuple(i -> length(xs) - i + 1, Val(N)))
             lane = VecRange{N}(0)
             @inbounds for i in 1:N:length(xs)
                 if i <= limit
@@ -519,10 +536,16 @@ using Test, InteractiveUtils
             vadd_masked!(xs, ys, V4F64)
             @test xs == Float64[i+1 for i in 1:13]
             # @code_native vadd!(xs, ys, V4F64)
+
+            ir = llvm_ir(vadd_masked!, (xs, ys, V4F64))
+            @test occursin(r"(masked.load.v4f64.*){2}"s, ir)
+            @test occursin("masked.store.v4f64", ir)
+            @test occursin(" store <4 x double>", ir)
+            @test occursin(" fadd <4 x double>", ir)
         end
 
         function vsum_masked(xs::AbstractArray{T,1}, ::Type{Vec{N,T}}) where {N,T}
-            vlimit = Vec{N,Int}(let l=length(xs); (l:-1:l-N+1...,) end)
+            vlimit = Vec(ntuple(i -> length(xs) - i + 1, Val(N)))
             sv = Vec{N,T}(0)
             lane = VecRange{N}(0)
             @inbounds for i in 1:N:length(xs)
@@ -537,6 +560,11 @@ using Test, InteractiveUtils
             @code_llvm vsum(xs, V4F64)
             @code_native vsum(xs, V4F64)
             @test s === sum(xs)
+
+            ir = llvm_ir(vsum_masked, (xs, V4F64))
+            @test occursin("masked.load.v4f64", ir)
+            @test occursin(" fadd <4 x double>", ir)
+            @test occursin(r"( shufflevector <4 x double>.*){2}"s, ir)
         end
     end
 
