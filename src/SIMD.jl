@@ -560,6 +560,33 @@ end
     end
 end
 
+# Functions taking two arguments, second argument is a scalar
+@generated function llvmwrap(::Type{Val{Op}}, v1::Vec{N,T1},
+        s2::ScalarTypes, ::Type{R} = T1) where {Op,N,T1,R}
+    @assert isa(Op, Symbol)
+    typ1 = llvmtype(T1)
+    vtyp1 = "<$N x $typ1>"
+    typ2 = llvmtype(s2)
+    typr = llvmtype(R)
+    vtypr = "<$N x $typr>"
+    ins = llvmins(Val{Op}, N, T1)
+    decls = []
+    instrs = []
+    if ins[1] == '@'
+        push!(decls, "declare $vtypr $ins($vtyp1, $typ2)")
+        push!(instrs, "%res = call $vtypr $ins($vtyp1 %0, $typ2 %1)")
+    else
+        push!(instrs, "%res = $ins $vtyp1 %0, %1")
+    end
+    push!(instrs, "ret $vtypr %res")
+    quote
+        $(Expr(:meta, :inline))
+        Vec{N,R}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
+            NTuple{N,VE{R}}, Tuple{NTuple{N,VE{T1}}, $s2},
+            v1.elts, s2))
+    end
+end
+
 # Functions taking two arguments, returning Bool
 @generated function llvmwrap(::Type{Val{Op}}, v1::Vec{N,T1},
         v2::Vec{N,T2}, ::Type{Bool}) where {Op,N,T1,T2}
@@ -986,7 +1013,11 @@ for op in (:+, :-, :*, :/, :^, :copysign, :max, :min, :rem)
             llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
     end
 end
-@inline Base. ^(v1::Vec{N,T}, x2::Integer) where {N,T<:FloatingTypes} =
+# Using `IntegerTypes` here so that this definition "wins" against
+# `^(::ScalarTypes, v2::Vec)`.
+@inline Base.:^(v1::Vec{N,T}, x2::IntegerTypes) where {N,T<:FloatingTypes} =
+    llvmwrap(Val{:powi}, v1, Int(x2))
+@inline Base.:^(v1::Vec{N,T}, x2::Integer) where {N,T<:FloatingTypes} =
     llvmwrap(Val{:powi}, v1, Int(x2))
 @inline Base.flipsign(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T<:FloatingTypes} =
     vifelse(signbit(v2), -v1, v1)
