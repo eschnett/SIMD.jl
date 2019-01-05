@@ -991,6 +991,12 @@ end
 @inline Base.flipsign(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T<:FloatingTypes} =
     vifelse(signbit(v2), -v1, v1)
 
+# Do what Base does for HWNumber:
+@inline Base.literal_pow(::typeof(^), x::Vec, ::Val{0}) = one(typeof(x))
+@inline Base.literal_pow(::typeof(^), x::Vec, ::Val{1}) = x
+@inline Base.literal_pow(::typeof(^), x::Vec, ::Val{2}) = x*x
+@inline Base.literal_pow(::typeof(^), x::Vec, ::Val{3}) = x*x*x
+
 for op in (:fma, :muladd)
     @eval begin
         @inline function Base.$op(v1::Vec{N,T},
