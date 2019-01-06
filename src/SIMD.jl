@@ -25,18 +25,18 @@ for sz in (8, 16, 32, 64, 128)
 
         Base.convert(::Type{Bool}, b::$Boolsz) = b.int != 0
 
-        Base. ~(b::$Boolsz) = $Boolsz(~b.int)
-        Base. !(b::$Boolsz) = ~b
-        Base. &(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int & b2.int)
-        Base. |(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int | b2.int)
+        Base.:~(b::$Boolsz) = $Boolsz(~b.int)
+        Base.:!(b::$Boolsz) = ~b
+        Base.:&(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int & b2.int)
+        Base.:|(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int | b2.int)
         Base.$(:$)(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int $ b2.int)
 
-        Base. ==(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int == b2.int)
-        Base. !=(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int != b2.int)
-        Base. <(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int < b2.int)
-        Base. <=(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int <= b2.int)
-        Base. >(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int > b2.int)
-        Base. >=(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int >= b2.int)
+        Base.:==(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int == b2.int)
+        Base.:!=(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int != b2.int)
+        Base.:<(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int < b2.int)
+        Base.:<=(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int <= b2.int)
+        Base.:>(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int > b2.int)
+        Base.:>=(b1::$Boolsz, b2::$Boolsz) = $Boolsz(b1.int >= b2.int)
     end
 end
 Base.convert(::Type{Bool}, b::Boolean) = error("impossible")
@@ -115,7 +115,7 @@ Vec(xs::NTuple{N,T}) where {N,T<:ScalarTypes} = Vec{N,T}(xs)
 @inline Tuple(v::Vec{N}) where {N} = ntuple(i -> v.elts[i].value, Val(N))
 @inline NTuple{N, T}(v::Vec{N}) where{N, T} = ntuple(i -> convert(T, v.elts[i].value), Val(N))
 
-@generated function Base. %(v::Vec{N,T}, ::Type{Vec{N,R}}) where {N,R,T}
+@generated function Base.:%(v::Vec{N,T}, ::Type{Vec{N,R}}) where {N,R,T}
     quote
         $(Expr(:meta, :inline))
         Vec{N,R}(tuple($([:(v.elts[$i].value % R) for i in 1:N]...)))
@@ -927,7 +927,7 @@ for op in (:~, :+, :-)
             llvmwrap(Val{$(QuoteNode(op))}, v1)
     end
 end
-@inline Base. !(v1::Vec{N,Bool}) where {N} = ~v1
+@inline Base.:!(v1::Vec{N,Bool}) where {N} = ~v1
 @inline function Base.abs(v1::Vec{N,T}) where {N,T<:IntTypes}
     # s = -Vec{N,T}(signbit(v1))
     s = v1 >> Val{8*sizeof(T)}
