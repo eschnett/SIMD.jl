@@ -242,7 +242,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
 
         for op in (
                 ==, !=, <, <=, >, >=,
-                +, -, *, /, ^, copysign, flipsign, max, min, rem)
+                +, -, *, /, copysign, flipsign, max, min, rem)
             @test op(42, V4F64(v4f64)) === op(V4F64(42), V4F64(v4f64))
             @test op(V4F64(v4f64), 42) === op(V4F64(v4f64), V4F64(42))
         end
