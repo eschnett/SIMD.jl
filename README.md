@@ -19,11 +19,9 @@ using SIMD
 function vadd!(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}}) where {N, T}
     @assert length(ys) == length(xs)
     @assert length(xs) % N == 0
+    lane = VecRange{N}(0)
     @inbounds for i in 1:N:length(xs)
-        xv = vload(Vec{N,T}, xs, i)
-        yv = vload(Vec{N,T}, ys, i)
-        xv += yv
-        vstore(xv, xs, i)
+        xs[lane + i] += ys[lane + i]
     end
 end
 ```
@@ -101,6 +99,18 @@ arr = zeros(10)
 v = Vec((1.0, 2.0, 3.0, 4.0))
 idx = Vec((1, 3, 4, 7))
 vscatter(v, arr, idx)
+```
+
+Above `vload`, `vstore`, `vgather` and `vscatter` can be written using the indexing notation:
+
+```Julia
+i = 1
+lane = VecRange{4}(0)
+v = arr[lane + i]             # vload
+arr[lane + i] = v             # vstore
+idx = Vec((1, 3, 4, 7))
+v = arr[idx]                  # vgather
+arr[idx] = v                  # vscatter
 ```
 
 ## Vector shuffles
