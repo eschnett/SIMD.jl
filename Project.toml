@@ -1,5 +1,5 @@
 name = "SIMD"
-uuid = "41203a48-d602-4ede-a34e-234653443e97"
+uuid = "fdea26ae-647d-5447-a871-4b548cad5224"
 authors = ["Erik Schnetter <schnetter@gmail.com>"]
 version = "2.0.1"
 
