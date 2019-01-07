@@ -122,6 +122,11 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
             @test Tuple(op(V8I32(v8i32), -3)) === map(x->op(x,-3), v8i32)
             @test Tuple(op(V8I32(v8i32), V8I32(v8i32))) === map(op, v8i32, v8i32)
         end
+
+        @test Tuple(V8I32(v8i32)^0) === v8i32.^0
+        @test Tuple(V8I32(v8i32)^1) === v8i32.^1
+        @test Tuple(V8I32(v8i32)^2) === v8i32.^2
+        @test Tuple(V8I32(v8i32)^3) === v8i32.^3
     end
 
     @testset "Floating point arithmetic functions" begin
@@ -206,6 +211,11 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                 copysign, flipsign, max, min, rem)
             @test Tuple(op(V4F64(v4f64), V4F64(v4f64b))) === map(op, v4f64, v4f64b)
         end
+
+        @test Tuple(V4F64(v4f64)^0) === v4f64.^0
+        @test Tuple(V4F64(v4f64)^1) === v4f64.^1
+        @test Tuple(V4F64(v4f64)^2) === v4f64.^2
+        @test Tuple(V4F64(v4f64)^3) === v4f64.^3
 
         for op in (fma, vifelsebool, muladd)
             @test Tuple(op(V4F64(v4f64), V4F64(v4f64b), V4F64(v4f64c))) ===
