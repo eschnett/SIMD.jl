@@ -211,6 +211,14 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
             @test Tuple(op(V4F64(v4f64), V4F64(v4f64b), V4F64(v4f64c))) ===
                 map(op, v4f64, v4f64b, v4f64c)
         end
+
+        v = V4F64(v4f64)
+        @test v^5 === v * v * v * v * v
+
+        # Make sure our dispatching rule does not select floating point `pow`.
+        # See: https://github.com/eschnett/SIMD.jl/pull/43
+        ir = llvm_ir(^, (V4F64(v4f64), 2))
+        @test occursin("@llvm.powi.v4f64", ir)
     end
 
     @testset "Type promotion" begin
@@ -242,7 +250,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
 
         for op in (
                 ==, !=, <, <=, >, >=,
-                +, -, *, /, ^, copysign, flipsign, max, min, rem)
+                +, -, *, /, copysign, flipsign, max, min, rem)
             @test op(42, V4F64(v4f64)) === op(V4F64(42), V4F64(v4f64))
             @test op(V4F64(v4f64), 42) === op(V4F64(v4f64), V4F64(42))
         end
