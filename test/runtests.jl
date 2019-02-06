@@ -413,13 +413,29 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                 end
             end
 
-            @testset "Matrix ($VT)" begin
-                arr .= 1:length(arr)
-                mat = repeat(arr, outer=(1, 3))
+            arr .= 1:length(arr)
+            @testset "$name" for (name, mat) in [
+                        ("Matrix ($VT)", repeat(arr, outer=(1, 3))),
+                        ("Matrix ($VT) with non-strided row",
+                         view(repeat(arr, outer=(1, 5)), :, [2, 1, 5])),
+                    ]
                 idx = VecRange{length(VT)}(1)
                 @test mat[idx, 1] === VT(Tuple(1:length(VT)))
                 @test mat[idx, 2] === VT(Tuple(1:length(VT)))
-                @test mat[idx] === VT(Tuple(1:length(VT)))
+                if mat isa SIMD.FastContiguousArray
+                    @test mat[idx] === VT(Tuple(1:length(VT)))
+                else
+                    err = try
+                        mat[idx]
+                        nothing
+                    catch err
+                        err
+                    end
+                    @test err isa ArgumentError
+                    @test occursin(
+                        "Exactly 2 (non-mask) indices have to be specified.",
+                        sprint(showerror, err))
+                end
 
                 maskarr = zeros(Bool, length(VT))
                 maskarr[1] = true
@@ -427,7 +443,20 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                 varr = zeros(length(VT))
                 varr[1] = 1
                 @test mat[idx, 1, mask] === VT(Tuple(varr))
-                @test mat[idx, mask] === VT(Tuple(varr))
+                if mat isa SIMD.FastContiguousArray
+                    @test mat[idx, mask] === VT(Tuple(varr))
+                else
+                    err = try
+                        mat[idx]
+                        nothing
+                    catch err
+                        err
+                    end
+                    @test err isa ArgumentError
+                    @test occursin(
+                        "Exactly 2 (non-mask) indices have to be specified.",
+                        sprint(showerror, err))
+                end
 
                 @test_throws ArgumentError mat[idx, 1, 1]
                 @test_throws ArgumentError mat[idx, 1, 1, mask]
@@ -437,7 +466,20 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                 lane = VecRange{length(VT)}(0)
                 @test_throws BoundsError mat[lane, 1]
                 @test_throws BoundsError mat[lane + end, 1]
-                @test_throws BoundsError mat[lane + end]
+                if mat isa SIMD.FastContiguousArray
+                    @test_throws BoundsError mat[lane + end]
+                else
+                    err = try
+                        mat[lane + end]
+                        nothing
+                    catch err
+                        err
+                    end
+                    @test err isa ArgumentError
+                    @test occursin(
+                        "Exactly 2 (non-mask) indices have to be specified.",
+                        sprint(showerror, err))
+                end
 
                 # Out-of-bound access
                 varr = collect(1:length(VT))

@@ -55,10 +55,38 @@ uinttype{T}(::Type{T}) = uinttype(Val{8*sizeof(T)})
 using Base: Slice, ScalarIndex
 
 """
+    ContiguousSubArray{T,N,P,I,L}
+
+Like `Base.FastContiguousSubArray` but without requirement for linear
+indexing (i.e., type parameter `L` can be `false`).
+
+# Examples
+```
+julia> A = view(ones(5, 5), :, [1,3]);
+
+julia> A isa Base.FastContiguousSubArray
+false
+
+julia> A isa SIMD.ContiguousSubArray
+true
+```
+"""
+ContiguousSubArray{T,N,P,
+                   I<:Union{Tuple{Union{Slice, AbstractUnitRange}, Vararg{Any}},
+                            Tuple{Vararg{ScalarIndex}}},
+                   L} = SubArray{T,N,P,I,L}
+
+"""
+    ContiguousArray{T,N}
+
+Array types with contiguous first dimension.
+"""
+ContiguousArray{T,N} = Union{Array{T,N}, ContiguousSubArray{T,N}}
+
+"""
     FastContiguousArray{T,N}
 
-A type alias for array types with contiguous first dimension.  This
-is the type of arrays that `pointer(A, i)` works.
+This is the type of arrays that `pointer(A, i)` works.
 """
 FastContiguousArray{T,N} = Union{Array{T,N}, Base.FastContiguousSubArray{T,N}}
 # https://github.com/eschnett/SIMD.jl/pull/40#discussion_r254131184
@@ -1715,7 +1743,15 @@ Base.checkindex(::Type{Bool}, inds::AbstractUnitRange, idx::Vec) =
 @inline _checkarity(::AbstractArray{<:Any,N}, ::Vararg{<:Any,N}) where {N} =
     nothing
 
-@inline _checkarity(::AbstractArray, ::Any) = nothing
+@inline _checkarity(::T, ::Any) where {T <: AbstractArray} =
+    if IndexStyle(T) isa IndexLinear
+        nothing
+    else
+        throw(ArgumentError("""
+        Array type $T does not support indexing with a single index.
+        Exactly $(ndims(T)) (non-mask) indices have to be specified.
+        """))
+    end
 
 _checkarity(::AbstractArray{<:Any,N}, ::Vararg{<:Any,M}) where {N,M} =
     throw(ArgumentError("""
@@ -1755,36 +1791,46 @@ Base.@propagate_inbounds function _preprocessindices(arr, idx, args)
     return I, mask
 end
 
+"""
+    _pointer(arr, i, I)
+
+Pointer to the element `arr[i, I...]`.
+"""
+Base.@propagate_inbounds _pointer(arr::Array, i, I) =
+    pointer(arr, LinearIndices(arr)[i, I...])
+Base.@propagate_inbounds _pointer(arr::Base.FastContiguousSubArray, i, I) =
+    pointer(arr, (i, I...))
+Base.@propagate_inbounds _pointer(arr::SubArray, i, I) =
+    pointer(Base.unsafe_view(arr, 1, I...), i)
+
 Base.@propagate_inbounds function Base.getindex(
-        arr::FastContiguousArray{T}, idx::VecRange{N},
+        arr::ContiguousArray{T}, idx::VecRange{N},
         args::Vararg{Union{Integer,Vec{N,Bool}}}) where {N,T}
     I, mask = _preprocessindices(arr, idx, args)
-    return vload(Vec{N,T}, pointer(arr, LinearIndices(arr)[idx.i, I...]), mask)
+    return vload(Vec{N,T}, _pointer(arr, idx.i, I), mask)
 end
 
 Base.@propagate_inbounds function Base.setindex!(
-        arr::FastContiguousArray{T}, v::Vec{N,T}, idx::VecRange{N},
+        arr::ContiguousArray{T}, v::Vec{N,T}, idx::VecRange{N},
         args::Vararg{Union{Integer,Vec{N,Bool}}}) where {N,T}
     I, mask = _preprocessindices(arr, idx, args)
-    vstore(v, pointer(arr, LinearIndices(arr)[idx.i, I...]), mask)
+    vstore(v, _pointer(arr, idx.i, I), mask)
     return arr
 end
 
 Base.@propagate_inbounds function Base.getindex(
-        arr::FastContiguousArray{T}, idx::Vec{N,<:Integer},
+        arr::ContiguousArray{T}, idx::Vec{N,<:Integer},
         args::Vararg{Union{Integer,Vec{N,Bool}}}) where {N,T}
     I, mask = _preprocessindices(arr, idx, args)
-    ptrs = pointer(arr, LinearIndices(arr)[1, I...]) - sizeof(T) +
-        sizeof(T) * idx
+    ptrs = _pointer(arr, 1, I) - sizeof(T) + sizeof(T) * idx
     return vgather(Vec{N,T}, ptrs, mask)
 end
 
 Base.@propagate_inbounds function Base.setindex!(
-        arr::FastContiguousArray{T}, v::Vec{N,T}, idx::Vec{N,<:Integer},
+        arr::ContiguousArray{T}, v::Vec{N,T}, idx::Vec{N,<:Integer},
         args::Vararg{Union{Integer,Vec{N,Bool}}}) where {N,T}
     I, mask = _preprocessindices(arr, idx, args)
-    ptrs = pointer(arr, LinearIndices(arr)[1, I...]) - sizeof(T) +
-        sizeof(T) * idx
+    ptrs = _pointer(arr, 1, I) - sizeof(T) + sizeof(T) * idx
     vscatter(v, ptrs, mask)
     return arr
 end
