@@ -50,6 +50,20 @@ uinttype{T}(::Type{T}) = uinttype(Val{8*sizeof(T)})
 
 =#
 
+# Array types for SIMD
+
+using Base: Slice, ScalarIndex
+
+"""
+    FastContiguousArray{T,N}
+
+A type alias for array types with contiguous first dimension.  This
+is the type of arrays that `pointer(A, i)` works.
+"""
+FastContiguousArray{T,N} = Union{Array{T,N}, Base.FastContiguousSubArray{T,N}}
+# https://github.com/eschnett/SIMD.jl/pull/40#discussion_r254131184
+# https://github.com/JuliaArrays/MappedArrays.jl/pull/24#issuecomment-460568978
+
 # The Julia SIMD vector type
 
 const BoolTypes = Union{Bool}
@@ -1311,14 +1325,14 @@ end
     vload(Vec{N,T}, ptr, Val{true})
 
 @inline function vload(::Type{Vec{N,T}},
-                       arr::Union{Array{T,1},SubArray{T,1}},
+                       arr::FastContiguousArray{T,1},
                        i::Integer,
                        ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
     #TODO @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
     vload(Vec{N,T}, pointer(arr, i), Val{Aligned})
 end
 @inline function vloada(::Type{Vec{N,T}},
-                        arr::Union{Array{T,1},SubArray{T,1}},
+                        arr::FastContiguousArray{T,1},
                         i::Integer) where {N,T}
     vload(Vec{N,T}, arr, i, Val{true})
 end
@@ -1369,14 +1383,14 @@ end
     vload(Vec{N,T}, ptr, mask, Val{true})
 
 @inline function vload(::Type{Vec{N,T}},
-                       arr::Union{Array{T,1},SubArray{T,1}},
+                       arr::FastContiguousArray{T,1},
                        i::Integer, mask::Union{Vec{N,Bool}, Nothing},
                        ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
     #TODO @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
     vload(Vec{N,T}, pointer(arr, i), mask, Val{Aligned})
 end
 @inline function vloada(::Type{Vec{N,T}},
-                        arr::Union{Array{T,1},SubArray{T,1}}, i::Integer,
+                        arr::FastContiguousArray{T,1}, i::Integer,
                         mask::Union{Vec{N,Bool}, Nothing}) where {N,T}
     vload(Vec{N,T}, arr, i, mask, Val{true})
 end
@@ -1423,18 +1437,18 @@ end
 @inline vstorent(v::Vec{N,T}, ptr::Ptr{T}) where {N,T} = vstore(v, ptr, Val{true}, Val{true})
 
 @inline function vstore(v::Vec{N,T},
-                        arr::Union{Array{T,1},SubArray{T,1}},
+                        arr::FastContiguousArray{T,1},
                         i::Integer,
                         ::Type{Val{Aligned}} = Val{false},
                         ::Type{Val{Nontemporal}} = Val{false}) where {N,T,Aligned,Nontemporal}
     @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
     vstore(v, pointer(arr, i), Val{Aligned}, Val{Nontemporal})
 end
-@inline function vstorea(v::Vec{N,T}, arr::Union{Array{T,1},SubArray{T,1}},
+@inline function vstorea(v::Vec{N,T}, arr::FastContiguousArray{T,1},
                          i::Integer) where {N,T}
     vstore(v, arr, i, Val{true})
 end
-@inline function vstorent(v::Vec{N,T}, arr::Union{Array{T,1},SubArray{T,1}},
+@inline function vstorent(v::Vec{N,T}, arr::FastContiguousArray{T,1},
                          i::Integer) where {N,T}
     vstore(v, arr, i, Val{true}, Val{true})
 end
@@ -1485,7 +1499,7 @@ end
     vstore(v, ptr, mask, Val{true})
 
 @inline function vstore(v::Vec{N,T},
-                        arr::Union{Array{T,1},SubArray{T,1}},
+                        arr::FastContiguousArray{T,1},
                         i::Integer,
                         mask::Union{Vec{N,Bool}, Nothing},
                         ::Type{Val{Aligned}} = Val{false},
@@ -1494,7 +1508,7 @@ end
     vstore(v, pointer(arr, i), mask, Val{Aligned}, Val{Nontemporal})
 end
 @inline function vstorea(v::Vec{N,T},
-                         arr::Union{Array{T,1},SubArray{T,1}},
+                         arr::FastContiguousArray{T,1},
                          i::Integer,
                          mask::Union{Vec{N,Bool}, Nothing}) where {N,T}
     vstore(v, arr, i, mask, Val{true})
@@ -1550,7 +1564,7 @@ end
                  mask::Union{Vec{N,Bool}, Nothing}) where {N,T} =
     vgather(Vec{N,T}, ptrs, mask, Val{true})
 
-@inline vgather(arr::Union{Array{T,1},SubArray{T,1}},
+@inline vgather(arr::FastContiguousArray{T,1},
                 idx::Vec{N,<:Integer},
                 mask::Union{Vec{N,Bool}, Nothing} = nothing,
                 ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned} =
@@ -1558,7 +1572,7 @@ end
             pointer(arr) + sizeof(T) * (idx - 1),
             mask, Val{Aligned})
 
-@inline vgathera(arr::Union{Array{T,1},SubArray{T,1}},
+@inline vgathera(arr::FastContiguousArray{T,1},
                  idx::Vec{N,<:Integer},
                  mask::Union{Vec{N,Bool}, Nothing} = nothing) where {N,T} =
     vgather(arr, idx, mask, Val{true})
@@ -1613,13 +1627,13 @@ end
                   mask::Union{Vec{N,Bool}, Nothing}) where {N,T} =
     vscatter(v, ptrs, mask, Val{true})
 
-@inline vscatter(v::Vec{N,T}, arr::Union{Array{T,1},SubArray{T,1}},
+@inline vscatter(v::Vec{N,T}, arr::FastContiguousArray{T,1},
                  idx::Vec{N,<:Integer},
                  mask::Union{Vec{N,Bool}, Nothing} = nothing,
                  ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned} =
     vscatter(v, pointer(arr) + sizeof(T) * (idx - 1), mask, Val{Aligned})
 
-@inline vscattera(v::Vec{N,T}, arr::Union{Array{T,1},SubArray{T,1}},
+@inline vscattera(v::Vec{N,T}, arr::FastContiguousArray{T,1},
                   idx::Vec{N,<:Integer},
                   mask::Union{Vec{N,Bool}, Nothing} = nothing) where {N,T} =
     vscatter(v, arr, idx, mask, Val{true})
@@ -1742,14 +1756,14 @@ Base.@propagate_inbounds function _preprocessindices(arr, idx, args)
 end
 
 Base.@propagate_inbounds function Base.getindex(
-        arr::Union{Array{T},SubArray{T}}, idx::VecRange{N},
+        arr::FastContiguousArray{T}, idx::VecRange{N},
         args::Vararg{Union{Integer,Vec{N,Bool}}}) where {N,T}
     I, mask = _preprocessindices(arr, idx, args)
     return vload(Vec{N,T}, pointer(arr, LinearIndices(arr)[idx.i, I...]), mask)
 end
 
 Base.@propagate_inbounds function Base.setindex!(
-        arr::Union{Array{T},SubArray{T}}, v::Vec{N,T}, idx::VecRange{N},
+        arr::FastContiguousArray{T}, v::Vec{N,T}, idx::VecRange{N},
         args::Vararg{Union{Integer,Vec{N,Bool}}}) where {N,T}
     I, mask = _preprocessindices(arr, idx, args)
     vstore(v, pointer(arr, LinearIndices(arr)[idx.i, I...]), mask)
@@ -1757,7 +1771,7 @@ Base.@propagate_inbounds function Base.setindex!(
 end
 
 Base.@propagate_inbounds function Base.getindex(
-        arr::Union{Array{T},SubArray{T}}, idx::Vec{N,<:Integer},
+        arr::FastContiguousArray{T}, idx::Vec{N,<:Integer},
         args::Vararg{Union{Integer,Vec{N,Bool}}}) where {N,T}
     I, mask = _preprocessindices(arr, idx, args)
     ptrs = pointer(arr, LinearIndices(arr)[1, I...]) - sizeof(T) +
@@ -1766,7 +1780,7 @@ Base.@propagate_inbounds function Base.getindex(
 end
 
 Base.@propagate_inbounds function Base.setindex!(
-        arr::Union{Array{T},SubArray{T}}, v::Vec{N,T}, idx::Vec{N,<:Integer},
+        arr::FastContiguousArray{T}, v::Vec{N,T}, idx::Vec{N,<:Integer},
         args::Vararg{Union{Integer,Vec{N,Bool}}}) where {N,T}
     I, mask = _preprocessindices(arr, idx, args)
     ptrs = pointer(arr, LinearIndices(arr)[1, I...]) - sizeof(T) +
