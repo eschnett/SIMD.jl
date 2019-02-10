@@ -1381,10 +1381,12 @@ end
     vload(Vec{N,T}, arr, i, mask, Val{true})
 end
 
-export vstore, vstorea
+export vstore, vstorea, vstorent
 @generated function vstore(v::Vec{N,T}, ptr::Ptr{T},
-                           ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
+                           ::Type{Val{Aligned}} = Val{false},
+                           ::Type{Val{Nontemporal}} = Val{false}) where {N,T,Aligned,Nontemporal}
     @assert isa(Aligned, Bool)
+    @assert isa(Nontemporal, Bool)
     ptyp = llvmtype(Int)
     typ = llvmtype(T)
     vtyp = "<$N x $typ>"
@@ -1398,6 +1400,9 @@ export vstore, vstorea
     flags = [""]
     if align > 0
         push!(flags, "align $align")
+    end
+    if Nontemporal
+        push!(flags, "!nontemporal !{i32 1}")
     end
     if VERSION < v"v0.7.0-DEV"
         push!(instrs, "%ptr = bitcast $typ* %1 to $vtyp*")
@@ -1415,16 +1420,23 @@ end
 
 @inline vstorea(v::Vec{N,T}, ptr::Ptr{T}) where {N,T} = vstore(v, ptr, Val{true})
 
+@inline vstorent(v::Vec{N,T}, ptr::Ptr{T}) where {N,T} = vstore(v, ptr, Val{true}, Val{true})
+
 @inline function vstore(v::Vec{N,T},
                         arr::Union{Array{T,1},SubArray{T,1}},
                         i::Integer,
-                        ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
+                        ::Type{Val{Aligned}} = Val{false},
+                        ::Type{Val{Nontemporal}} = Val{false}) where {N,T,Aligned,Nontemporal}
     @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
-    vstore(v, pointer(arr, i), Val{Aligned})
+    vstore(v, pointer(arr, i), Val{Aligned}, Val{Nontemporal})
 end
 @inline function vstorea(v::Vec{N,T}, arr::Union{Array{T,1},SubArray{T,1}},
                          i::Integer) where {N,T}
     vstore(v, arr, i, Val{true})
+end
+@inline function vstorent(v::Vec{N,T}, arr::Union{Array{T,1},SubArray{T,1}},
+                         i::Integer) where {N,T}
+    vstore(v, arr, i, Val{true}, Val{true})
 end
 
 @inline vstore(v::Vec{N,T}, ptr::Ptr{T}, mask::Nothing,
@@ -1476,9 +1488,10 @@ end
                         arr::Union{Array{T,1},SubArray{T,1}},
                         i::Integer,
                         mask::Union{Vec{N,Bool}, Nothing},
-                        ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
+                        ::Type{Val{Aligned}} = Val{false},
+                        ::Type{Val{Nontemporal}} = Val{false}) where {N,T,Aligned,Nontemporal}
     #TODO @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
-    vstore(v, pointer(arr, i), mask, Val{Aligned})
+    vstore(v, pointer(arr, i), mask, Val{Aligned}, Val{Nontemporal})
 end
 @inline function vstorea(v::Vec{N,T},
                          arr::Union{Array{T,1},SubArray{T,1}},
