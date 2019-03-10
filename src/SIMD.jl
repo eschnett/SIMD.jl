@@ -1,5 +1,4 @@
 module SIMD
-
 #=
 
 # Various boolean types
@@ -1317,9 +1316,10 @@ function valloc(f, ::Type{T}, N::Int, sz::Int) where T
     mem
 end
 
-export vload, vloada
+export vload, vloada, vloadnt
 @generated function vload(::Type{Vec{N,T}}, ptr::Ptr{T},
-                          ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
+                          ::Type{Val{Aligned}} = Val{false},
+                          ::Type{Val{Nontemporal}} = Val{false}) where {N,T,Aligned,Nontemporal}
     @assert isa(Aligned, Bool)
     ptyp = llvmtype(Int)
     typ = llvmtype(T)
@@ -1334,6 +1334,9 @@ export vload, vloada
     flags = [""]
     if align > 0
         push!(flags, "align $align")
+    end
+    if Nontemporal
+        push!(flags, "!nontemporal !{i32 1}")
     end
     if VERSION < v"v0.7.0-DEV"
         push!(instrs, "%ptr = bitcast $typ* %0 to $vtyp*")
@@ -1352,17 +1355,26 @@ end
 @inline vloada(::Type{Vec{N,T}}, ptr::Ptr{T}) where {N,T} =
     vload(Vec{N,T}, ptr, Val{true})
 
+@inline vloadnt(::Type{Vec{N,T}}, ptr::Ptr{T}) where {N,T} =
+    vload(Vec{N,T}, ptr, Val{true}, Val{true})
+
 @inline function vload(::Type{Vec{N,T}},
                        arr::FastContiguousArray{T,1},
                        i::Integer,
-                       ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
+                       ::Type{Val{Aligned}} = Val{false},
+                       ::Type{Val{Nontemporal}} = Val{false}) where {N,T,Aligned,Nontemporal}
     #TODO @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
-    vload(Vec{N,T}, pointer(arr, i), Val{Aligned})
+    vload(Vec{N,T}, pointer(arr, i), Val{Aligned}, Val{Nontemporal})
 end
 @inline function vloada(::Type{Vec{N,T}},
                         arr::FastContiguousArray{T,1},
                         i::Integer) where {N,T}
     vload(Vec{N,T}, arr, i, Val{true})
+end
+@inline function vloadnt(::Type{Vec{N,T}},
+                        arr::Union{Array{T,1},SubArray{T,1}},
+                        i::Integer) where {N,T}
+    vload(Vec{N,T}, arr, i, Val{true}, Val{true})
 end
 
 @inline vload(::Type{Vec{N,T}}, ptr::Ptr{T}, mask::Nothing,
