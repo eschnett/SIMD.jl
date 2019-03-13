@@ -363,6 +363,10 @@ llvmins(::Type{Val{:max}}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.maxnum.$(suffix(N,T))"
 llvmins(::Type{Val{:min}}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.minnum.$(suffix(N,T))"
+# llvmins(::Type{Val{:max}}, N, ::Type{T}) where {T<:FloatingTypes} =
+#     "@llvm.maximum.$(suffix(N,T))"
+# llvmins(::Type{Val{:min}}, N, ::Type{T}) where {T<:FloatingTypes} =
+#     "@llvm.minimum.$(suffix(N,T))"
 llvmins(::Type{Val{:muladd}}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.fmuladd.$(suffix(N,T))"
 llvmins(::Type{Val{:powi}}, N, ::Type{T}) where {T<:FloatingTypes} =
