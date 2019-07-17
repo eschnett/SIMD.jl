@@ -3,9 +3,10 @@ os:
   - osx
   - linux
 julia:
-  - "0.7"
-  - "1.0"
-  - "nightly"
+  - 0.7
+  - 1.0
+  - 1.2
+  - nightly
 notifications:
   email: false
 script:
