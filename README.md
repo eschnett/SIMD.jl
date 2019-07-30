@@ -5,8 +5,7 @@ Explicit SIMD vectorization in Julia
 [![Build Status](https://travis-ci.org/eschnett/SIMD.jl.svg?branch=master)](https://travis-ci.org/eschnett/SIMD.jl)
 [![Build status](https://ci.appveyor.com/api/projects/status/xwaa3hm5wkiqrc54/branch/master?svg=true)](https://ci.appveyor.com/project/eschnett/simd-jl/branch/master)
 [![codecov.io](https://codecov.io/github/eschnett/SIMD.jl/coverage.svg?branch=master)](https://codecov.io/github/eschnett/SIMD.jl?branch=master)
-[![Dependency Status](https://dependencyci.com/github/eschnett/SIMD.jl/badge)](https://dependencyci.com/github/eschnett/SIMD.jl)
-[![DOI](https://zenodo.org/badge/50004500.svg)](https://zenodo.org/badge/latestdoi/50004500)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3355421.svg)](https://doi.org/10.5281/zenodo.3355421)
 
 ## Overview
 
