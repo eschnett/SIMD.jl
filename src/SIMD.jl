@@ -195,6 +195,8 @@ end
 
 Base.zero(::Type{Vec{N,T}}) where {N,T} = Vec{N,T}(zero(T))
 Base.one(::Type{Vec{N,T}}) where {N,T} = Vec{N,T}(one(T))
+Base.zero(::Vec{N,T}) where {N,T} = zero(Vec{N,T})
+Base.one(::Vec{N,T}) where {N,T} = one(Vec{N,T})
 
 # Floating point formats
 
