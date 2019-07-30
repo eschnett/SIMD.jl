@@ -1,4 +1,19 @@
 module SIMD
+
+# A note on Val{} vs. Val():
+#
+# For historic reasoons, SIMD's API accepted compile-time constants as
+# Val{N} instead of Val(N). The difference is that Val{N} is a type
+# (Type{Val{N}}), whereas Val(N) is a value (of type Val{N}). This is
+# against the intent of how Val is designed, and is also much slower
+# at run time unless functions are either @inline'd or @generated.
+#
+# The API has now been cleaned up. To preserve backward compatibility,
+# passing Val{N} instead of Val(N) is still supported. It might go
+# away at the next major release.
+
+
+
 #=
 
 # Various boolean types

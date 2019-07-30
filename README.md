@@ -123,7 +123,7 @@ Example:
 a = Vec{4, Int32}((1,2,3,4))
 b = Vec{4, Int32}((5,6,7,8))
 mask = (2,3,4,5)
-shufflevector(a, b, Val{mask})
+shufflevector(a, b, Val(mask))
 <4 x Int32>[3, 4, 5, 6]
 ```
 The mask specifies vector elements counted across `a` and `b`,
@@ -132,13 +132,13 @@ some of the values in the result vector, you can use the symbol
 `:undef`. `a` and `b` must be of the same SIMD vector type. The
 result will be a SIMD vector with the same element type as `a` and `b`
 and the same length as the mask. The function must be specialized on
-the value of the mask, therefore the `Val{}` construction in the call.
+the value of the mask, therefore the `Val()` construction in the call.
 
 There is also a one operand version of the function:
 ```Julia
 a = Vec{4, Int32}((1,2,3,4))
 mask = (0,3,1,2)
-shufflevector(a, Val{mask})
+shufflevector(a, Val(mask))
 <4 x Int32>[1, 4, 2, 3]
 ```
 
