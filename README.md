@@ -9,7 +9,14 @@ Explicit SIMD vectorization in Julia
 
 ## Overview
 
-This package allows programmers to explicitly SIMD-vectorize their Julia code. Ideally, the compiler (Julia and LLVM) would be able to do this automatically, especially for straightforwardly written code. In practice, this does not always work (for a variety of reasons), and the programmer is often left with uncertainty as to whether the code was actually vectorized. It is usually necessary to look at the generated machine code to determine whether the compiler actually vectorized the code.
+This package allows programmers to explicitly SIMD-vectorize their
+Julia code. Ideally, the compiler (Julia and LLVM) would be able to do
+this automatically, especially for straightforwardly written code. In
+practice, this does not always work (for a variety of reasons), and
+the programmer is often left with uncertainty as to whether the code
+was actually vectorized. It is usually necessary to look at the
+generated machine code to determine whether the compiler actually
+vectorized the code.
 
 By exposing SIMD vector types and corresponding operations, the programmer can explicitly vectorize their code. While this does not guarantee that the generated machine code is efficient, it relieves the compiler from determining whether it is legal to vectorize the code, deciding whether it is beneficial to do so, and rearranging the code to synthesize vector instructions.
 
