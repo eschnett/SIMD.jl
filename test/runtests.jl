@@ -57,6 +57,8 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
     @testset "Element-wise access" begin
 
         for i in 1:L8
+            @test Tuple(setindex(V8I32(v8i32), 9.0, Val(i))) ===
+                ntuple(j->Int32(ifelse(j==i, 9, v8i32[j])), L8)
             @test Tuple(setindex(V8I32(v8i32), 9.0, Val{i})) ===
                 ntuple(j->Int32(ifelse(j==i, 9, v8i32[j])), L8)
             @test Tuple(setindex(V8I32(v8i32), 9.0, i)) ===
@@ -66,21 +68,28 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
             @test V8I32(v8i32)[i] === v8i32[i]
         end
 
+        @test_throws BoundsError setindex(V8I32(v8i32), 0, Val(0))
         @test_throws BoundsError setindex(V8I32(v8i32), 0, Val{0})
+        @test_throws BoundsError setindex(V8I32(v8i32), 0, Val(L8+1))
         @test_throws BoundsError setindex(V8I32(v8i32), 0, Val{L8+1})
         @test_throws BoundsError setindex(V8I32(v8i32), 0, 0)
         @test_throws BoundsError setindex(V8I32(v8i32), 0, L8+1)
+        @test_throws BoundsError V8I32(v8i32)[Val(0)]
         @test_throws BoundsError V8I32(v8i32)[Val{0}]
+        @test_throws BoundsError V8I32(v8i32)[Val(L8+1)]
         @test_throws BoundsError V8I32(v8i32)[Val{L8+1}]
         @test_throws BoundsError V8I32(v8i32)[0]
         @test_throws BoundsError V8I32(v8i32)[L8+1]
 
         for i in 1:L4
+            @test Tuple(setindex(V4F64(v4f64), 9, Val(i))) ===
+                ntuple(j->Float64(ifelse(j==i, 9.0, v4f64[j])), L4)
             @test Tuple(setindex(V4F64(v4f64), 9, Val{i})) ===
                 ntuple(j->Float64(ifelse(j==i, 9.0, v4f64[j])), L4)
             @test Tuple(setindex(V4F64(v4f64), 9, i)) ===
                 ntuple(j->Float64(ifelse(j==i, 9.0, v4f64[j])), L4)
 
+            @test V4F64(v4f64)[Val(i)] === v4f64[i]
             @test V4F64(v4f64)[Val{i}] === v4f64[i]
             @test V4F64(v4f64)[i] === v4f64[i]
         end
@@ -116,7 +125,9 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         end
 
         for op in (<<, >>, >>>)
+            @test Tuple(op(V8I32(v8i32), Val(3))) === map(x->op(x,3), v8i32)
             @test Tuple(op(V8I32(v8i32), Val{3})) === map(x->op(x,3), v8i32)
+            @test Tuple(op(V8I32(v8i32), Val(-3))) === map(x->op(x,-3), v8i32)
             @test Tuple(op(V8I32(v8i32), Val{-3})) === map(x->op(x,-3), v8i32)
             @test Tuple(op(V8I32(v8i32), 3)) === map(x->op(x,3), v8i32)
             @test Tuple(op(V8I32(v8i32), -3)) === map(x->op(x,-3), v8i32)
@@ -629,6 +640,29 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
     end
 
     @testset "Vector shuffles" begin
+
+        for T in (Int8,UInt8,Int16,UInt16,Int32,UInt32,Int64,UInt64,Float32,Float64)
+            a = Vec{4,T}((1,2,3,4))
+            b = Vec{4,T}((5,6,7,8))
+            @test shufflevector(a, b, Val((2,3,4,5))) === Vec{4,T}((3,4,5,6))
+            @test shufflevector(a, b, Val((1,7,5,5))) === Vec{4,T}((2,8,6,6))
+            @test shufflevector(a, b, Val(0:3)) === a
+            @test shufflevector(a, b, Val(4:7)) === b
+            @test shufflevector(a, Val((1,0,2,3))) === Vec{4,T}((2,1,3,4))
+            @test shufflevector(a, b, Val((0,1,4,5,2,3,6,7))) === Vec{8,T}((1,2,5,6,3,4,7,8))
+            @test shufflevector(shufflevector(a, b, Val((6,:undef,0,:undef))), Val((0,2))) === Vec{2,T}((7,1))
+            @test isa(shufflevector(a, Val((:undef,:undef,:undef,:undef))), Vec{4,T})
+            c = Vec{8,T}((1:8...,))
+            d = Vec{8,T}((9:16...,))
+            @test shufflevector(c, d, Val((0,1,8,15))) === Vec{4,T}((1,2,9,16))
+            @test shufflevector(c, d, Val(1:2:15)) === Vec{8,T}((2:2:16...,))
+        end
+
+        let
+            a = Vec{4,Bool}((true,false,true,false))
+            b = Vec{4,Bool}((false,false,true,true))
+            @test shufflevector(a, b, Val((2,3,4,5))) === Vec{4,Bool}((true,false,false,false))
+        end
 
         for T in (Int8,UInt8,Int16,UInt16,Int32,UInt32,Int64,UInt64,Float32,Float64)
             a = Vec{4,T}((1,2,3,4))

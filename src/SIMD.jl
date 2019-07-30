@@ -18,9 +18,9 @@ for sz in (8, 16, 32, 64, 128)
             $Boolsz(b::Bool) =
                 new(ifelse(b, typemax($UIntsz), typemin($UIntsz)))
         end
-        booltype(::Type{Val{$sz}}) = $Boolsz
-        inttype(::Type{Val{$sz}}) = $Intsz
-        uinttype(::Type{Val{$sz}}) = $UIntsz
+        booltype(::Val($sz)) = $Boolsz
+        inttype(::Val($sz)) = $Intsz
+        uinttype(::Val($sz)) = $UIntsz
 
         Base.convert(::Type{Bool}, b::$Boolsz) = b.int != 0
 
@@ -43,9 +43,9 @@ Base.convert{I<:Integer}(::Type{I}, b::Boolean) = I(Bool(b))
 Base.convert{B<:Boolean}(::Type{B}, b::Boolean) = B(Bool(b))
 Base.convert{B<:Boolean}(::Type{B}, i::Integer) = B(i!=0)
 
-booltype{T}(::Type{T}) = booltype(Val{8*sizeof(T)})
-inttype{T}(::Type{T}) = inttype(Val{8*sizeof(T)})
-uinttype{T}(::Type{T}) = uinttype(Val{8*sizeof(T)})
+booltype{T}(::Type{T}) = booltype(Val(8*sizeof(T)))
+inttype{T}(::Type{T}) = inttype(Val(8*sizeof(T)))
+uinttype{T}(::Type{T}) = uinttype(Val(8*sizeof(T)))
 
 =#
 
@@ -290,94 +290,94 @@ function llvmtypedconst(::Type{Bool}, val)
 end
 
 # Type-dependent LLVM intrinsics
-llvmins(::Type{Val{:+}}, N, ::Type{T}) where {T <: IndexTypes} = "add"
-llvmins(::Type{Val{:-}}, N, ::Type{T}) where {T <: IndexTypes} = "sub"
-llvmins(::Type{Val{:*}}, N, ::Type{T}) where {T <: IntegerTypes} = "mul"
-llvmins(::Type{Val{:div}}, N, ::Type{T}) where {T <: IntTypes} = "sdiv"
-llvmins(::Type{Val{:rem}}, N, ::Type{T}) where {T <: IntTypes} = "srem"
-llvmins(::Type{Val{:div}}, N, ::Type{T}) where {T <: UIntTypes} = "udiv"
-llvmins(::Type{Val{:rem}}, N, ::Type{T}) where {T <: UIntTypes} = "urem"
+llvmins(::Val{:+}, N, ::Type{T}) where {T <: IndexTypes} = "add"
+llvmins(::Val{:-}, N, ::Type{T}) where {T <: IndexTypes} = "sub"
+llvmins(::Val{:*}, N, ::Type{T}) where {T <: IntegerTypes} = "mul"
+llvmins(::Val{:div}, N, ::Type{T}) where {T <: IntTypes} = "sdiv"
+llvmins(::Val{:rem}, N, ::Type{T}) where {T <: IntTypes} = "srem"
+llvmins(::Val{:div}, N, ::Type{T}) where {T <: UIntTypes} = "udiv"
+llvmins(::Val{:rem}, N, ::Type{T}) where {T <: UIntTypes} = "urem"
 
-llvmins(::Type{Val{:~}}, N, ::Type{T}) where {T <: IntegerTypes} = "xor"
-llvmins(::Type{Val{:&}}, N, ::Type{T}) where {T <: IntegerTypes} = "and"
-llvmins(::Type{Val{:|}}, N, ::Type{T}) where {T <: IntegerTypes} = "or"
-llvmins(::Type{Val{:⊻}}, N, ::Type{T}) where {T <: IntegerTypes} = "xor"
+llvmins(::Val{:~}, N, ::Type{T}) where {T <: IntegerTypes} = "xor"
+llvmins(::Val{:&}, N, ::Type{T}) where {T <: IntegerTypes} = "and"
+llvmins(::Val{:|}, N, ::Type{T}) where {T <: IntegerTypes} = "or"
+llvmins(::Val{:⊻}, N, ::Type{T}) where {T <: IntegerTypes} = "xor"
 
-llvmins(::Type{Val{:<<}}, N, ::Type{T}) where {T <: IntegerTypes} = "shl"
-llvmins(::Type{Val{:>>>}}, N, ::Type{T}) where {T <: IntegerTypes} = "lshr"
-llvmins(::Type{Val{:>>}}, N, ::Type{T}) where {T <: UIntTypes} = "lshr"
-llvmins(::Type{Val{:>>}}, N, ::Type{T}) where {T <: IntTypes} = "ashr"
+llvmins(::Val{:<<}, N, ::Type{T}) where {T <: IntegerTypes} = "shl"
+llvmins(::Val{:>>>}, N, ::Type{T}) where {T <: IntegerTypes} = "lshr"
+llvmins(::Val{:>>}, N, ::Type{T}) where {T <: UIntTypes} = "lshr"
+llvmins(::Val{:>>}, N, ::Type{T}) where {T <: IntTypes} = "ashr"
 
-llvmins(::Type{Val{:(==)}}, N, ::Type{T}) where {T <: IntegerTypes} = "icmp eq"
-llvmins(::Type{Val{:(!=)}}, N, ::Type{T}) where {T <: IntegerTypes} = "icmp ne"
-llvmins(::Type{Val{:(>)}}, N, ::Type{T}) where {T <: IntTypes} = "icmp sgt"
-llvmins(::Type{Val{:(>=)}}, N, ::Type{T}) where {T <: IntTypes} = "icmp sge"
-llvmins(::Type{Val{:(<)}}, N, ::Type{T}) where {T <: IntTypes} = "icmp slt"
-llvmins(::Type{Val{:(<=)}}, N, ::Type{T}) where {T <: IntTypes} = "icmp sle"
-llvmins(::Type{Val{:(>)}}, N, ::Type{T}) where {T <: UIntTypes} = "icmp ugt"
-llvmins(::Type{Val{:(>=)}}, N, ::Type{T}) where {T <: UIntTypes} = "icmp uge"
-llvmins(::Type{Val{:(<)}}, N, ::Type{T}) where {T <: UIntTypes} = "icmp ult"
-llvmins(::Type{Val{:(<=)}}, N, ::Type{T}) where {T <: UIntTypes} = "icmp ule"
+llvmins(::Val{:(==)}, N, ::Type{T}) where {T <: IntegerTypes} = "icmp eq"
+llvmins(::Val{:(!=)}, N, ::Type{T}) where {T <: IntegerTypes} = "icmp ne"
+llvmins(::Val{:(>)}, N, ::Type{T}) where {T <: IntTypes} = "icmp sgt"
+llvmins(::Val{:(>=)}, N, ::Type{T}) where {T <: IntTypes} = "icmp sge"
+llvmins(::Val{:(<)}, N, ::Type{T}) where {T <: IntTypes} = "icmp slt"
+llvmins(::Val{:(<=)}, N, ::Type{T}) where {T <: IntTypes} = "icmp sle"
+llvmins(::Val{:(>)}, N, ::Type{T}) where {T <: UIntTypes} = "icmp ugt"
+llvmins(::Val{:(>=)}, N, ::Type{T}) where {T <: UIntTypes} = "icmp uge"
+llvmins(::Val{:(<)}, N, ::Type{T}) where {T <: UIntTypes} = "icmp ult"
+llvmins(::Val{:(<=)}, N, ::Type{T}) where {T <: UIntTypes} = "icmp ule"
 
-llvmins(::Type{Val{:vifelse}}, N, ::Type{T}) where {T} = "select"
+llvmins(::Val{:vifelse}, N, ::Type{T}) where {T} = "select"
 
-llvmins(::Type{Val{:+}}, N, ::Type{T}) where {T <: FloatingTypes} = "fadd"
-llvmins(::Type{Val{:-}}, N, ::Type{T}) where {T <: FloatingTypes} = "fsub"
-llvmins(::Type{Val{:*}}, N, ::Type{T}) where {T <: FloatingTypes} = "fmul"
-llvmins(::Type{Val{:/}}, N, ::Type{T}) where {T <: FloatingTypes} = "fdiv"
-llvmins(::Type{Val{:inv}}, N, ::Type{T}) where {T <: FloatingTypes} = "fdiv"
-llvmins(::Type{Val{:rem}}, N, ::Type{T}) where {T <: FloatingTypes} = "frem"
+llvmins(::Val{:+}, N, ::Type{T}) where {T <: FloatingTypes} = "fadd"
+llvmins(::Val{:-}, N, ::Type{T}) where {T <: FloatingTypes} = "fsub"
+llvmins(::Val{:*}, N, ::Type{T}) where {T <: FloatingTypes} = "fmul"
+llvmins(::Val{:/}, N, ::Type{T}) where {T <: FloatingTypes} = "fdiv"
+llvmins(::Val{:inv}, N, ::Type{T}) where {T <: FloatingTypes} = "fdiv"
+llvmins(::Val{:rem}, N, ::Type{T}) where {T <: FloatingTypes} = "frem"
 
-llvmins(::Type{Val{:(==)}}, N, ::Type{T}) where {T <: FloatingTypes} = "fcmp oeq"
-llvmins(::Type{Val{:(!=)}}, N, ::Type{T}) where {T <: FloatingTypes} = "fcmp une"
-llvmins(::Type{Val{:(>)}}, N, ::Type{T}) where {T <: FloatingTypes} = "fcmp ogt"
-llvmins(::Type{Val{:(>=)}}, N, ::Type{T}) where {T <: FloatingTypes} = "fcmp oge"
-llvmins(::Type{Val{:(<)}}, N, ::Type{T}) where {T <: FloatingTypes} = "fcmp olt"
-llvmins(::Type{Val{:(<=)}}, N, ::Type{T}) where {T <: FloatingTypes} = "fcmp ole"
+llvmins(::Val{:(==)}, N, ::Type{T}) where {T <: FloatingTypes} = "fcmp oeq"
+llvmins(::Val{:(!=)}, N, ::Type{T}) where {T <: FloatingTypes} = "fcmp une"
+llvmins(::Val{:(>)}, N, ::Type{T}) where {T <: FloatingTypes} = "fcmp ogt"
+llvmins(::Val{:(>=)}, N, ::Type{T}) where {T <: FloatingTypes} = "fcmp oge"
+llvmins(::Val{:(<)}, N, ::Type{T}) where {T <: FloatingTypes} = "fcmp olt"
+llvmins(::Val{:(<=)}, N, ::Type{T}) where {T <: FloatingTypes} = "fcmp ole"
 
-llvmins(::Type{Val{:^}}, N, ::Type{T}) where {T <: FloatingTypes} =
+llvmins(::Val{:^}, N, ::Type{T}) where {T <: FloatingTypes} =
     "@llvm.pow.$(suffix(N,T))"
-llvmins(::Type{Val{:abs}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:abs}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.fabs.$(suffix(N,T))"
-llvmins(::Type{Val{:ceil}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:ceil}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.ceil.$(suffix(N,T))"
-llvmins(::Type{Val{:copysign}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:copysign}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.copysign.$(suffix(N,T))"
-llvmins(::Type{Val{:cos}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:cos}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.cos.$(suffix(N,T))"
-llvmins(::Type{Val{:exp}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:exp}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.exp.$(suffix(N,T))"
-llvmins(::Type{Val{:exp2}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:exp2}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.exp2.$(suffix(N,T))"
-llvmins(::Type{Val{:floor}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:floor}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.floor.$(suffix(N,T))"
-llvmins(::Type{Val{:fma}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:fma}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.fma.$(suffix(N,T))"
-llvmins(::Type{Val{:log}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:log}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.log.$(suffix(N,T))"
-llvmins(::Type{Val{:log10}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:log10}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.log10.$(suffix(N,T))"
-llvmins(::Type{Val{:log2}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:log2}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.log2.$(suffix(N,T))"
-llvmins(::Type{Val{:max}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:max}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.maxnum.$(suffix(N,T))"
-llvmins(::Type{Val{:min}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:min}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.minnum.$(suffix(N,T))"
-# llvmins(::Type{Val{:max}}, N, ::Type{T}) where {T<:FloatingTypes} =
+# llvmins(::Val{:max}, N, ::Type{T}) where {T<:FloatingTypes} =
 #     "@llvm.maximum.$(suffix(N,T))"
-# llvmins(::Type{Val{:min}}, N, ::Type{T}) where {T<:FloatingTypes} =
+# llvmins(::Val{:min}, N, ::Type{T}) where {T<:FloatingTypes} =
 #     "@llvm.minimum.$(suffix(N,T))"
-llvmins(::Type{Val{:muladd}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:muladd}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.fmuladd.$(suffix(N,T))"
-llvmins(::Type{Val{:powi}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:powi}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.powi.$(suffix(N,T))"
-llvmins(::Type{Val{:round}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:round}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.rint.$(suffix(N,T))"
-llvmins(::Type{Val{:sin}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:sin}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.sin.$(suffix(N,T))"
-llvmins(::Type{Val{:sqrt}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:sqrt}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.sqrt.$(suffix(N,T))"
-llvmins(::Type{Val{:trunc}}, N, ::Type{T}) where {T<:FloatingTypes} =
+llvmins(::Val{:trunc}, N, ::Type{T}) where {T<:FloatingTypes} =
     "@llvm.trunc.$(suffix(N,T))"
 
 # Convert between LLVM scalars, vectors, and arrays
@@ -461,7 +461,7 @@ end
 # Element-wise access
 
 export setindex
-@generated function setindex(v::Vec{N,T}, x::Number, ::Type{Val{I}}) where {N,T,I}
+@generated function setindex(v::Vec{N,T}, x::Number, ::Val{I}) where {N,T,I}
     @assert isa(I, Integer)
     1 <= I <= N || throw(BoundsError())
     typ = llvmtype(T)
@@ -476,6 +476,9 @@ export setindex
         Vec{N,T}(Base.llvmcall($((join(decls, "\n"), join(instrs, "\n"))),
             NTuple{N,VE{T}}, Tuple{NTuple{N,VE{T}}, T}, v.elts, T(x)))
     end
+end
+@inline function setindex(v::Vec{N,T}, x::Number, ::Type{Val{I}}) where {N,T,I}
+    setindex(v, x, Val(I))
 end
 
 @generated function setindex(v::Vec{N,T}, x::Number, i::Int) where {N,T}
@@ -496,7 +499,8 @@ end
 end
 setindex(v::Vec{N,T}, x::Number, i) where {N,T} = setindex(v, Int(i), x)
 
-Base.@propagate_inbounds Base.getindex(v::Vec{N,T}, ::Type{Val{I}}) where {N,T,I} = v.elts[I].value
+Base.@propagate_inbounds Base.getindex(v::Vec{N,T}, ::Val{I}) where {N,T,I} = v.elts[I].value
+Base.@propagate_inbounds Base.getindex(v::Vec{N,T}, ::Type{Val{I}}) where {N,T,I} = Base.getindex(v, Val(I))
 Base.@propagate_inbounds Base.getindex(v::Vec{N,T}, i) where {N,T} = v.elts[i].value
 
 # Type conversion
@@ -522,14 +526,14 @@ end
 # Generic function wrappers
 
 # Functions taking one argument
-@generated function llvmwrap(::Type{Val{Op}}, v1::Vec{N,T1},
-        ::Type{R} = T1) where {Op,N,T1,R}
+@generated function llvmwrap(::Val{Op}, v1::Vec{N,T1},
+                             ::Type{R} = T1) where {Op,N,T1,R}
     @assert isa(Op, Symbol)
     typ1 = llvmtype(T1)
     vtyp1 = "<$N x $typ1>"
     typr = llvmtype(R)
     vtypr = "<$N x $typr>"
-    ins = llvmins(Val{Op}, N, T1)
+    ins = llvmins(Val(Op), N, T1)
     decls = []
     instrs = []
     if ins[1] == '@'
@@ -557,12 +561,12 @@ end
 end
 
 # Functions taking one Bool argument
-@generated function llvmwrap(::Type{Val{Op}}, v1::Vec{N,Bool},
-        ::Type{Bool} = Bool) where {Op,N}
+@generated function llvmwrap(::Val{Op}, v1::Vec{N,Bool},
+                             ::Type{Bool} = Bool) where {Op,N}
     @assert isa(Op, Symbol)
     btyp = llvmtype(Bool)
     vbtyp = "<$N x $btyp>"
-    ins = llvmins(Val{Op}, N, Bool)
+    ins = llvmins(Val(Op), N, Bool)
     decls = []
     instrs = []
     push!(instrs, "%arg1 = trunc $vbtyp %0 to <$N x i1>")
@@ -578,8 +582,8 @@ end
 end
 
 # Functions taking two arguments
-@generated function llvmwrap(::Type{Val{Op}}, v1::Vec{N,T1},
-        v2::Vec{N,T2}, ::Type{R} = T1) where {Op,N,T1,T2,R}
+@generated function llvmwrap(::Val{Op}, v1::Vec{N,T1}, v2::Vec{N,T2},
+        ::Type{R} = T1) where {Op,N,T1,T2,R}
     @assert isa(Op, Symbol)
     typ1 = llvmtype(T1)
     vtyp1 = "<$N x $typ1>"
@@ -587,7 +591,7 @@ end
     vtyp2 = "<$N x $typ2>"
     typr = llvmtype(R)
     vtypr = "<$N x $typr>"
-    ins = llvmins(Val{Op}, N, T1)
+    ins = llvmins(Val(Op), N, T1)
     decls = []
     instrs = []
     if ins[1] == '@'
@@ -606,15 +610,15 @@ end
 end
 
 # Functions taking two arguments, second argument is a scalar
-@generated function llvmwrap(::Type{Val{Op}}, v1::Vec{N,T1},
-        s2::ScalarTypes, ::Type{R} = T1) where {Op,N,T1,R}
+@generated function llvmwrap(::Val{Op}, v1::Vec{N,T1}, s2::ScalarTypes,
+        ::Type{R} = T1) where {Op,N,T1,R}
     @assert isa(Op, Symbol)
     typ1 = llvmtype(T1)
     vtyp1 = "<$N x $typ1>"
     typ2 = llvmtype(s2)
     typr = llvmtype(R)
     vtypr = "<$N x $typr>"
-    ins = llvmins(Val{Op}, N, T1)
+    ins = llvmins(Val(Op), N, T1)
     decls = []
     instrs = []
     if ins[1] == '@'
@@ -633,8 +637,8 @@ end
 end
 
 # Functions taking two arguments, returning Bool
-@generated function llvmwrap(::Type{Val{Op}}, v1::Vec{N,T1},
-        v2::Vec{N,T2}, ::Type{Bool}) where {Op,N,T1,T2}
+@generated function llvmwrap(::Val{Op}, v1::Vec{N,T1}, v2::Vec{N,T2},
+        ::Type{Bool}) where {Op,N,T1,T2}
     @assert isa(Op, Symbol)
     btyp = llvmtype(Bool)
     vbtyp = "<$N x $btyp>"
@@ -645,7 +649,7 @@ end
     typ2 = llvmtype(T2)
     vtyp2 = "<$N x $typ2>"
     atyp2 = "[$N x $typ2]"
-    ins = llvmins(Val{Op}, N, T1)
+    ins = llvmins(Val(Op), N, T1)
     decls = []
     instrs = []
     if false && N == 1
@@ -669,7 +673,7 @@ end
 end
 
 # Functions taking a vector and a scalar argument
-# @generated function llvmwrap{Op,N,T1,T2,R}(::Type{Val{Op}}, v1::Vec{N,T1},
+# @generated function llvmwrap{Op,N,T1,T2,R}(::Val{Op}, v1::Vec{N,T1},
 #         x2::T2, ::Type{R} = T1)
 #     @assert isa(Op, Symbol)
 #     typ1 = llvmtype(T1)
@@ -679,7 +683,7 @@ end
 #     typr = llvmtype(R)
 #     atypr = "[$N x $typr]"
 #     vtypr = "<$N x $typr>"
-#     ins = llvmins(Val{Op}, N, T1)
+#     ins = llvmins(Val(Op), N, T1)
 #     decls = []
 #     instrs = []
 #     append!(instrs, array2vector("%arg1", N, typ1, "%0", "%arg1arr"))
@@ -699,12 +703,12 @@ end
 # end
 
 # Functions taking two Bool arguments, returning Bool
-@generated function llvmwrap(::Type{Val{Op}}, v1::Vec{N,Bool},
-        v2::Vec{N,Bool}, ::Type{Bool} = Bool) where {Op,N}
+@generated function llvmwrap(::Val{Op}, v1::Vec{N,Bool}, v2::Vec{N,Bool},
+        ::Type{Bool} = Bool) where {Op,N}
     @assert isa(Op, Symbol)
     btyp = llvmtype(Bool)
     vbtyp = "<$N x $btyp>"
-    ins = llvmins(Val{Op}, N, Bool)
+    ins = llvmins(Val(Op), N, Bool)
     decls = []
     instrs = []
     push!(instrs, "%arg1 = trunc $vbtyp %0 to <$N x i1>")
@@ -721,8 +725,8 @@ end
 end
 
 # Functions taking three arguments
-@generated function llvmwrap(::Type{Val{Op}}, v1::Vec{N,T1},
-        v2::Vec{N,T2}, v3::Vec{N,T3}, ::Type{R} = T1) where {Op,N,T1,T2,T3,R}
+@generated function llvmwrap(::Val{Op}, v1::Vec{N,T1}, v2::Vec{N,T2},
+        v3::Vec{N,T3}, ::Type{R} = T1) where {Op,N,T1,T2,T3,R}
     @assert isa(Op, Symbol)
     typ1 = llvmtype(T1)
     vtyp1 = "<$N x $typ1>"
@@ -732,7 +736,7 @@ end
     vtyp3 = "<$N x $typ3>"
     typr = llvmtype(R)
     vtypr = "<$N x $typr>"
-    ins = llvmins(Val{Op}, N, T1)
+    ins = llvmins(Val(Op), N, T1)
     decls = []
     instrs = []
     if ins[1] == '@'
@@ -752,8 +756,8 @@ end
     end
 end
 
-@generated function llvmwrapshift(::Type{Val{Op}}, v1::Vec{N,T},
-                                  ::Type{Val{I}}) where {Op,N,T,I}
+@generated function llvmwrapshift(::Val{Op}, v1::Vec{N,T},
+        ::Val{I}) where {Op,N,T,I}
     @assert isa(Op, Symbol)
     if I >= 0
         op = Op
@@ -775,7 +779,7 @@ end
     @assert i >= 0
     typ = llvmtype(T)
     vtyp = "<$N x $typ>"
-    ins = llvmins(Val{op}, N, T)
+    ins = llvmins(Val(op), N, T)
     decls = []
     instrs = []
     nbits = 8*sizeof(T)
@@ -794,12 +798,12 @@ end
     end
 end
 
-@generated function llvmwrapshift(::Type{Val{Op}}, v1::Vec{N,T},
-                                  x2::Unsigned) where {Op,N,T}
+@generated function llvmwrapshift(::Val{Op}, v1::Vec{N,T},
+        x2::Unsigned) where {Op,N,T}
     @assert isa(Op, Symbol)
     typ = llvmtype(T)
     vtyp = "<$N x $typ>"
-    ins = llvmins(Val{Op}, N, T)
+    ins = llvmins(Val(Op), N, T)
     decls = []
     instrs = []
     append!(instrs, scalar2vector("%count", N, typ, "%1"))
@@ -824,8 +828,8 @@ end
     end
 end
 
-@generated function llvmwrapshift(::Type{Val{Op}}, v1::Vec{N,T},
-                                  x2::Integer) where {Op,N,T}
+@generated function llvmwrapshift(::Val{Op}, v1::Vec{N,T},
+        x2::Integer) where {Op,N,T}
     if Op === :>> || Op === :>>>
         NegOp = :<<
     else
@@ -836,8 +840,8 @@ end
             NegOp = :>>
         end
     end
-    ValOp = Val{Op}
-    ValNegOp = Val{NegOp}
+    ValOp = Val(Op)
+    ValNegOp = Val(NegOp)
     quote
         $(Expr(:meta, :inline))
         ifelse(x2 >= 0,
@@ -846,13 +850,12 @@ end
     end
 end
 
-@generated function llvmwrapshift(::Type{Val{Op}},
-                                  v1::Vec{N,T},
-                                  v2::Vec{N,U}) where {Op,N,T,U<:UIntTypes}
+@generated function llvmwrapshift(::Val{Op}, v1::Vec{N,T},
+        v2::Vec{N,U}) where {Op,N,T,U<:UIntTypes}
     @assert isa(Op, Symbol)
     typ = llvmtype(T)
     vtyp = "<$N x $typ>"
-    ins = llvmins(Val{Op}, N, T)
+    ins = llvmins(Val(Op), N, T)
     decls = []
     instrs = []
     push!(instrs, "%tmp = $ins $vtyp %0, %1")
@@ -877,9 +880,8 @@ end
     end
 end
 
-@generated function llvmwrapshift(::Type{Val{Op}},
-                                  v1::Vec{N,T},
-                                  v2::Vec{N,U}) where {Op,N,T,U<:IntegerTypes}
+@generated function llvmwrapshift(::Val{Op}, v1::Vec{N,T},
+        v2::Vec{N,U}) where {Op,N,T,U<:IntegerTypes}
     if Op === :>> || Op === :>>>
         NegOp = :<<
     else
@@ -890,8 +892,8 @@ end
             NegOp = :>>
         end
     end
-    ValOp = Val{Op}
-    ValNegOp = Val{NegOp}
+    ValOp = Val(Op)
+    ValNegOp = Val(NegOp)
     quote
         $(Expr(:meta, :inline))
         vifelse(v2 >= 0,
@@ -905,7 +907,7 @@ end
 for op in (:(==), :(!=), :(<), :(<=), :(>), :(>=))
     @eval begin
         @inline Base.$op(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T} =
-            llvmwrap(Val{$(QuoteNode(op))}, v1, v2, Bool)
+            llvmwrap(Val($(QuoteNode(op))), v1, v2, Bool)
     end
 end
 @inline function Base.isfinite(v1::Vec{N,T}) where {N,T<:FloatingTypes}
@@ -969,13 +971,13 @@ end
 for op in (:~, :+, :-)
     @eval begin
         @inline Base.$op(v1::Vec{N,T}) where {N,T<:IntegerTypes} =
-            llvmwrap(Val{$(QuoteNode(op))}, v1)
+            llvmwrap(Val($(QuoteNode(op))), v1)
     end
 end
 @inline Base.:!(v1::Vec{N,Bool}) where {N} = ~v1
 @inline function Base.abs(v1::Vec{N,T}) where {N,T<:IntTypes}
     # s = -Vec{N,T}(signbit(v1))
-    s = v1 >> Val{8*sizeof(T)}
+    s = v1 >> Val(8*sizeof(T))
     # Note: -v1 == ~v1 + 1
     (s ⊻ v1) - s
 end
@@ -994,7 +996,7 @@ end
 for op in (:&, :|, :⊻, :+, :-, :*, :div, :rem)
     @eval begin
         @inline Base.$op(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T<:IntegerTypes} =
-            llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
+            llvmwrap(Val($(QuoteNode(op))), v1, v2)
     end
 end
 @inline Base.copysign(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T<:IntTypes} =
@@ -1018,20 +1020,22 @@ end
 #       ensure vifelse is efficient
 for op in (:<<, :>>, :>>>)
     @eval begin
+        @inline Base.$op(v1::Vec{N,T}, ::Val{I}) where {N,T<:IntegerTypes,I} =
+            llvmwrapshift(Val($(QuoteNode(op))), v1, Val(I))
         @inline Base.$op(v1::Vec{N,T}, ::Type{Val{I}}) where {N,T<:IntegerTypes,I} =
-            llvmwrapshift(Val{$(QuoteNode(op))}, v1, Val{I})
+            Base.$op(v1, Val(I))
         @inline Base.$op(v1::Vec{N,T}, x2::Unsigned) where {N,T<:IntegerTypes} =
-            llvmwrapshift(Val{$(QuoteNode(op))}, v1, x2)
+            llvmwrapshift(Val($(QuoteNode(op))), v1, x2)
         @inline Base.$op(v1::Vec{N,T}, x2::Int) where {N,T<:IntegerTypes} =
-            llvmwrapshift(Val{$(QuoteNode(op))}, v1, x2)
+            llvmwrapshift(Val($(QuoteNode(op))), v1, x2)
         @inline Base.$op(v1::Vec{N,T}, x2::Integer) where {N,T<:IntegerTypes} =
-            llvmwrapshift(Val{$(QuoteNode(op))}, v1, x2)
+            llvmwrapshift(Val($(QuoteNode(op))), v1, x2)
         @inline Base.$op(v1::Vec{N,T},
                          v2::Vec{N,U}) where {N,T<:IntegerTypes,U<:UIntTypes} =
-            llvmwrapshift(Val{$(QuoteNode(op))}, v1, v2)
+            llvmwrapshift(Val($(QuoteNode(op))), v1, v2)
         @inline Base.$op(v1::Vec{N,T},
                          v2::Vec{N,U}) where {N,T<:IntegerTypes,U<:IntegerTypes} =
-            llvmwrapshift(Val{$(QuoteNode(op))}, v1, v2)
+            llvmwrapshift(Val($(QuoteNode(op))), v1, v2)
         @inline Base.$op(x1::T, v2::Vec{N,T}) where {N,T<:IntegerTypes} =
             $op(Vec{N,T}(x1), v2)
     end
@@ -1045,7 +1049,7 @@ for op in (
         :round, :sin, :sqrt, :trunc)
     @eval begin
         @inline Base.$op(v1::Vec{N,T}) where {N,T<:FloatingTypes} =
-            llvmwrap(Val{$(QuoteNode(op))}, v1)
+            llvmwrap(Val($(QuoteNode(op))), v1)
     end
 end
 @inline Base.exp10(v1::Vec{N,T}) where {N,T<:FloatingTypes} = Vec{N,T}(10)^v1
@@ -1055,15 +1059,15 @@ end
 for op in (:+, :-, :*, :/, :^, :copysign, :max, :min, :rem)
     @eval begin
         @inline Base.$op(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T<:FloatingTypes} =
-            llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
+            llvmwrap(Val($(QuoteNode(op))), v1, v2)
     end
 end
 # Using `IntegerTypes` here so that this definition "wins" against
 # `^(::ScalarTypes, v2::Vec)`.
 @inline Base.:^(v1::Vec{N,T}, x2::IntegerTypes) where {N,T<:FloatingTypes} =
-    llvmwrap(Val{:powi}, v1, Int(x2))
+    llvmwrap(Val(:powi), v1, Int(x2))
 @inline Base.:^(v1::Vec{N,T}, x2::Integer) where {N,T<:FloatingTypes} =
-    llvmwrap(Val{:powi}, v1, Int(x2))
+    llvmwrap(Val(:powi), v1, Int(x2))
 @inline Base.flipsign(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T<:FloatingTypes} =
     vifelse(signbit(v2), -v1, v1)
 
@@ -1077,7 +1081,7 @@ for op in (:fma, :muladd)
     @eval begin
         @inline function Base.$op(v1::Vec{N,T},
                 v2::Vec{N,T}, v3::Vec{N,T}) where {N,T<:FloatingTypes}
-            llvmwrap(Val{$(QuoteNode(op))}, v1, v2, v3)
+            llvmwrap(Val($(QuoteNode(op))), v1, v2, v3)
         end
     end
 end
@@ -1177,9 +1181,9 @@ end
 for op in (:+, :-)
     @eval begin
         @inline Base.$op(v1::Vec{N,<:Ptr}, v2::Vec{N,<:IntegerTypes}) where {N} =
-            llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
+            llvmwrap(Val($(QuoteNode(op))), v1, v2)
         @inline Base.$op(v1::Vec{N,<:IntegerTypes}, v2::Vec{N,<:Ptr}) where {N} =
-            llvmwrap(Val{$(QuoteNode(op))}, v1, v2)
+            llvmwrap(Val($(QuoteNode(op))), v1, v2)
         @inline Base.$op(s1::P, v2::Vec{N,<:IntegerTypes}) where {N,P<:Ptr} =
             $op(Vec{N,P}(s1), v2)
         @inline Base.$op(v1::Vec{N,<:IntegerTypes}, s2::P) where {N,P<:Ptr} =
@@ -1211,7 +1215,7 @@ end
 
 # We cannot pass in the neutral element via Val{}; if we try, Julia refuses to
 # inline this function, which is then disastrous for performance
-@generated function llvmwrapreduce(::Type{Val{Op}}, v::Vec{N,T}) where {Op,N,T}
+@generated function llvmwrapreduce(::Val{Op}, v::Vec{N,T}) where {Op,N,T}
     @assert isa(Op, Symbol)
     z = getneutral(Op, T)
     typ = llvmtype(T)
@@ -1230,7 +1234,7 @@ end
         nold,n = n, div(n, 2)
         namold,nam = nam,"%vec_$n"
         vtyp = "<$n x $typ>"
-        ins = llvmins(Val{Op}, n, T)
+        ins = llvmins(Val(Op), n, T)
         append!(instrs, subvector(namold, nold, typ, "$(nam)_1", n, 0))
         append!(instrs, subvector(namold, nold, typ, "$(nam)_2", n, n))
         if ins[1] == '@'
@@ -1250,16 +1254,16 @@ end
     end
 end
 
-@inline Base.all(v::Vec{N,T}) where {N,T<:IntegerTypes} = llvmwrapreduce(Val{:&}, v)
-@inline Base.any(v::Vec{N,T}) where {N,T<:IntegerTypes} = llvmwrapreduce(Val{:|}, v)
+@inline Base.all(v::Vec{N,T}) where {N,T<:IntegerTypes} = llvmwrapreduce(Val(:&), v)
+@inline Base.any(v::Vec{N,T}) where {N,T<:IntegerTypes} = llvmwrapreduce(Val(:|), v)
 @inline Base.maximum(v::Vec{N,T}) where {N,T<:FloatingTypes} =
-    llvmwrapreduce(Val{:max}, v)
+    llvmwrapreduce(Val(:max), v)
 @inline Base.minimum(v::Vec{N,T}) where {N,T<:FloatingTypes} =
-    llvmwrapreduce(Val{:min}, v)
-@inline Base.prod(v::Vec{N,T}) where {N,T} = llvmwrapreduce(Val{:*}, v)
-@inline Base.sum(v::Vec{N,T}) where {N,T} = llvmwrapreduce(Val{:+}, v)
+    llvmwrapreduce(Val(:min), v)
+@inline Base.prod(v::Vec{N,T}) where {N,T} = llvmwrapreduce(Val(:*), v)
+@inline Base.sum(v::Vec{N,T}) where {N,T} = llvmwrapreduce(Val(:+), v)
 
-@generated function Base.reduce(::Type{Val{Op}}, v::Vec{N,T}) where {Op,N,T}
+@generated function Base.reduce(::Val{Op}, v::Vec{N,T}) where {Op,N,T}
     @assert isa(Op, Symbol)
     z = getneutral(Op, T)
     stmts = []
@@ -1287,9 +1291,12 @@ end
     push!(stmts, :(v1[1]))
     Expr(:block, Expr(:meta, :inline), stmts...)
 end
+@inline function Base.reduce(::Type{Val{Op}}, v::Vec{N,T}) where {Op,N,T}
+    Base.reduce(Val(Op), v)
+end
 
-@inline Base.maximum(v::Vec{N,T}) where {N,T<:IntegerTypes} = reduce(Val{:max}, v)
-@inline Base.minimum(v::Vec{N,T}) where {N,T<:IntegerTypes} = reduce(Val{:min}, v)
+@inline Base.maximum(v::Vec{N,T}) where {N,T<:IntegerTypes} = reduce(Val(:max), v)
+@inline Base.minimum(v::Vec{N,T}) where {N,T<:IntegerTypes} = reduce(Val(:min), v)
 
 # Load and store functions
 
@@ -1322,8 +1329,8 @@ end
 
 export vload, vloada, vloadnt
 @generated function vload(::Type{Vec{N,T}}, ptr::Ptr{T},
-                          ::Type{Val{Aligned}} = Val{false},
-                          ::Type{Val{Nontemporal}} = Val{false}) where {N,T,Aligned,Nontemporal}
+                          ::Val{Aligned} = Val(false),
+                          ::Val{Nontemporal} = Val(false)) where {N,T,Aligned,Nontemporal}
     @assert isa(Aligned, Bool)
     ptyp = llvmtype(Int)
     typ = llvmtype(T)
@@ -1355,39 +1362,54 @@ export vload, vloada, vloadnt
             NTuple{N,VE{T}}, Tuple{Ptr{T}}, ptr))
     end
 end
+@inline function vload(::Type{Vec{N,T}}, ptr::Ptr{T},
+                       ::Type{Val{Aligned}},
+                       ::Type{Val{Nontemporal}} = Val{false}) where {N,T,Aligned,Nontemporal}
+    vload(Vec{N, T}, ptr, Val(Aligned), Val(Nontemporal))
+end
 
 @inline vloada(::Type{Vec{N,T}}, ptr::Ptr{T}) where {N,T} =
-    vload(Vec{N,T}, ptr, Val{true})
+    vload(Vec{N,T}, ptr, Val(true))
 
 @inline vloadnt(::Type{Vec{N,T}}, ptr::Ptr{T}) where {N,T} =
-    vload(Vec{N,T}, ptr, Val{true}, Val{true})
+    vload(Vec{N,T}, ptr, Val(true), Val(true))
 
 @inline function vload(::Type{Vec{N,T}},
                        arr::FastContiguousArray{T,1},
                        i::Integer,
-                       ::Type{Val{Aligned}} = Val{false},
-                       ::Type{Val{Nontemporal}} = Val{false}) where {N,T,Aligned,Nontemporal}
+                       ::Val{Aligned} = Val(false),
+                       ::Val{Nontemporal} = Val(false)) where {N,T,Aligned,Nontemporal}
     #TODO @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
-    vload(Vec{N,T}, pointer(arr, i), Val{Aligned}, Val{Nontemporal})
+    vload(Vec{N,T}, pointer(arr, i), Val(Aligned), Val(Nontemporal))
+end
+@inline function vload(::Type{Vec{N,T}},
+                       arr::FastContiguousArray{T,1},
+                       i::Integer,
+                       ::Type{Val{Aligned}},k = Val{false},
+                       ::Type{Val{Nontemporal}} = Val{false}) where {N,T,Aligned,Nontemporal}
+    vload(Vec{N,T}, arr, i, Val(Aligned), Val(Nontemporal))
 end
 @inline function vloada(::Type{Vec{N,T}},
                         arr::FastContiguousArray{T,1},
                         i::Integer) where {N,T}
-    vload(Vec{N,T}, arr, i, Val{true})
+    vload(Vec{N,T}, arr, i, Val(true))
 end
 @inline function vloadnt(::Type{Vec{N,T}},
                         arr::Union{Array{T,1},SubArray{T,1}},
                         i::Integer) where {N,T}
-    vload(Vec{N,T}, arr, i, Val{true}, Val{true})
+    vload(Vec{N,T}, arr, i, Val(true), Val(true))
 end
 
 @inline vload(::Type{Vec{N,T}}, ptr::Ptr{T}, mask::Nothing,
-              ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned} =
-    vload(Vec{N,T}, ptr, Val{Aligned})
+              ::Val{Aligned} = Val(false)) where {N,T,Aligned} =
+    vload(Vec{N,T}, ptr, Val(Aligned))
+@inline vload(::Type{Vec{N,T}}, ptr::Ptr{T}, mask::Nothing,
+              ::Type{Val{Aligned}}) where {N,T,Aligned} =
+    vload(Vec{N,T}, ptr, make, Val(Aligned))
 
 @generated function vload(::Type{Vec{N,T}}, ptr::Ptr{T},
                           mask::Vec{N,Bool},
-                          ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
+                          ::Val{Aligned} = Val(false)) where {N,T,Aligned}
     @assert isa(Aligned, Bool)
     ptyp = llvmtype(Int)
     typ = llvmtype(T)
@@ -1421,28 +1443,39 @@ end
             NTuple{N,VE{T}}, Tuple{Ptr{T}, NTuple{N,VE{Bool}}}, ptr, mask.elts))
     end
 end
+@inline function vload(::Type{Vec{N,T}}, ptr::Ptr{T},
+                       mask::Vec{N,Bool},
+                       ::Type{Val{Aligned}}) where {N,T,Aligned}
+    vload(Vec{N,T}, ptr, mask, Val(Aligned))
+end
 
 @inline vloada(::Type{Vec{N,T}}, ptr::Ptr{T},
                mask::Union{Vec{N,Bool}, Nothing}) where {N,T} =
-    vload(Vec{N,T}, ptr, mask, Val{true})
+    vload(Vec{N,T}, ptr, mask, Val(true))
 
 @inline function vload(::Type{Vec{N,T}},
                        arr::FastContiguousArray{T,1},
                        i::Integer, mask::Union{Vec{N,Bool}, Nothing},
-                       ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
+                       ::Val{Aligned} = Val(false)) where {N,T,Aligned}
     #TODO @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
-    vload(Vec{N,T}, pointer(arr, i), mask, Val{Aligned})
+    vload(Vec{N,T}, pointer(arr, i), mask, Val(Aligned))
+end
+@inline function vload(::Type{Vec{N,T}},
+                       arr::FastContiguousArray{T,1},
+                       i::Integer, mask::Union{Vec{N,Bool}, Nothing},
+                       ::Type{Val{Aligned}}) where {N,T,Aligned}
+    vload(Vec{N,T}, arr, i, mask, Val(Aligned))
 end
 @inline function vloada(::Type{Vec{N,T}},
                         arr::FastContiguousArray{T,1}, i::Integer,
                         mask::Union{Vec{N,Bool}, Nothing}) where {N,T}
-    vload(Vec{N,T}, arr, i, mask, Val{true})
+    vload(Vec{N,T}, arr, i, mask, Val(true))
 end
 
 export vstore, vstorea, vstorent
 @generated function vstore(v::Vec{N,T}, ptr::Ptr{T},
-                           ::Type{Val{Aligned}} = Val{false},
-                           ::Type{Val{Nontemporal}} = Val{false}) where {N,T,Aligned,Nontemporal}
+                           ::Val{Aligned} = Val(false),
+                           ::Val{Nontemporal} = Val(false)) where {N,T,Aligned,Nontemporal}
     @assert isa(Aligned, Bool)
     @assert isa(Nontemporal, Bool)
     ptyp = llvmtype(Int)
@@ -1475,6 +1508,11 @@ export vstore, vstorea, vstorent
                       Cvoid, Tuple{NTuple{N,VE{T}}, Ptr{T}}, v.elts, ptr)
     end
 end
+@inline function vstore(v::Vec{N,T}, ptr::Ptr{T},
+                        ::Type{Val{Aligned}},
+                        ::Type{Val{Nontemporal}} = Val{false}) where {N,T,Aligned,Nontemporal}
+    vstore(v, ptr, Val(Aligned), Val(Nontemporal))
+end
 
 @inline vstorea(v::Vec{N,T}, ptr::Ptr{T}) where {N,T} = vstore(v, ptr, Val{true})
 
@@ -1483,10 +1521,17 @@ end
 @inline function vstore(v::Vec{N,T},
                         arr::FastContiguousArray{T,1},
                         i::Integer,
-                        ::Type{Val{Aligned}} = Val{false},
-                        ::Type{Val{Nontemporal}} = Val{false}) where {N,T,Aligned,Nontemporal}
+                        ::Val{Aligned} = Val(false),
+                        ::Val{Nontemporal} = Val(false)) where {N,T,Aligned,Nontemporal}
     @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
     vstore(v, pointer(arr, i), Val{Aligned}, Val{Nontemporal})
+end
+@inline function vstore(v::Vec{N,T},
+                        arr::FastContiguousArray{T,1},
+                        i::Integer,
+                        ::Type{Val{Aligned}},
+                        ::Type{Val{Nontemporal}} = Val{false}) where {N,T,Aligned,Nontemporal}
+    vstore(v, arr, i, Val(Aligned), Val(Nontemporal))
 end
 @inline function vstorea(v::Vec{N,T}, arr::FastContiguousArray{T,1},
                          i::Integer) where {N,T}
@@ -1498,12 +1543,15 @@ end
 end
 
 @inline vstore(v::Vec{N,T}, ptr::Ptr{T}, mask::Nothing,
-               ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned} =
+               ::Val{Aligned} = Val(false)) where {N,T,Aligned} =
     vstore(v, ptr, Val{Aligned})
+@inline vstore(v::Vec{N,T}, ptr::Ptr{T}, mask::Nothing,
+               ::Type{Val{Aligned}}) where {N,T,Aligned} =
+    vstore(v, ptr, mask, Val(Aligned))
 
 @generated function vstore(v::Vec{N,T}, ptr::Ptr{T},
                            mask::Vec{N,Bool},
-                           ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
+                           ::Val{Aligned} = Val(false)) where {N,T,Aligned}
     @assert isa(Aligned, Bool)
     ptyp = llvmtype(Int)
     typ = llvmtype(T)
@@ -1537,6 +1585,11 @@ end
             v.elts, ptr, mask.elts)
     end
 end
+@inline function vstore(v::Vec{N,T}, ptr::Ptr{T},
+                        mask::Vec{N,Bool},
+                        ::Type{Val{Aligned}}) where {N,T,Aligned}
+    vstore(v, ptr, mask, Val(Aligned))
+end
 
 @inline vstorea(v::Vec{N,T}, ptr::Ptr{T},
                 mask::Union{Vec{N,Bool}, Nothing}) where {N,T} =
@@ -1546,10 +1599,18 @@ end
                         arr::FastContiguousArray{T,1},
                         i::Integer,
                         mask::Union{Vec{N,Bool}, Nothing},
-                        ::Type{Val{Aligned}} = Val{false},
-                        ::Type{Val{Nontemporal}} = Val{false}) where {N,T,Aligned,Nontemporal}
+                        ::Val{Aligned} = Val(false),
+                        ::Val{Nontemporal} = Val(false)) where {N,T,Aligned,Nontemporal}
     #TODO @boundscheck 1 <= i <= length(arr) - (N-1) || throw(BoundsError())
     vstore(v, pointer(arr, i), mask, Val{Aligned}, Val{Nontemporal})
+end
+@inline function vstore(v::Vec{N,T},
+                        arr::FastContiguousArray{T,1},
+                        i::Integer,
+                        mask::Union{Vec{N,Bool}, Nothing},
+                        ::Type{Val{Aligned}},
+                        ::Type{Val{Nontemporal}} = Val{false}) where {N,T,Aligned,Nontemporal}
+    vstore(v, arr, i, mask, Val(Aligned), Val(Nontemporal))
 end
 @inline function vstorea(v::Vec{N,T},
                          arr::FastContiguousArray{T,1},
@@ -1562,12 +1623,16 @@ export vgather, vgathera
 
 @inline vgather(
         ::Type{Vec{N,T}}, ptrs::Vec{N,Ptr{T}}, mask::Nothing,
-        ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned} =
-    vgather(Vec{N,T}, ptrs, Vec(ntuple(_ -> true, N)), Val{Aligned})
+        ::Val{Aligned} = Val(false)) where {N,T,Aligned} =
+    vgather(Vec{N,T}, ptrs, Vec(ntuple(_ -> true, N)), Val(Aligned))
+@inline vgather(
+        ::Type{Vec{N,T}}, ptrs::Vec{N,Ptr{T}}, mask::Nothing,
+        ::Type{Val{Aligned}}) where {N,T,Aligned} =
+    vgather(Vec{N,T}, ptrs, mask, Val(Aligned))
 
 @generated function vgather(
         ::Type{Vec{N,T}}, ptrs::Vec{N,Ptr{T}}, mask::Vec{N,Bool},
-        ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
+        ::Val{Aligned} = Val(false)) where {N,T,Aligned}
     @assert isa(Aligned, Bool)
     ptyp = llvmtype(Int)
     typ = llvmtype(T)
@@ -1603,6 +1668,11 @@ export vgather, vgathera
             ptrs.elts, mask.elts))
     end
 end
+@inline function vgather(
+        ::Type{Vec{N,T}}, ptrs::Vec{N,Ptr{T}}, mask::Vec{N,Bool},
+        ::Type{Val{Aligned}}) where {N,T,Aligned}
+    vgather(Vec{N,T}, ptrs, mask, Val(Aligned))
+end
 
 @inline vgathera(::Type{Vec{N,T}}, ptrs::Vec{N,Ptr{T}},
                  mask::Union{Vec{N,Bool}, Nothing}) where {N,T} =
@@ -1611,10 +1681,15 @@ end
 @inline vgather(arr::FastContiguousArray{T,1},
                 idx::Vec{N,<:Integer},
                 mask::Union{Vec{N,Bool}, Nothing} = nothing,
-                ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned} =
+                ::Val{Aligned} = Val(false)) where {N,T,Aligned} =
     vgather(Vec{N,T},
             pointer(arr) + sizeof(T) * (idx - 1),
             mask, Val{Aligned})
+@inline vgather(arr::FastContiguousArray{T,1},
+                idx::Vec{N,<:Integer},
+                mask::Union{Vec{N,Bool}, Nothing},
+                ::Type{Val{Aligned}}) where {N,T,Aligned} =
+    vgather(arr, idx, mask, Val(Aligned))
 
 @inline vgathera(arr::FastContiguousArray{T,1},
                  idx::Vec{N,<:Integer},
@@ -1625,12 +1700,16 @@ export vscatter, vscattera
 
 @inline vscatter(
         v::Vec{N,T}, ptrs::Vec{N,Ptr{T}}, mask::Nothing,
-        ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned} =
-    vscatter(v, ptrs, Vec(ntuple(_ -> true, N)), Val{Aligned})
+        ::Val{Aligned} = Val(false)) where {N,T,Aligned} =
+    vscatter(v, ptrs, Vec(ntuple(_ -> true, N)), Val(Aligned))
+@inline vscatter(
+        v::Vec{N,T}, ptrs::Vec{N,Ptr{T}}, mask::Nothing,
+        ::Type{Val{Aligned}}) where {N,T,Aligned} =
+    vscatter(v, ptrs, mask, Val(Aligned))
 
 @generated function vscatter(
         v::Vec{N,T}, ptrs::Vec{N,Ptr{T}}, mask::Vec{N,Bool},
-        ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned}
+        ::Val{Aligned} = Val(false)) where {N,T,Aligned}
     @assert isa(Aligned, Bool)
     ptyp = llvmtype(Int)
     typ = llvmtype(T)
@@ -1666,6 +1745,11 @@ export vscatter, vscattera
             v.elts, ptrs.elts, mask.elts)
     end
 end
+@inline function vscatter(
+        v::Vec{N,T}, ptrs::Vec{N,Ptr{T}}, mask::Vec{N,Bool},
+        ::Type{Val{Aligned}}) where {N,T,Aligned}
+    vscatter(v, ptrs, mask, Val(Aligned))
+end
 
 @inline vscattera(v::Vec{N,T}, ptrs::Vec{N,Ptr{T}},
                   mask::Union{Vec{N,Bool}, Nothing}) where {N,T} =
@@ -1674,8 +1758,13 @@ end
 @inline vscatter(v::Vec{N,T}, arr::FastContiguousArray{T,1},
                  idx::Vec{N,<:Integer},
                  mask::Union{Vec{N,Bool}, Nothing} = nothing,
-                 ::Type{Val{Aligned}} = Val{false}) where {N,T,Aligned} =
-    vscatter(v, pointer(arr) + sizeof(T) * (idx - 1), mask, Val{Aligned})
+                 ::Val{Aligned} = Val(false)) where {N,T,Aligned} =
+    vscatter(v, pointer(arr) + sizeof(T) * (idx - 1), mask, Val(Aligned))
+@inline vscatter(v::Vec{N,T}, arr::FastContiguousArray{T,1},
+                 idx::Vec{N,<:Integer},
+                 mask::Union{Vec{N,Bool}, Nothing},
+                 ::Type{Val{Aligned}}) where {N,T,Aligned} =
+    vscatter(v, arr, idx, mask, Val(Aligned))
 
 @inline vscattera(v::Vec{N,T}, arr::FastContiguousArray{T,1},
                   idx::Vec{N,<:Integer},
@@ -1700,7 +1789,7 @@ end
 
 export shufflevector
 @generated function shufflevector(v1::Vec{N,T}, v2::Vec{N,T},
-                                  ::Type{Val{I}}) where {N,T,I}
+                                  ::Val{I}) where {N,T,I}
     M, decls, instrs = shufflevector_instrs(N, T, I, true)
     quote
         $(Expr(:meta, :inline))
@@ -1710,8 +1799,12 @@ export shufflevector
             v1.elts, v2.elts))
     end
 end
+@inline function shufflevector(v1::Vec{N,T}, v2::Vec{N,T},
+                               ::Type{Val{I}}) where {N,T,I}
+    shufflevector(v1, v2, Val(I))
+end
 
-@generated function shufflevector(v1::Vec{N,T}, ::Type{Val{I}}) where {N,T,I}
+@generated function shufflevector(v1::Vec{N,T}, ::Val{I}) where {N,T,I}
     M, decls, instrs = shufflevector_instrs(N, T, I, false)
     quote
         $(Expr(:meta, :inline))
@@ -1720,6 +1813,9 @@ end
             Tuple{NTuple{N,VE{T}}},
             v1.elts))
     end
+end
+@inline function shufflevector(v1::Vec{N,T}, ::Type{Val{I}}) where {N,T,I}
+    shufflevector(v1, Val(I))
 end
 
 export VecRange
