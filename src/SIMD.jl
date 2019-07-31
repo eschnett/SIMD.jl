@@ -927,6 +927,11 @@ for op in (:(==), :(!=), :(<), :(<=), :(>), :(>=))
             llvmwrap(Val($(QuoteNode(op))), v1, v2, Bool)
     end
 end
+@inline function Base.cmp(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T}
+    I = int_type(T)
+    vifelse(isequal(v1, v2), Vec{N,I}(0),
+            vifelse(isless(v1, v2), Vec{N,I}(-1), Vec{N,I}(1)))
+end
 @inline function Base.isfinite(v1::Vec{N,T}) where {N,T<:FloatingTypes}
     U = uint_type(T)
     em = Vec{N,U}(exponent_mask(T))
