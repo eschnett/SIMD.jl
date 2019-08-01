@@ -157,7 +157,7 @@ Thus, implementing SIMD operations in Julia is in principle a straightforward ap
 function +(x::Float64x4, y::Float64x4)
     llvmcall("""
         %res = fadd <4 x double> %0, %1
-        return <4 x double> %res
+        ret <4 x double> %res
         """, Float64x4, Tuple{Float64x4, Float64x4}, x, y)
 end
 ```
