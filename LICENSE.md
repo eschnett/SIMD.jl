@@ -1,6 +1,6 @@
 The SIMD.jl package is licensed under the Simplified "2-clause" BSD License:
 
-> Copyright (c) 2016: Erik Schnetter.
+> Copyright (c) 2016-2020: Erik Schnetter, Kristoffer Carlsson, Julia Computing
 > All rights reserved.
 > 
 > Redistribution and use in source and binary forms, with or without

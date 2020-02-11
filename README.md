@@ -46,9 +46,7 @@ The SIMD package provides the usual arithmetic and logical operations for SIMD v
 
 `abs cbrt ceil copysign cos div exp exp10 exp2 flipsign floor fma inv isfinite isinf isnan issubnormal log log10 log2 muladd rem round sign signbit sin sqrt trunc vifelse`
 
-(Currently missing: `count_ones count_zeros exponent ldexp leading_ones leading_zeros significand trailing_ones trailing_zeros`, many trigonometric functions)
-
-(Also currently missing: Type conversions, reinterpretation that changes the vector size)
+(Currently missing: `exponent ldexp significand`, many trigonometric functions)
 
 These operators and functions are always applied element-wise, i.e. they are applied to each element in parallel, yielding again a SIMD vector as result. This means that e.g. multiplying two vectors yields a vector, and comparing two vectors yields a vector of booleans. This behaviour might seem strange and slightly unusual, but corresponds to the machine instructions provided by the hardware. It is also what is usually needed to vectorize loops.
 
@@ -63,7 +61,7 @@ ys1 = NTuple{4,Float32}(ys)
 y2 = ys[2]   # getindex
 
 # Update one element of a vector:
-ys = setindex(ys, 5, 3)   # cannot use ys[3] = 5
+ys = Base.setindex(ys, 5, 3)   # cannot use ys[3] = 5
 ```
 
 ## Reduction operations
