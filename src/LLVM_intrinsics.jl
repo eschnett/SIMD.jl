@@ -1,10 +1,19 @@
 # LLVM operations and intrinsics
 module Intrinsics
 
+# Note, that in the functions below, some care needs to be taken when passing
+# Julia Bools to LLVM. Julia passes Bools as LLVM i8 but expect them to only
+# have the last bit as non-zero. Failure to comply with this can give weird errors
+# like false !== false where the first false is the result of some computation.
+
+# Note, no difference is made between Julia usigned integers and signed integers
+# when passed to LLVM. It is up to the caller to make sure that the correct
+# intrinsic is called (e.g uitofp vs sitofp).
+
 # TODO: fastmath flags
 
 import ..SIMD: SIMD, VE, LVec, FloatingTypes
-# Inlcude Bool in IntegerTypes 
+# Inlcude Bool in IntegerTypes
 const IntegerTypes = Union{SIMD.IntegerTypes, Bool}
 
 const d = Dict{DataType, String}(
@@ -552,6 +561,7 @@ for (fs, c) in zip([HORZ_REDUCTION_OPS_FLOAT, HORZ_REDUCTION_OPS_INT],
             ret $(d[T]) %res
             """
             return quote
+                $(Expr(:meta, :inline));
                 Base.llvmcall($(decl, s2), T, Tuple{LVec{N, T},}, x)
             end
         end
@@ -570,6 +580,7 @@ for (f, neutral) in [(:fadd, "0.0"), (:fmul, "1.0")]
         ret $(d[T]) %res
         """
         return quote
+            $(Expr(:meta, :inline));
             Base.llvmcall($(decl, s2), T, Tuple{LVec{N, T},}, x)
         end
     end
