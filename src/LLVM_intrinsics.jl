@@ -45,9 +45,10 @@ suffix(N::Integer, ::Type{Ptr{T}}) where {T} = "v$(N)p0$(T<:IntegerTypes ? "i" :
 suffix(N::Integer, ::Type{T}) where {T}      = "v$(N)$(T<:IntegerTypes   ? "i" : "f")$(8*sizeof(T))"
 suffix(::Type{T}) where {T}                  = "$(T<:IntegerTypes        ? "i" : "f")$(8*sizeof(T))"
 
-llvm_name(llvmf, N, T)                           = string("llvm", ".", llvmf, ".", suffix(N, T))
-llvm_name(llvmf, ::Type{LVec{N, T}}) where {N,T} = string("llvm", ".", llvmf, ".", suffix(N, T))
-llvm_name(llvmf, ::Type{T}) where {T}            = string("llvm", ".", llvmf, ".", suffix(T))
+dotit(f) = replace(string(f), "_" => ".")
+llvm_name(llvmf, N, T)                           = string("llvm", ".", dotit(llvmf), ".", suffix(N, T))
+llvm_name(llvmf, ::Type{LVec{N, T}}) where {N,T} = string("llvm", ".", dotit(llvmf), ".", suffix(N, T))
+llvm_name(llvmf, ::Type{T}) where {T}            = string("llvm", ".", dotit(llvmf), ".", suffix(T))
 
 llvm_type(::Type{T}) where {T}            = d[T]
 llvm_type(::Type{LVec{N, T}}) where {N,T} = "< $N x $(d[T])>"
@@ -171,13 +172,23 @@ const BINARY_INTRINSICS_FLOAT = [
     :round
 ]
 
-for f in BINARY_INTRINSICS_FLOAT
-    @eval @generated function $(f)(x::T, y::T) where T<:LT{<:FloatingTypes}
-        ff = llvm_name($(QuoteNode(f)), T,)
-        return :(
-            $(Expr(:meta, :inline));
-            ccall($ff, llvmcall, T, (T, T), x, y)
-        )
+const BINARY_INTRINSICS_INT = [
+    :sadd_sat
+    :uadd_sat
+    :ssub_sat
+    :usub_sat
+]
+
+for (fs, c) in zip([BINARY_INTRINSICS_FLOAT, BINARY_INTRINSICS_INT],
+                   [FloatingTypes,           IntegerTypes])
+    for f in fs
+        @eval @generated function $(f)(x::T, y::T) where T<:LT{<:$c}
+            ff = llvm_name($(QuoteNode(f)), T,)
+            return :(
+                $(Expr(:meta, :inline));
+                ccall($ff, llvmcall, T, (T, T), x, y)
+            )
+        end
     end
 end
 

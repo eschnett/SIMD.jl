@@ -130,6 +130,16 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test Tuple(V8I32(v8i32)^3) === v8i32.^3
     end
 
+    @testset "saturation" begin
+        v = Vec{4, UInt8}(UInt8.((150, 250, 125, 0)))
+        @test SIMD.add_saturate(v, UInt8(50)) === Vec{4, UInt8}(UInt8.((200, 255, 175, 50)))
+        @test SIMD.sub_saturate(v, UInt8(100)) === Vec{4, UInt8}(UInt8.((50, 150, 25, 0)))
+        v = Vec{4, Int8}(Int8.((100, -100, 20, -20)))
+        @test SIMD.add_saturate(v, Int8(50)) === Vec{4, Int8}(Int8.((127, -50, 70, 30)))
+        @test SIMD.sub_saturate(v, Int8(50)) === Vec{4, Int8}(Int8.((50, -128, -30, -70)))
+
+    end
+
     @testset "Floating point arithmetic functions" begin
 
         global const v4f64b = map(x->Float64(x+1), v4f64)
