@@ -477,6 +477,7 @@ end
 
 # Element-wise access
 
+import Base.setindex
 export setindex
 @generated function setindex(v::Vec{N,T}, x::Number, ::Val{I}) where {N,T,I}
     @assert isa(I, Integer)
@@ -514,7 +515,7 @@ end
             v.elts, i-1, T(x)))
     end
 end
-setindex(v::Vec{N,T}, x::Number, i) where {N,T} = setindex(v, Int(i), x)
+setindex(v::Vec{N,T}, x::Number, i) where {N,T} = setindex(v, x, Int(i))
 
 Base.@propagate_inbounds Base.getindex(v::Vec{N,T}, ::Val{I}) where {N,T,I} = v.elts[I].value
 Base.@propagate_inbounds Base.getindex(v::Vec{N,T}, ::Type{Val{I}}) where {N,T,I} = Base.getindex(v, Val(I))
