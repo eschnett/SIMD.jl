@@ -8,9 +8,9 @@ export Vec, vload, vloada, vloadnt, vstore, vstorea, vstorent, vgather, vgathera
 const VE         = Base.VecElement
 const LVec{N, T} = NTuple{N, VE{T}}
 
-const IntTypes      = Union{Int8, Int16, Int32, Int64, Int128}
-const BIntTypes      = Union{IntTypes, Bool}
-const UIntTypes     = Union{UInt8, UInt16, UInt32, UInt64, UInt128}
+const IntTypes      = Union{Int8, Int16, Int32, Int64} # Int128 and UInt128 does not get passed as LLVM vectors
+const BIntTypes     = Union{IntTypes, Bool}
+const UIntTypes     = Union{UInt8, UInt16, UInt32, UInt64}
 const IntegerTypes  = Union{IntTypes, UIntTypes}
 const BIntegerTypes = Union{IntegerTypes, Bool}
 const FloatingTypes = Union{Float32, Float64} # Float16 support is non-native in Julia and gets passed as an i16
