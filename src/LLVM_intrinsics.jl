@@ -203,6 +203,45 @@ for (f, c) in [(:pow, FloatingTypes), (:powi, IntegerTypes)]
     end
 end
 
+# Overflow
+const OVERFLOW_INTRINSICS = [
+    :sadd_with_overflow
+    :uadd_with_overflow
+    :ssub_with_overflow
+    :usub_with_overflow
+    :smul_with_overflow
+    :umul_with_overflow
+]
+
+const SUPPORTS_VEC_OVERFLOW = Base.libllvm_version >= v"9"
+for f in OVERFLOW_INTRINSICS
+    @eval @generated function $f(x::LVec{N, T}, y::LVec{N, T}) where {N, T <: IntegerTypes}
+        if !SUPPORTS_VEC_OVERFLOW
+            return :(error("LLVM version 9.0 or greater required (Julia 1.5 or greater)"))
+        end
+        ff = llvm_name($(QuoteNode(f)), N, T)
+        decl = "declare {<$N x $(d[T])>, <$N x i1>} @$ff(<$N x $(d[T])>, <$N x $(d[T])>)"
+
+        # Julia passes Tuple{[U]Int8, Bool} as [2 x i8] so we need to special case that scenario
+        ret_type = sizeof(T) == 1 ? "[2 x <$N x i8>]" : "{<$N x $(d[T])>, <$N x i8>}"
+
+        s = """
+        %res = call {<$N x $(d[T])>, <$N x i1>} @$ff(<$N x $(d[T])> %0, <$N x $(d[T])> %1)
+        %plus     = extractvalue {<$N x $(d[T])>, <$N x i1>} %res, 0
+        %overflow = extractvalue {<$N x $(d[T])>, <$N x i1>} %res, 1
+        %overflow_ext = zext <$(N) x i1> %overflow to <$(N) x i8>
+        %new_tuple   = insertvalue $ret_type undef,      <$N x $(d[T])> %plus,         0
+        %new_tuple_2 = insertvalue $ret_type %new_tuple, <$N x i8>      %overflow_ext, 1
+        ret $ret_type %new_tuple_2
+        """
+        return :(
+            $(Expr(:meta, :inline));
+            Base.llvmcall(($decl, $s), Tuple{LVec{N, T}, LVec{N, Bool}}, Tuple{LVec{N, T}, LVec{N, T}}, x, y)
+        )
+    end
+end
+
+
 # Comparisons
 const CMP_FLAGS_FLOAT = [
     :false

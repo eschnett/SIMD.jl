@@ -92,6 +92,31 @@ julia> reduce(&, v)
 0x0000
 ```
 
+## Overflow operations
+
+Overflow operations do the operation but also give back a flag that indicates
+whether the result of the operation overflowed.
+Note that these only work on Julia with LLVM 9 or higher (Julia 1.5 or higher):
+The functions `Base.Checked.add_with_overflow`, `Base.Checked.sub_with_overflow`,
+`Base.Checked.mul_with_overflow` are extended to work on `Vec`. :
+
+```julia
+julia> v = Vec{4, Int8}((40, -80, 70, -10))
+<4 x Int8>[40, -80, 70, -10]
+
+julia> Base.Checked.add_with_overflow(v, v)
+(<4 x Int8>[80, 96, -116, -20], <4 x Bool>[0, 1, 1, 0])
+
+julia> Base.Checked.add_with_overflow(Int8(-80), Int8(-80))
+(96, true)
+
+julia> Base.Checked.sub_with_overflow(v, 120)
+(<4 x Int8>[-80, 56, -50, 126], <4 x Bool>[0, 1, 0, 1])
+
+julia> Base.Checked.mul_with_overflow(v, 2)
+(<4 x Int8>[80, 96, -116, -20], <4 x Bool>[0, 1, 1, 0])
+```
+
 ## Saturation arithmetic
 
 Saturation arithmetic is a version of arithmetic in which operations are limited

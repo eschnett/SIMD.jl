@@ -137,7 +137,20 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         v = Vec{4, Int8}(Int8.((100, -100, 20, -20)))
         @test SIMD.add_saturate(v, Int8(50)) === Vec{4, Int8}(Int8.((127, -50, 70, 30)))
         @test SIMD.sub_saturate(v, Int8(50)) === Vec{4, Int8}(Int8.((50, -128, -30, -70)))
+    end
 
+    using Base.Checked: add_with_overflow, sub_with_overflow, mul_with_overflow
+    if Base.libllvm_version >= v"9"
+        @testset "overflow arithmetic" begin
+            for f in (add_with_overflow, sub_with_overflow, mul_with_overflow)
+                for T in [Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64]
+                    t2 = div(typemax(T), T(2)) + one(T)
+                    t1 = div(typemin(T), T(2)) - (T <: Unsigned ? zero(T) : one(T))
+                    v = Vec(t2, t1, T(0), t2 - one(T))
+                    @test Tuple(zip(Tuple.(f(v,v))...)) === map(f, Tuple(v), Tuple(v))
+                end
+            end
+        end
     end
 
     @testset "Floating point arithmetic functions" begin
