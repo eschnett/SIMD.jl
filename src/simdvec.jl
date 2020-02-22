@@ -24,7 +24,7 @@ Base.copy(v::Vec) = v
 @inline Base.convert(::Type{Vec{N,T}}, v::Vec{N,T}) where {N,T} = v
 @inline function Base.convert(::Type{Vec{N, T1}}, v::Vec{N, T2}) where {T1, T2, N}
     if T1 <: Union{IntegerTypes, Ptr}
-        if T2 <: Union{IntegerTypes, Ptr}
+        if T2 <: Union{IntegerTypes, Ptr, Bool}
             if sizeof(T1) < sizeof(T2)
                 return Vec(Intrinsics.trunc(Intrinsics.LVec{N, T1}, v.data))
             elseif sizeof(T1) == sizeof(T2)
