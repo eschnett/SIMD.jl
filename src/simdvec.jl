@@ -1,10 +1,10 @@
-struct Vec{N, T <: VecTypes}
+struct Vec{N, T<:VecTypes}
     data::LVec{N, T}
 end
 
 # Constructors
-@inline Vec(v::NTuple{N, T}) where {N, T} = Vec(VE.(v))
-@inline Vec(v::Vararg{T, N}) where {N, T} = Vec(v)
+@inline Vec(v::NTuple{N, T}) where {N, T<:VecTypes} = Vec(VE.(v))
+@inline Vec(v::Vararg{T, N}) where {N, T<:VecTypes} = Vec(v)
 @inline Vec(v::Vec) = v
 # Numbers defines this and it is needed in power_by_squaring...
 Base.copy(v::Vec) = v
@@ -147,6 +147,7 @@ if isdefined(Base, :bitreverse)
         (:bitreverse   , IntegerTypes  , Intrinsics.bitreverse)
     )
 end
+
 for (op, constraint, llvmop) in UNARY_OPS
     @eval @inline (Base.$op)(x::Vec{<:Any, <:$constraint}) =
         Vec($(llvmop)(x.data))
@@ -242,6 +243,24 @@ for (op, constraint, llvmop) in BINARY_OPS
         Vec($(llvmop)(x.data, y.data))
     end
 end
+
+# overflow
+
+const OVERFLOW_INTRINSICS = [
+    (:(Base.Checked.add_with_overflow) , IntTypes  , Intrinsics.sadd_with_overflow)
+    (:(Base.Checked.add_with_overflow) , UIntTypes , Intrinsics.uadd_with_overflow)
+    (:(Base.Checked.sub_with_overflow) , IntTypes  , Intrinsics.ssub_with_overflow)
+    (:(Base.Checked.sub_with_overflow) , UIntTypes , Intrinsics.usub_with_overflow)
+    (:(Base.Checked.mul_with_overflow) , IntTypes  , Intrinsics.smul_with_overflow)
+    (:(Base.Checked.mul_with_overflow) , UIntTypes , Intrinsics.umul_with_overflow)
+]
+for (op, constraint, llvmop) in OVERFLOW_INTRINSICS
+    @eval @inline function $op(x::Vec{N, T}, y::Vec{N, T}) where {N, T <: $constraint}
+        val, overflows = $(llvmop)(x.data, y.data)
+        return Vec(val), Vec(overflows)
+    end
+end
+
 
 # max min
 @inline Base.max(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T<:IntegerTypes} =
@@ -346,6 +365,12 @@ for (op, constraint) in [BINARY_OPS;
         (:(Base.:<<)      , IntegerTypes)
         (:(Base.:>>)      , IntegerTypes)
         (:(Base.:>>>)     , IntegerTypes)
+        (:(Base.Checked.add_with_overflow) , IntTypes)
+        (:(Base.Checked.add_with_overflow) , UIntTypes)
+        (:(Base.Checked.sub_with_overflow) , IntTypes)
+        (:(Base.Checked.sub_with_overflow) , UIntTypes)
+        (:(Base.Checked.mul_with_overflow) , IntTypes)
+        (:(Base.Checked.mul_with_overflow) , UIntTypes)
     ]
     @eval @inline function $op(x::T2, y::Vec{N, T}) where {N, T2<:ScalarTypes, T <: $constraint}
         $op(Vec{N, T}(x), y)
