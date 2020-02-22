@@ -136,13 +136,17 @@ const UNARY_OPS = [
     # (:nearbyint    , FloatingTypes , Intrinsics)            ,
     (:round          , FloatingTypes , Intrinsics.round)      ,
 
-    # (:bitreverse   , IntegerTypes  , Intrinsics.bitreverse) ,
     (:bswap          , IntegerTypes  , Intrinsics.bswap)      ,
     (:count_ones     , IntegerTypes  , Intrinsics.ctpop)      ,
     (:leading_zeros  , IntegerTypes  , Intrinsics.ctlz)       ,
     (:trailing_zeros , IntegerTypes  , Intrinsics.cttz)       ,
 ]
 
+if isdefined(Base, :bitreverse)
+    push!(UNARY_OPS,
+        (:bitreverse   , IntegerTypes  , Intrinsics.bitreverse)
+    )
+end
 for (op, constraint, llvmop) in UNARY_OPS
     @eval @inline (Base.$op)(x::Vec{<:Any, <:$constraint}) =
         Vec($(llvmop)(x.data))
