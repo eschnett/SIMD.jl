@@ -51,7 +51,8 @@ The SIMD package provides the usual arithmetic and logical operations for SIMD v
 These operators and functions are always applied element-wise, i.e. they are applied to each element in parallel, yielding again a SIMD vector as result. This means that e.g. multiplying two vectors yields a vector, and comparing two vectors yields a vector of booleans. This behaviour might seem strange and slightly unusual, but corresponds to the machine instructions provided by the hardware. It is also what is usually needed to vectorize loops.
 
 The SIMD package also provides conversion operators from scalars and tuples to SIMD vectors and from SIMD vectors to tuples. Additionally, there are `getindex` and `setindex` functions to access individual vector elements.  SIMD vectors are immutable (like tuples), and `setindex` (note there is no exclamation mark at the end of the name) thus returns the modified vector.
-```Julia
+
+```julia
 # Create a vector where all elements are Float64(1):
 xs = Vec{4,Float64}(1)
 
@@ -71,12 +72,25 @@ Reduction operations reduce a SIMD vector to a scalar. The following reduction o
 `all any maximum minimum sum prod`
 
 Example:
-```Julia
+
+```julia
 v = Vec{4,Float64}((1,2,3,4))
 sum(v)
 10.0
 ```
 
+It is also possible to use reduce with bit operations:
+
+```julia
+julia> v = Vec{4,UInt16}((1,2,3,4))
+<4 x UInt16>[0x0001, 0x0002, 0x0003, 0x0004]
+
+julia> reduce(|, v)
+0x0007
+
+julia> reduce(&, v)
+0x0000
+```
 ## Accessing arrays
 
 When using explicit SIMD vectorization, it is convenient to allocate arrays still as arrays of scalars, not as arrays of vectors. The `vload` and `vstore` functions allow reading vectors from and writing vectors into arrays, accessing several contiguous array elements.
