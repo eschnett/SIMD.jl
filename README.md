@@ -91,6 +91,26 @@ julia> reduce(|, v)
 julia> reduce(&, v)
 0x0000
 ```
+
+## Saturation arithmetic
+
+Saturation arithmetic is a version of arithmetic in which operations are limited
+to a fixed range between a minimum and maximum value. If the result of an
+operation is greater than the maximum value, the result is set (or “clamped”) to
+this maximum. If it is below the minimum, it is clamped to this minimum.
+
+
+```julia
+julia> v = Vec{4, Int8}((40, -80, 70, -10))
+<4 x Int8>[40, -80, 70, -10]
+
+julia> SIMD.add_saturate(v, v)
+<4 x Int8>[80, -128, 127, -20]
+
+julia> SIMD.sub_saturate(v, 120)
+<4 x Int8>[-80, -128, -50, -128]
+```
+
 ## Accessing arrays
 
 When using explicit SIMD vectorization, it is convenient to allocate arrays still as arrays of scalars, not as arrays of vectors. The `vload` and `vstore` functions allow reading vectors from and writing vectors into arrays, accessing several contiguous array elements.
