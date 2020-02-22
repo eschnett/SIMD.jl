@@ -220,6 +220,10 @@ for f in OVERFLOW_INTRINSICS
             return :(error("LLVM version 9.0 or greater required (Julia 1.5 or greater)"))
         end
         ff = llvm_name($(QuoteNode(f)), N, T)
+        if $(QuoteNode(f)) == :smul_with_overflow && Sys.ARCH == :i686 && T == Int64
+            str = "this intrinsic ($ff) is broken on i686"
+            return :(error($str))
+        end
         decl = "declare {<$N x $(d[T])>, <$N x i1>} @$ff(<$N x $(d[T])>, <$N x $(d[T])>)"
 
         # Julia passes Tuple{[U]Int8, Bool} as [2 x i8] so we need to special case that scenario

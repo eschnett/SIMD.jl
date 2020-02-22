@@ -147,6 +147,10 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                     t2 = div(typemax(T), T(2)) + one(T)
                     t1 = div(typemin(T), T(2)) - (T <: Unsigned ? zero(T) : one(T))
                     v = Vec(t2, t1, T(0), t2 - one(T))
+                    if f == mul_with_overflow && Sys.ARCH == :i686 && T == Int64
+                        @test_throws ErrorException f(v,v)
+                        continue
+                    end
                     @test Tuple(zip(Tuple.(f(v,v))...)) === map(f, Tuple(v), Tuple(v))
                 end
             end
