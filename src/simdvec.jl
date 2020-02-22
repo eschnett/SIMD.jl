@@ -76,10 +76,20 @@ Base.length(V::Vec) = length(typeof(V))
 Base.size(V::Vec) = size(typeof(V))
 Base.size(V::Vec, n::Integer) = size(typeof(V), n)
 
-function Base.show(io::IO, v::Vec{N,T}) where {N,T}
-    print(io, "<$N x $T>[")
-    join(io, [x.value for x in v.data], ", ")
-    print(io, "]")
+if VERSION <= v"1.4.0-rc1.0"
+    function Base.show(io::IO, v::Vec{N,T}) where {N,T}
+        print(io, "<$N x $T>[")
+        join(io, [x.value for x in v.data], ", ")
+        print(io, "]")
+    end
+else
+    # This crashes on pre 1.4-rc2
+    function Base.show(io::IO, v::Vec{N,T}) where {N,T}
+        io = IOContext(io, :typeinfo => eltype(v))
+        print(io, "<$N x $T>[")
+        join(io, [sprint(show, x.value; context=io) for x in v.data], ", ")
+        print(io, "]")
+    end
 end
 
 @inline Base.checkbounds(v::Vec, i::IntegerTypes) =
