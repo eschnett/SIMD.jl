@@ -32,7 +32,12 @@ function vadd!(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}}) where {N, T}
     end
 end
 ```
+
 To simplify this example code, the vector type that should be used (`Vec{N,T}`) is passed in explicitly as additional type argument. This routine is e.g. called as `vadd!(xs, ys, Vec{8,Float64})`.
+Note that this code is not expected to outperform the standard scalar way of
+doing this operation since the Julia optimizer will easily rewrite that to use
+SIMD under the hood. It is merely shown as an illustration of how to load and
+store data into `Vector`s using SIMD.jl
 
 ## SIMD vector operations
 
