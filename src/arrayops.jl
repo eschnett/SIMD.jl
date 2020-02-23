@@ -40,7 +40,7 @@ FastContiguousArray{T,N} = Union{DenseArray{T,N}, Base.FastContiguousSubArray{T,
 # https://github.com/JuliaArrays/MappedArrays.jl/pull/24#issuecomment-460568978
 
 # vload
-@inline function vload(::Type{Vec{N, T}}, ptr::Ptr{T}, mask::Union{Nothing, Vec{N, Bool}}=nothing,
+@propagate_inbounds function vload(::Type{Vec{N, T}}, ptr::Ptr{T}, mask::Union{Nothing, Vec{N, Bool}}=nothing,
                        ::Val{Aligned}=Val(false), ::Val{Nontemporal}=Val(false)) where {N, T, Aligned, Nontemporal}
     if mask === nothing
         Vec(Intrinsics.load(Intrinsics.LVec{N, T}, ptr, Val(Aligned), Val(Nontemporal)))
@@ -49,7 +49,7 @@ FastContiguousArray{T,N} = Union{DenseArray{T,N}, Base.FastContiguousSubArray{T,
     end
 end
 
-@inline function vload(::Type{Vec{N, T}}, a::FastContiguousArray{T,1}, i::Integer, mask=nothing,
+@propagate_inbounds function vload(::Type{Vec{N, T}}, a::FastContiguousArray{T,1}, i::Integer, mask=nothing,
                        ::Val{Aligned}=Val(false), ::Val{Nontemporal}=Val(false)) where {N, T, Aligned, Nontemporal}
     @boundscheck checkbounds(a, i + N - 1)
     GC.@preserve a begin
@@ -61,7 +61,7 @@ end
 @propagate_inbounds vloadnt(::Type{T}, a, i, mask=nothing) where {T<:Vec} = vload(T, a, i, mask, Val(true), Val(true))
 
 # vstore
-@inline function vstore(x::Vec{N, T}, ptr::Ptr{T}, mask::Union{Nothing, Vec{N, Bool}}=nothing,
+@propagate_inbounds function vstore(x::Vec{N, T}, ptr::Ptr{T}, mask::Union{Nothing, Vec{N, Bool}}=nothing,
                        ::Val{Aligned}=Val(false), ::Val{Nontemporal}=Val(false)) where {N, T, Aligned, Nontemporal}
     if mask === nothing
         Intrinsics.store(x.data, ptr, Val(Aligned), Val(Nontemporal))
@@ -69,7 +69,7 @@ end
         Intrinsics.maskedstore(x.data, ptr, mask.data, Val(Aligned), Val(Nontemporal))
     end
 end
-@inline function vstore(x::Vec{N, T}, a::FastContiguousArray{T,1}, i::Integer, mask=nothing,
+@propagate_inbounds function vstore(x::Vec{N, T}, a::FastContiguousArray{T,1}, i::Integer, mask=nothing,
                ::Val{Aligned}=Val(false), ::Val{Nontemporal}=Val(false)) where {N, T, Aligned, Nontemporal}
     @boundscheck checkbounds(a, i + N - 1)
     GC.@preserve a begin
