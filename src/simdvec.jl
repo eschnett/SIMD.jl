@@ -114,6 +114,7 @@ Base.reinterpret(::Type{Vec{N, T}}, v::Vec) where {T, N} = Vec(Intrinsics.bitcas
 Base.reinterpret(::Type{Vec{N, T}}, v::ScalarTypes) where {T, N} = Vec(Intrinsics.bitcast(Intrinsics.LVec{N, T}, v))
 Base.reinterpret(::Type{T}, v::Vec) where {T} = Intrinsics.bitcast(T, v.data)
 
+const FASTMATH = Intrinsics.FastMathFlags(Intrinsics.FastMath.fast)
 
 ###################
 # Unary operators #
@@ -156,6 +157,7 @@ end
 Base.:+(v::Vec{<:Any, <:ScalarTypes}) = v
 Base.:-(v::Vec{<:Any, <:IntegerTypes}) = zero(v) - v
 Base.:-(v::Vec{<:Any, <:FloatingTypes}) = Vec(Intrinsics.fneg(v.data))
+Base.FastMath.sub_fast(v::Vec{<:Any, <:FloatingTypes}) = Vec(Intrinsics.fneg(v.data, FASTMATH))
 Base.:~(v::Vec{N, T}) where {N, T<:IntegerTypes} = Vec(Intrinsics.xor(v.data, Vec{N, T}(-1).data))
 Base.:~(v::Vec{N, Bool}) where {N} = Vec(Intrinsics.xor(v.data, Vec{N, Bool}(true).data))
 Base.abs(v::Vec{N, T}) where {N, T} = Vec(vifelse(v < zero(T), -v, v))
@@ -238,14 +240,28 @@ const BINARY_OPS = [
     (:(Base.:<=)     , FloatingTypes , Intrinsics.fcmp_ole)
 ]
 
+function get_fastmath_function(op)
+    if op isa Expr && op.head == Symbol(".") && op.args[1] == :Base &&
+        op.args[2].value in keys(Base.FastMath.fast_op)
+        return :(Base.FastMath.$(Base.FastMath.fast_op[op.args[2].value]))
+    end
+    return nothing
+end
+
 for (op, constraint, llvmop) in BINARY_OPS
     @eval @inline function $op(x::Vec{N, T}, y::Vec{N, T}) where {N, T <: $constraint}
         Vec($(llvmop)(x.data, y.data))
     end
+
+    # Add a fast math version if applicable
+    if (fast_op = get_fastmath_function(op)) !== nothing
+        @eval @inline function $(fast_op)(x::Vec{N, T}, y::Vec{N, T}) where {N, T <: $constraint}
+            Vec($(llvmop)(x.data, y.data, FASTMATH))
+        end
+    end
 end
 
 # overflow
-
 const OVERFLOW_INTRINSICS = [
     (:(Base.Checked.add_with_overflow) , IntTypes  , Intrinsics.sadd_with_overflow)
     (:(Base.Checked.add_with_overflow) , UIntTypes , Intrinsics.uadd_with_overflow)
@@ -260,7 +276,6 @@ for (op, constraint, llvmop) in OVERFLOW_INTRINSICS
         return Vec(val), Vec(overflows)
     end
 end
-
 
 # max min
 @inline Base.max(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T<:IntegerTypes} =
@@ -372,11 +387,17 @@ for (op, constraint) in [BINARY_OPS;
         (:(Base.Checked.mul_with_overflow) , IntTypes)
         (:(Base.Checked.mul_with_overflow) , UIntTypes)
     ]
-    @eval @inline function $op(x::T2, y::Vec{N, T}) where {N, T2<:ScalarTypes, T <: $constraint}
-        $op(Vec{N, T}(x), y)
+    ops = [op]
+    if (fast_op = get_fastmath_function(op)) !== nothing
+        push!(ops, fast_op)
     end
-    @eval @inline function $op(x::Vec{N, T}, y::T2) where {N, T2 <:ScalarTypes, T <: $constraint}
-        $op(x, Vec{N, T}(y))
+    for op in ops
+        @eval @inline function $op(x::T2, y::Vec{N, T}) where {N, T2<:ScalarTypes, T <: $constraint}
+            $op(Vec{N, T}(x), y)
+        end
+        @eval @inline function $op(x::Vec{N, T}, y::T2) where {N, T2 <:ScalarTypes, T <: $constraint}
+            $op(x, Vec{N, T}(y))
+        end
     end
 end
 

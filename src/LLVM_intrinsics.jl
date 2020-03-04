@@ -10,8 +10,6 @@ module Intrinsics
 # when passed to LLVM. It is up to the caller to make sure that the correct
 # intrinsic is called (e.g uitofp vs sitofp).
 
-# TODO: fastmath flags
-
 import ..SIMD: SIMD, VE, LVec, FloatingTypes
 # Inlcude Bool in IntegerTypes
 const IntegerTypes = Union{SIMD.IntegerTypes, Bool}
@@ -53,6 +51,39 @@ llvm_name(llvmf, ::Type{T}) where {T}            = string("llvm", ".", dotit(llv
 llvm_type(::Type{T}) where {T}            = d[T]
 llvm_type(::Type{LVec{N, T}}) where {N,T} = "< $N x $(d[T])>"
 
+############
+# FastMath #
+############
+
+module FastMath
+    const nnan     = 1 << 0
+    const ninf     = 1 << 1
+    const nsz      = 1 << 2
+    const arcp     = 1 << 3
+    const contract = 1 << 4
+    const afn      = 1 << 5
+    const reassoc  = 1 << 6
+    const fast     = 1 << 7
+end
+
+struct FastMathFlags{T} end
+Base.@pure FastMathFlags(T::Int) = FastMathFlags{T}()
+
+function fp_str(::Type{FastMathFlags{T}}) where {T}
+    flags = String[]
+    (T & FastMath.nnan     != 0) && push!(flags, "nnan")
+    (T & FastMath.ninf     != 0) && push!(flags, "ninf")
+    (T & FastMath.nsz      != 0) && push!(flags, "nsz")
+    (T & FastMath.arcp     != 0) && push!(flags, "arcp")
+    (T & FastMath.contract != 0) && push!(flags, "contract")
+    (T & FastMath.afn      != 0) && push!(flags, "afn")
+    (T & FastMath.reassoc  != 0) && push!(flags, "reassoc")
+    (T & FastMath.fast     != 0) && push!(flags, "fast")
+    return join(flags, " ")
+end
+fp_str(::Type{Nothing}) = ""
+
+const FPFlags{T} = Union{Nothing, FastMathFlags{T}}
 
 ####################
 # Unary operators  #
@@ -101,9 +132,10 @@ for (fs, c) in zip([UNARY_INTRINSICS_FLOAT, UNARY_INTRINSICS_INT],
 end
 
 # fneg (not an intrinsic so cannot use `ccall)
-@generated function fneg(x::T) where T<:LT{<:FloatingTypes}
+@generated function fneg(x::T, ::F=nothing) where {T<:LT{<:FloatingTypes}, F<:FPFlags}
+    fpflags = fp_str(F)
     s = """
-    %2 = fneg $(llvm_type(T)) %0
+    %2 = fneg $fpflags $(llvm_type(T)) %0
     ret $(llvm_type(T)) %2
     """
     return :(
@@ -140,20 +172,32 @@ const BINARY_OPS_INT = [
     :xor
 ]
 
-for (fs, c) in zip([BINARY_OPS_FLOAT, BINARY_OPS_INT],
-                   [FloatingTypes, IntegerTypes])
-    for f in fs
-        @eval @generated function $f(x::T, y::T) where T<:LT{<:$c}
-            ff = $(QuoteNode(f))
-            s = """
-            %3 = $ff $(llvm_type(T)) %0, %1
-            ret $(llvm_type(T)) %3
-            """
-            return :(
-                $(Expr(:meta, :inline));
-                Base.llvmcall($s, T, Tuple{T, T}, x, y)
-            )
-        end
+for f in BINARY_OPS_FLOAT
+    @eval @generated function $f(x::T, y::T, ::F=nothing) where {T<:LT{<:FloatingTypes}, F<:FPFlags}
+        fpflags = fp_str(F)
+        ff = $(QuoteNode(f))
+        s = """
+        %3 = $ff $fpflags $(llvm_type(T)) %0, %1
+        ret $(llvm_type(T)) %3
+        """
+        return :(
+            $(Expr(:meta, :inline));
+            Base.llvmcall($s, T, Tuple{T, T}, x, y)
+        )
+    end
+end
+
+for f in BINARY_OPS_INT
+    @eval @generated function $f(x::T, y::T) where T<:LT{<:IntegerTypes}
+        ff = $(QuoteNode(f))
+        s = """
+        %3 = $ff $(llvm_type(T)) %0, %1
+        ret $(llvm_type(T)) %3
+        """
+        return :(
+            $(Expr(:meta, :inline));
+            Base.llvmcall($s, T, Tuple{T, T}, x, y)
+        )
     end
 end
 
@@ -279,24 +323,36 @@ const CMP_FLAGS_INT = [
     :ule
 ]
 
-for (f, c, flags) in zip(["fcmp",          "icmp"],
-                         [FloatingTypes,   IntegerTypes],
-                         [CMP_FLAGS_FLOAT, CMP_FLAGS_INT])
-    for flag in flags
-        ftot = Symbol(string(f, "_", flag))
-        @eval @generated function $ftot(x::LVec{N, T}, y::LVec{N, T}) where {N, T <: $c}
-            fflag = $(QuoteNode(flag))
-            ff = $(QuoteNode(f))
-            s = """
-            %res = $ff $(fflag) <$(N) x $(d[T])> %0, %1
-            %resb = zext <$(N) x i1> %res to <$(N) x i8>
-            ret <$(N) x i8> %resb
-            """
-            return :(
-                $(Expr(:meta, :inline));
-                Base.llvmcall($s, LVec{N, Bool}, Tuple{LVec{N, T}, LVec{N, T}}, x, y)
-            )
-        end
+for flag in CMP_FLAGS_FLOAT
+    ftot = Symbol(string("fcmp_", flag))
+    @eval @generated function $ftot(x::LVec{N, T}, y::LVec{N, T}, ::F=nothing) where {N, T <: FloatingTypes, F<:FPFlags}
+        fpflags = fp_str(F)
+        fflag = $(QuoteNode(flag))
+        s = """
+        %res = fcmp $(fpflags) $(fflag) <$(N) x $(d[T])> %0, %1
+        %resb = zext <$(N) x i1> %res to <$(N) x i8>
+        ret <$(N) x i8> %resb
+        """
+        return :(
+            $(Expr(:meta, :inline));
+            Base.llvmcall($s, LVec{N, Bool}, Tuple{LVec{N, T}, LVec{N, T}}, x, y)
+        )
+    end
+end
+
+for flag in CMP_FLAGS_INT
+    ftot = Symbol(string("icmp_", flag))
+    @eval @generated function $ftot(x::LVec{N, T}, y::LVec{N, T}) where {N, T <: IntegerTypes}
+        fflag = $(QuoteNode(flag))
+        s = """
+        %res = icmp $(fflag) <$(N) x $(d[T])> %0, %1
+        %resb = zext <$(N) x i1> %res to <$(N) x i8>
+        ret <$(N) x i8> %resb
+        """
+        return :(
+            $(Expr(:meta, :inline));
+            Base.llvmcall($s, LVec{N, Bool}, Tuple{LVec{N, T}, LVec{N, T}}, x, y)
+        )
     end
 end
 

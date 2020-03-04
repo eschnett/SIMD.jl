@@ -362,6 +362,14 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         end
     end
 
+    @testset "fastmath" begin
+        v = Vec(1.0,2.0,3.0,4.0)
+        @test all(Tuple(@fastmath v+v) .≈ Tuple(v+v))
+        @test all(Tuple(@fastmath v+1.0) .≈ Tuple(v+1.0))
+        @test all(Tuple(@fastmath 1.0+v) .≈ Tuple(1.0+v))
+        @test all(Tuple(@fastmath -v) .≈ Tuple(-v))
+    end
+
     @testset "Gather and scatter function" begin
         for (arr, VT) in [(arri32, V8I32), (arrf64, V4F64)]
             arr .= 1:length(arr)
