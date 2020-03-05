@@ -368,6 +368,9 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test all(Tuple(@fastmath v+1.0) .≈ Tuple(v+1.0))
         @test all(Tuple(@fastmath 1.0+v) .≈ Tuple(1.0+v))
         @test all(Tuple(@fastmath -v) .≈ Tuple(-v))
+        f = v -> @fastmath v + v
+        # Test that v+v is rewritten as v * 2.0 (change test if optimization changes)
+        @test occursin(r"fmul fast <4 x double> %[0-9]*, <double 2\.000000e\+00", llvm_ir(f, (v,)))
     end
 
     @testset "Gather and scatter function" begin
