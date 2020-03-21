@@ -456,6 +456,36 @@ end
     )
 end
 
+@generated function maskedexpandload(ptr::Ptr{T}, mask::LVec{N,Bool}) where {N, T}
+    # TODO: Allow setting the passthru
+    decl = "declare <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))(<$N x $(d[T])>*, <$N x i1>, <$N x $(d[T])>)"
+    s = """
+    %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
+    %ptr = inttoptr $(d[Int]) %1 to <$N x $(d[T])>*
+    %res = call <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))(<$N x $(d[T])>* %ptr, <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
+    ret <$N x $(d[T])> %res
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall(($decl, $s), LVec{N, T}, Tuple{Ptr{T}, LVec{N, Bool}}, ptr, mask)
+    )
+end
+
+@generated function maskedcompressstore(x::LVec{N, T}, ptr::Ptr{T},
+                                        mask::LVec{N,Bool}) where {N, T}
+    decl = "declare <$N x $(d[T])> @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])>, <$N x $(d[T])>*, <$N x i1>)"
+    s = """
+    %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
+    %ptr = inttoptr $(d[Int]) %1 to <$N x $(d[T])>*
+    call <$N x $(d[T])> @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])> %0, <$N x $(d[T])>* %ptr, <$N x i1> %mask)
+    ret void
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall(($decl, $s), Cvoid, Tuple{LVec{N, T}, Ptr{T}, LVec{N, Bool}}, x, ptr, mask)
+    )
+end
+
 
 ####################
 # Gather / Scatter #
@@ -698,6 +728,34 @@ for (f, neutral) in [(:fadd, "0.0"), (:fmul, "1.0")]
             Base.llvmcall($(decl, s2), T, Tuple{LVec{N, T},}, x)
         end
     end
+end
+
+# See: https://llvm.org/docs/LangRef.html#id839
+@generated function reduce_add(x::LVec{N, Bool}) where {N}
+    if N < 64
+        ret = """
+        %res = zext i$(N) %maskipopcnt to i64
+        ret i64 %res
+        """
+    elseif N == 64
+        ret = "ret i64 %maskipopcnt"
+    else
+        ret = """
+        %res = trunc i$(N) %maskipopcnt to i64
+        ret i64 %res
+        """
+    end
+    decl = "declare i$(N) @llvm.ctpop.i$(N)(i$(N))"
+    s = """
+    %mask = trunc <$(N) x i8> %0 to <$(N) x i1>
+    %maski = bitcast <$(N) x i1> %mask to i$(N)
+    %maskipopcnt = call i$(N) @llvm.ctpop.i$(N)(i$(N) %maski)
+    $(ret)
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall(($decl, $s), Int64, Tuple{LVec{N, Bool}}, x)
+    )
 end
 
 end

@@ -448,7 +448,7 @@ const HORZ_REDUCTION_OPS = [
     (min , IntTypes      , Intrinsics.reduce_smin)
     (min , UIntTypes     , Intrinsics.reduce_umin)
     (min , FloatingTypes , Intrinsics.reduce_fmin)
-    (+   , IntegerTypes  , Intrinsics.reduce_add)
+    (+   , Union{IntegerTypes, Bool}  , Intrinsics.reduce_add)
     (*   , IntegerTypes  , Intrinsics.reduce_mul)
     (+   , FloatingTypes , Intrinsics.reduce_fadd)
     (*   , FloatingTypes , Intrinsics.reduce_fmul)
