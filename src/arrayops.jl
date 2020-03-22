@@ -51,7 +51,7 @@ end
 
 @propagate_inbounds function vload(::Type{Vec{N, T}}, a::FastContiguousArray{T,1}, i::Integer, mask=nothing,
                        ::Val{Aligned}=Val(false), ::Val{Nontemporal}=Val(false)) where {N, T, Aligned, Nontemporal}
-    @boundscheck checkbounds(a, i + N - 1)
+    @boundscheck checkbounds(a, i:(i+N-1))
     GC.@preserve a begin
         ptr = pointer(a, i)
         vload(Vec{N, T}, ptr, mask, Val(Aligned), Val(Nontemporal))
@@ -71,7 +71,7 @@ end
 end
 @propagate_inbounds function vstore(x::Vec{N, T}, a::FastContiguousArray{T,1}, i::Integer, mask=nothing,
                ::Val{Aligned}=Val(false), ::Val{Nontemporal}=Val(false)) where {N, T, Aligned, Nontemporal}
-    @boundscheck checkbounds(a, i + N - 1)
+    @boundscheck checkbounds(a, i:(i+N-1))
     GC.@preserve a begin
         ptr = pointer(a, i)
         vstore(x, ptr, mask, Val(Aligned), Val(Nontemporal))
