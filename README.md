@@ -141,6 +141,23 @@ julia> SIMD.sub_saturate(v, 120)
 <4 x Int8>[-80, -128, -50, -128]
 ```
 
+## Fastmath
+
+SIMD.jl hooks into the `@fastmath` macro so that operations in a
+`@fastmath`-block sets the `fast` flag on the floating point intrinsics
+that supports it operations. Compare for example the generated code for the
+following two functions:
+
+```julia
+f1(a, b, c) = a * b - c * 2.0
+f2(a, b, c) = @fastmath a * b - c * 2.0
+V = Vec{4, Float64}
+code_native(f1, Tuple{V, V, V}, debuginfo=:none)
+code_native(f2, Tuple{V, V, V}, debuginfo=:none)
+```
+
+The normal caveats for using `@fastmath` naturally applies.
+
 ## Accessing arrays
 
 When using explicit SIMD vectorization, it is convenient to allocate arrays still as arrays of scalars, not as arrays of vectors. The `vload` and `vstore` functions allow reading vectors from and writing vectors into arrays, accessing several contiguous array elements.
