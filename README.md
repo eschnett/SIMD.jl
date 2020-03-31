@@ -32,7 +32,12 @@ function vadd!(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}}) where {N, T}
     end
 end
 ```
+
 To simplify this example code, the vector type that should be used (`Vec{N,T}`) is passed in explicitly as additional type argument. This routine is e.g. called as `vadd!(xs, ys, Vec{8,Float64})`.
+Note that this code is not expected to outperform the standard scalar way of
+doing this operation since the Julia optimizer will easily rewrite that to use
+SIMD under the hood. It is merely shown as an illustration of how to load and
+store data into `Vector`s using SIMD.jl
 
 ## SIMD vector operations
 
@@ -46,14 +51,13 @@ The SIMD package provides the usual arithmetic and logical operations for SIMD v
 
 `abs cbrt ceil copysign cos div exp exp10 exp2 flipsign floor fma inv isfinite isinf isnan issubnormal log log10 log2 muladd rem round sign signbit sin sqrt trunc vifelse`
 
-(Currently missing: `count_ones count_zeros exponent ldexp leading_ones leading_zeros significand trailing_ones trailing_zeros`, many trigonometric functions)
-
-(Also currently missing: Type conversions, reinterpretation that changes the vector size)
+(Currently missing: `exponent ldexp significand`, many trigonometric functions)
 
 These operators and functions are always applied element-wise, i.e. they are applied to each element in parallel, yielding again a SIMD vector as result. This means that e.g. multiplying two vectors yields a vector, and comparing two vectors yields a vector of booleans. This behaviour might seem strange and slightly unusual, but corresponds to the machine instructions provided by the hardware. It is also what is usually needed to vectorize loops.
 
 The SIMD package also provides conversion operators from scalars and tuples to SIMD vectors and from SIMD vectors to tuples. Additionally, there are `getindex` and `setindex` functions to access individual vector elements.  SIMD vectors are immutable (like tuples), and `setindex` (note there is no exclamation mark at the end of the name) thus returns the modified vector.
-```Julia
+
+```julia
 # Create a vector where all elements are Float64(1):
 xs = Vec{4,Float64}(1)
 
@@ -63,7 +67,7 @@ ys1 = NTuple{4,Float32}(ys)
 y2 = ys[2]   # getindex
 
 # Update one element of a vector:
-ys = setindex(ys, 5, 3)   # cannot use ys[3] = 5
+ys = Base.setindex(ys, 5, 3)   # cannot use ys[3] = 5
 ```
 
 ## Reduction operations
@@ -73,11 +77,86 @@ Reduction operations reduce a SIMD vector to a scalar. The following reduction o
 `all any maximum minimum sum prod`
 
 Example:
-```Julia
+
+```julia
 v = Vec{4,Float64}((1,2,3,4))
 sum(v)
 10.0
 ```
+
+It is also possible to use reduce with bit operations:
+
+```julia
+julia> v = Vec{4,UInt16}((1,2,3,4))
+<4 x UInt16>[0x0001, 0x0002, 0x0003, 0x0004]
+
+julia> reduce(|, v)
+0x0007
+
+julia> reduce(&, v)
+0x0000
+```
+
+## Overflow operations
+
+Overflow operations do the operation but also give back a flag that indicates
+whether the result of the operation overflowed.
+Note that these only work on Julia with LLVM 9 or higher (Julia 1.5 or higher):
+The functions `Base.Checked.add_with_overflow`, `Base.Checked.sub_with_overflow`,
+`Base.Checked.mul_with_overflow` are extended to work on `Vec`. :
+
+```julia
+julia> v = Vec{4, Int8}((40, -80, 70, -10))
+<4 x Int8>[40, -80, 70, -10]
+
+julia> Base.Checked.add_with_overflow(v, v)
+(<4 x Int8>[80, 96, -116, -20], <4 x Bool>[0, 1, 1, 0])
+
+julia> Base.Checked.add_with_overflow(Int8(-80), Int8(-80))
+(96, true)
+
+julia> Base.Checked.sub_with_overflow(v, 120)
+(<4 x Int8>[-80, 56, -50, 126], <4 x Bool>[0, 1, 0, 1])
+
+julia> Base.Checked.mul_with_overflow(v, 2)
+(<4 x Int8>[80, 96, -116, -20], <4 x Bool>[0, 1, 1, 0])
+```
+
+## Saturation arithmetic
+
+Saturation arithmetic is a version of arithmetic in which operations are limited
+to a fixed range between a minimum and maximum value. If the result of an
+operation is greater than the maximum value, the result is set (or “clamped”) to
+this maximum. If it is below the minimum, it is clamped to this minimum.
+
+
+```julia
+julia> v = Vec{4, Int8}((40, -80, 70, -10))
+<4 x Int8>[40, -80, 70, -10]
+
+julia> SIMD.add_saturate(v, v)
+<4 x Int8>[80, -128, 127, -20]
+
+julia> SIMD.sub_saturate(v, 120)
+<4 x Int8>[-80, -128, -50, -128]
+```
+
+## Fastmath
+
+SIMD.jl hooks into the `@fastmath` macro so that operations in a
+`@fastmath`-block sets the `fast` flag on the floating point intrinsics
+that supports it operations. Compare for example the generated code for the
+following two functions:
+
+```julia
+f1(a, b, c) = a * b - c * 2.0
+f2(a, b, c) = @fastmath a * b - c * 2.0
+V = Vec{4, Float64}
+code_native(f1, Tuple{V, V, V}, debuginfo=:none)
+code_native(f2, Tuple{V, V, V}, debuginfo=:none)
+```
+
+The normal caveats for using `@fastmath` naturally applies.
 
 ## Accessing arrays
 
