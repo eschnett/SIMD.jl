@@ -732,17 +732,18 @@ end
 
 # See: https://llvm.org/docs/LangRef.html#id839
 @generated function reduce_add(x::LVec{N, Bool}) where {N}
-    if N < 64
+    native_bit_width = sizeof(Int) * 8
+    if N < native_bit_width
         ret = """
-        %res = zext i$(N) %maskipopcnt to i64
-        ret i64 %res
+        %res = zext i$(N) %maskipopcnt to i$(native_bit_width)
+        ret i$(native_bit_width) %res
         """
-    elseif N == 64
-        ret = "ret i64 %maskipopcnt"
+    elseif N == native_bit_width
+        ret = "ret i$(native_bit_width) %maskipopcnt"
     else
         ret = """
-        %res = trunc i$(N) %maskipopcnt to i64
-        ret i64 %res
+        %res = trunc i$(N) %maskipopcnt to i$(native_bit_width)
+        ret i$(native_bit_width) %res
         """
     end
     decl = "declare i$(N) @llvm.ctpop.i$(N)(i$(N))"
@@ -754,7 +755,7 @@ end
     """
     return :(
         $(Expr(:meta, :inline));
-        Base.llvmcall(($decl, $s), Int64, Tuple{LVec{N, Bool}}, x)
+        Base.llvmcall(($decl, $s), Int, Tuple{LVec{N, Bool}}, x)
     )
 end
 
