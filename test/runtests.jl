@@ -328,6 +328,14 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test sum(tf) == reduce(+, tf) == 2
         @test sum(f) == reduce(+, f) == 0
 
+        b64 = rand(Bool, 64)
+        tf64 = Vec(b64...)
+        @test sum(tf64) == sum(b64)
+
+        b65 = rand(Bool, 65)
+        tf65 = Vec(b65...)
+        @test sum(tf65) == sum(b65)
+
         for op in (maximum, minimum, sum, prod)
             @test op(V4F64(v4f64)) === op(v4f64)
         end
