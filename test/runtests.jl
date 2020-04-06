@@ -433,14 +433,18 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
     end
 
     @testset "expandload" begin
-        for arr in [arri32, arrf64]
-            VT = Vec{4,eltype(arr)}
-            arr .= 1:length(arr)
-            @test vloadx(arr, 1, Vec((true, false, false, true))) === VT((1, 0, 0, 2))
-            @test vloadx(arr, 1, Vec((true, false, true, false))) === VT((1, 0, 2, 0))
-            @test vloadx(arr, 1, Vec((true, true, false, false))) === VT((1, 2, 0, 0))
-            @test vloadx(arr, 1, Vec((true, false, false, false))) === VT((1, 0, 0, 0))
-            @test vloadx(arr, 1, Vec((false, false, false, false))) === VT((0, 0, 0, 0))
+        if Base.libllvm_version >= v"9" || Sys.CPU_NAME == "skylake"
+            for arr in [arri32, arrf64]
+                VT = Vec{4,eltype(arr)}
+                arr .= 1:length(arr)
+                @test vloadx(arr, 1, Vec((true, false, false, true))) === VT((1, 0, 0, 2))
+                @test vloadx(arr, 1, Vec((true, false, true, false))) === VT((1, 0, 2, 0))
+                @test vloadx(arr, 1, Vec((true, true, false, false))) === VT((1, 2, 0, 0))
+                @test vloadx(arr, 1, Vec((true, false, false, false))) === VT((1, 0, 0, 0))
+                @test vloadx(arr, 1, Vec((false, false, false, false))) === VT((0, 0, 0, 0))
+            end
+        else
+            @info "Skipping tests for `expandload`" Base.libllvm_version Sys.CPU_NAME
         end
     end
 
