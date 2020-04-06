@@ -449,20 +449,24 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
     end
 
     @testset "compressstore" begin
-        for arr in [arri32, arrf64]
-            VT = Vec{4,eltype(arr)}
-            arr .= 1:length(arr)
-            x = VT(Tuple(arr[1:4]))
-            @test vstorec(x, zero(arr), 1, Vec((true, false, false, true))) ==
-                [[arr[1], arr[4]]; zero(arr)[3:end]]
-            @test vstorec(x, zero(arr), 1, Vec((true, false, true, false))) ==
-                [[arr[1], arr[3]]; zero(arr)[3:end]]
-            @test vstorec(x, zero(arr), 1, Vec((true, true, false, false))) ==
-                [[arr[1], arr[2]]; zero(arr)[3:end]]
-            @test vstorec(x, zero(arr), 1, Vec((true, false, false, false))) ==
-                [[arr[1]]; zero(arr)[2:end]]
-            @test vstorec(x, zero(arr), 1, Vec((false, false, false, false))) ==
-                zero(arr)
+        if Base.libllvm_version >= v"9" || Sys.CPU_NAME == "skylake"
+            for arr in [arri32, arrf64]
+                VT = Vec{4,eltype(arr)}
+                arr .= 1:length(arr)
+                x = VT(Tuple(arr[1:4]))
+                @test vstorec(x, zero(arr), 1, Vec((true, false, false, true))) ==
+                    [[arr[1], arr[4]]; zero(arr)[3:end]]
+                @test vstorec(x, zero(arr), 1, Vec((true, false, true, false))) ==
+                    [[arr[1], arr[3]]; zero(arr)[3:end]]
+                @test vstorec(x, zero(arr), 1, Vec((true, true, false, false))) ==
+                    [[arr[1], arr[2]]; zero(arr)[3:end]]
+                @test vstorec(x, zero(arr), 1, Vec((true, false, false, false))) ==
+                    [[arr[1]]; zero(arr)[2:end]]
+                @test vstorec(x, zero(arr), 1, Vec((false, false, false, false))) ==
+                    zero(arr)
+            end
+        else
+            @info "Skipping tests for `expandload`" Base.libllvm_version Sys.CPU_NAME
         end
     end
 
