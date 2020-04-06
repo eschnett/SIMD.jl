@@ -466,7 +466,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                     zero(arr)
             end
         else
-            @info "Skipping tests for `expandload`" Base.libllvm_version Sys.CPU_NAME
+            @info "Skipping tests for `compressstore`" Base.libllvm_version Sys.CPU_NAME
         end
     end
 
