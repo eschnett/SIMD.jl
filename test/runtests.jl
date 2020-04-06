@@ -324,6 +324,9 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test all(tf) == reduce(&, tf) == false
         @test any(f) == reduce(|, f) == false
         @test any(tf) == reduce(|, tf) == true
+        @test sum(t) == reduce(+, t) == 4
+        @test sum(tf) == reduce(+, tf) == 2
+        @test sum(f) == reduce(+, f) == 0
 
         for op in (maximum, minimum, sum, prod)
             @test op(V4F64(v4f64)) === op(v4f64)
@@ -418,6 +421,36 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                 arr[idx, mask] = v
                 @test arr[idxarr] == varr .* maskarr
             end
+        end
+    end
+
+    @testset "expandload" begin
+        for arr in [arri32, arrf64]
+            VT = Vec{4,eltype(arr)}
+            arr .= 1:length(arr)
+            @test vloadx(arr, 1, Vec((true, false, false, true))) === VT((1, 0, 0, 2))
+            @test vloadx(arr, 1, Vec((true, false, true, false))) === VT((1, 0, 2, 0))
+            @test vloadx(arr, 1, Vec((true, true, false, false))) === VT((1, 2, 0, 0))
+            @test vloadx(arr, 1, Vec((true, false, false, false))) === VT((1, 0, 0, 0))
+            @test vloadx(arr, 1, Vec((false, false, false, false))) === VT((0, 0, 0, 0))
+        end
+    end
+
+    @testset "compressstore" begin
+        for arr in [arri32, arrf64]
+            VT = Vec{4,eltype(arr)}
+            arr .= 1:length(arr)
+            x = VT(Tuple(arr[1:4]))
+            @test vstorec(x, zero(arr), 1, Vec((true, false, false, true))) ==
+                [[arr[1], arr[4]]; zero(arr)[3:end]]
+            @test vstorec(x, zero(arr), 1, Vec((true, false, true, false))) ==
+                [[arr[1], arr[3]]; zero(arr)[3:end]]
+            @test vstorec(x, zero(arr), 1, Vec((true, true, false, false))) ==
+                [[arr[1], arr[2]]; zero(arr)[3:end]]
+            @test vstorec(x, zero(arr), 1, Vec((true, false, false, false))) ==
+                [[arr[1]]; zero(arr)[2:end]]
+            @test vstorec(x, zero(arr), 1, Vec((false, false, false, false))) ==
+                zero(arr)
         end
     end
 
@@ -670,6 +703,44 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
             @test occursin(" fadd <4 x double>", ir)
             # @test occursin(r"( shufflevector <4 x double>.*){2}"s, ir)
         end
+
+        @inline function vcompress!(dest, pred, src, ::Val{N} = Val(4)) where {N}
+            @assert axes(dest) == axes(src) == axes(pred)
+            simd_bound = lastindex(src) - N + 1
+            i = firstindex(src)
+            j = firstindex(dest)
+            lanes = VecRange{N}(0)
+            @inbounds while i <= simd_bound
+                mask = pred[lanes + i]
+                vstorec(src[lanes + i], dest, j, mask)
+                j += sum(mask)
+                i += N
+            end
+            @inbounds while i <= lastindex(src)
+                if pred[i]
+                    dest[j] = src[i]
+                    j += 1
+                end
+                i += 1
+            end
+            return dest
+        end
+
+        let n = 15
+            src = randn(n)
+            pred = Vector{Bool}(src .> 0)
+            dest = zero(src)
+
+            vcompress!(dest, pred, src)
+            @test dest[1:sum(pred)] == src[src .> 0]
+
+            @code_llvm vcompress!(dest, pred, src)
+            @code_native vcompress!(dest, pred, src)
+
+            ir = llvm_ir(vcompress!, (dest, pred, src))
+            @test occursin("masked.compressstore.v4f64", ir)
+        end
+
     end
 
     @testset "Vector shuffles" begin

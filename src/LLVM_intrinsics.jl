@@ -461,7 +461,7 @@ end
     decl = "declare <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))(<$N x $(d[T])>*, <$N x i1>, <$N x $(d[T])>)"
     s = """
     %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
-    %ptr = inttoptr $(d[Int]) %1 to <$N x $(d[T])>*
+    %ptr = inttoptr $(d[Int]) %0 to <$N x $(d[T])>*
     %res = call <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))(<$N x $(d[T])>* %ptr, <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
     ret <$N x $(d[T])> %res
     """
