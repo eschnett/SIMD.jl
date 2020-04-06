@@ -458,11 +458,11 @@ end
 
 @generated function maskedexpandload(ptr::Ptr{T}, mask::LVec{N,Bool}) where {N, T}
     # TODO: Allow setting the passthru
-    decl = "declare <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))(<$N x $(d[T])>*, <$N x i1>, <$N x $(d[T])>)"
+    decl = "declare <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))($(d[T])*, <$N x i1>, <$N x $(d[T])>)"
     s = """
     %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
-    %ptr = inttoptr $(d[Int]) %0 to <$N x $(d[T])>*
-    %res = call <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))(<$N x $(d[T])>* %ptr, <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
+    %ptr = inttoptr $(d[Int]) %0 to $(d[T])*
+    %res = call <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))($(d[T])* %ptr, <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
     ret <$N x $(d[T])> %res
     """
     return :(
@@ -473,11 +473,11 @@ end
 
 @generated function maskedcompressstore(x::LVec{N, T}, ptr::Ptr{T},
                                         mask::LVec{N,Bool}) where {N, T}
-    decl = "declare <$N x $(d[T])> @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])>, <$N x $(d[T])>*, <$N x i1>)"
+    decl = "declare <$N x $(d[T])> @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])>, $(d[T])*, <$N x i1>)"
     s = """
     %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
-    %ptr = inttoptr $(d[Int]) %1 to <$N x $(d[T])>*
-    call <$N x $(d[T])> @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])> %0, <$N x $(d[T])>* %ptr, <$N x i1> %mask)
+    %ptr = inttoptr $(d[Int]) %1 to $(d[T])*
+    call <$N x $(d[T])> @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])> %0, $(d[T])* %ptr, <$N x i1> %mask)
     ret void
     """
     return :(
