@@ -742,19 +742,21 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
             return dest
         end
 
-        let n = 15
-            src = randn(n)
-            pred = Vector{Bool}(src .> 0)
-            dest = zero(src)
+        if Base.libllvm_version >= v"9" || Sys.CPU_NAME == "skylake"
+            let n = 15
+                src = randn(n)
+                pred = Vector{Bool}(src .> 0)
+                dest = zero(src)
 
-            vcompress!(dest, pred, src)
-            @test dest[1:sum(pred)] == src[src .> 0]
+                vcompress!(dest, pred, src)
+                @test dest[1:sum(pred)] == src[src .> 0]
 
-            @code_llvm vcompress!(dest, pred, src)
-            @code_native vcompress!(dest, pred, src)
+                @code_llvm vcompress!(dest, pred, src)
+                @code_native vcompress!(dest, pred, src)
 
-            ir = llvm_ir(vcompress!, (dest, pred, src))
-            @test occursin("masked.compressstore.v4f64", ir)
+                ir = llvm_ir(vcompress!, (dest, pred, src))
+                @test occursin("masked.compressstore.v4f64", ir)
+            end
         end
 
     end
