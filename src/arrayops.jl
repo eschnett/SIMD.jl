@@ -81,6 +81,31 @@ end
 @propagate_inbounds vstorea(x::Vec, a, i, mask=nothing) = vstore(x, a, i, nothing, Val(true))
 @propagate_inbounds vstorent(x::Vec, a, i, mask=nothing) = vstore(x, a, i, nothing, Val(true), Val(true))
 
+@inline vloadx(ptr::Ptr, mask::Vec{<:Any, Bool}) =
+    Vec(Intrinsics.maskedexpandload(ptr, mask.data))
+
+@propagate_inbounds function vloadx(a::FastContiguousArray{T,1},
+                                    i::Integer, mask::Vec{N, Bool}) where {N, T}
+    @boundscheck checkbounds(a, i:i + N - 1)
+    return GC.@preserve a begin
+        ptr = pointer(a, i)
+        vloadx(ptr, mask)
+    end
+end
+
+@inline vstorec(x::Vec{N, T}, ptr::Ptr{T}, mask::Vec{N, Bool}) where {N, T} =
+    Intrinsics.maskedcompressstore(x.data, ptr, mask.data)
+
+@propagate_inbounds function vstorec(x::Vec{N, T}, a::FastContiguousArray{T,1},
+                                     i::Integer, mask::Vec{N, Bool}) where {N, T}
+    @boundscheck checkbounds(a, i:i + N - 1)
+    GC.@preserve a begin
+        ptr = pointer(a, i)
+        vstorec(x, ptr, mask)
+    end
+    return a
+end
+
 function valloc(::Type{T}, N::Int, sz::Int) where T
     @assert N > 0
     @assert sz >= 0
