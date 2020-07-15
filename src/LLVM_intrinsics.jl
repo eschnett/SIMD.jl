@@ -258,7 +258,7 @@ for (fs, c) in zip([BINARY_INTRINSICS_FLOAT, BINARY_INTRINSICS_INT],
 end
 
 # pow, powi
-for (f, c) in [(:pow, FloatingTypes), (:powi, IntegerTypes)]
+for (f, c) in [(:pow, FloatingTypes), (:powi, Union{Int32,UInt32})]
     @eval @generated function $(f)(x::T, y::T2) where {T <: LT{<:FloatingTypes}, T2 <: $c}
         ff = llvm_name($(QuoteNode(f)), T)
         return :(
