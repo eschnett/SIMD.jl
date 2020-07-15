@@ -111,8 +111,6 @@ const UNARY_INTRINSICS_INT = [
     :bitreverse
     :bswap
     :ctpop
-    :ctlz
-    :cttz
     :fshl
     :fshr
 ]
@@ -128,6 +126,29 @@ for (fs, c) in zip([UNARY_INTRINSICS_FLOAT, UNARY_INTRINSICS_INT],
                 )
             end
         end
+    end
+end
+
+# ctlz/cttz: additional i1 flag argument, is_zero_undef
+for f in [:ctlz, :cttz]
+    @eval @generated function $(f)(x::T) where {T<:LT{<:IntegerTypes}}
+        ff = llvm_name($(QuoteNode(f)), T,)
+        typ = llvm_type(T)
+        mod = """
+            declare $typ @$(ff)($typ, i1)
+
+            define $typ @entry($typ) #0 {
+            top:
+                %res = call $typ @$(ff)($typ %0, i1 0)
+                ret $typ %res
+            }
+
+            attributes #0 = { alwaysinline }
+        """
+        return :(
+            $(Expr(:meta, :inline));
+            Base.llvmcall($(mod, "entry"), T, Tuple{T}, x)
+        )
     end
 end
 
