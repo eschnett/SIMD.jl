@@ -477,13 +477,13 @@ end
                                ::Val{Al}=Val(false), ::Val{Te}=Val(false)) where {N, T, Al, Te}
     # TODO: Allow setting the passthru
     mod = """
-        declare <$N x $(d[T])> @llvm.masked.store.$(suffix(N, T))(<$N x $(d[T])>, <$N x $(d[T])>*, i32, <$N x i1>)
+        declare void @llvm.masked.store.$(suffix(N, T))(<$N x $(d[T])>, <$N x $(d[T])>*, i32, <$N x i1>)
 
         define void @entry(<$N x $(d[T])>, $(d[Int]), <$(N) x i8>) #0 {
         top:
             %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
             %ptr = inttoptr $(d[Int]) %1 to <$N x $(d[T])>*
-            %res = call <$N x $(d[T])> @llvm.masked.store.$(suffix(N, T))(<$N x $(d[T])> %0, <$N x $(d[T])>* %ptr, i32 $(n_align(Al, N, T)), <$N x i1> %mask)
+            call void @llvm.masked.store.$(suffix(N, T))(<$N x $(d[T])> %0, <$N x $(d[T])>* %ptr, i32 $(n_align(Al, N, T)), <$N x i1> %mask)
             ret void
         }
 
@@ -519,13 +519,13 @@ end
 @generated function maskedcompressstore(x::LVec{N, T}, ptr::Ptr{T},
                                         mask::LVec{N,Bool}) where {N, T}
     mod = """
-        declare <$N x $(d[T])> @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])>, $(d[T])*, <$N x i1>)
+        declare void @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])>, $(d[T])*, <$N x i1>)
 
         define void @entry(<$N x $(d[T])>, $(d[Int]), <$(N) x i8>) #0 {
         top:
             %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
             %ptr = inttoptr $(d[Int]) %1 to $(d[T])*
-            call <$N x $(d[T])> @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])> %0, $(d[T])* %ptr, <$N x i1> %mask)
+            call void @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])> %0, $(d[T])* %ptr, <$N x i1> %mask)
             ret void
         }
 
@@ -567,13 +567,13 @@ end
 @generated function maskedscatter(x::LVec{N, T}, ptrs::LVec{N, Ptr{T}},
                                   mask::LVec{N,Bool}, ::Val{Al}=Val(false)) where {N, T, Al}
     mod = """
-        declare <$N x $(d[T])> @llvm.masked.scatter.$(suffix(N, T))(<$N x $(d[T])>, <$N x $(d[T])*>, i32, <$N x i1>)
+        declare void @llvm.masked.scatter.$(suffix(N, T))(<$N x $(d[T])>, <$N x $(d[T])*>, i32, <$N x i1>)
 
-        define <$N x $(d[T])> @entry(<$N x $(d[T])>, <$N x $(d[Int])>, <$(N) x i8>) #0 {
+        define void @entry(<$N x $(d[T])>, <$N x $(d[Int])>, <$(N) x i8>) #0 {
         top:
             %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
             %ptrs = inttoptr <$N x $(d[Int])> %1 to <$N x $(d[T])*>
-            call <$N x $(d[T])> @llvm.masked.scatter.$(suffix(N, T))(<$N x $(d[T])> %0, <$N x $(d[T])*> %ptrs, i32 $(n_align(Al, N, T)), <$N x i1> %mask)
+            call void @llvm.masked.scatter.$(suffix(N, T))(<$N x $(d[T])> %0, <$N x $(d[T])*> %ptrs, i32 $(n_align(Al, N, T)), <$N x i1> %mask)
             ret void
         }
 
