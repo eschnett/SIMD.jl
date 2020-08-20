@@ -1,7 +1,7 @@
 name = "SIMD"
 uuid = "fdea26ae-647d-5447-a871-4b548cad5224"
 authors = ["Erik Schnetter <schnetter@gmail.com>", "Kristoffer Carlsson <kristoffer.carlsson@juliacomputing.com>"]
-version = "2.9.0"
+version = "3.0.0"
 
 [compat]
 julia = "1.4"
