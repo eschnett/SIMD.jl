@@ -815,12 +815,12 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         b = reinterpret(UInt32, a)
         c = vload(Vec{4,UInt32}, b, 2)
         c_expected = Vec{4, UInt32}((0x08070605, 0x0c0b0a09, 0x100f0e0d, 0x14131211))
-        @test vec === vec_expected
+        @test c === c_expected
 
         c += 1
         a_expected = copy(a)
         a_expected[[5,9,13,17]] .+= 1
-        vstore(vec, b, 2)
+        vstore(c, b, 2)
         @test all(a .== a)
     end
 # end
