@@ -105,14 +105,14 @@ end
     Vec(Intrinsics.insertelement(v.data, _unsafe_convert(T, x), i-1))
 end
 
-Base.zero(::Type{Vec{N,T}}) where {N, T} = Vec{N,T}(zero(T))
-Base.zero(::Vec{N,T}) where {N, T} = zero(Vec{N, T})
-Base.one(::Type{Vec{N,T}}) where {N, T} = Vec{N, T}(one(T))
-Base.one(::Vec{N,T}) where {N, T} = one(Vec{N, T})
+@inline Base.zero(::Type{Vec{N,T}}) where {N, T} = Vec{N,T}(zero(T))
+@inline Base.zero(::Vec{N,T}) where {N, T} = zero(Vec{N, T})
+@inline Base.one(::Type{Vec{N,T}}) where {N, T} = Vec{N, T}(one(T))
+@inline Base.one(::Vec{N,T}) where {N, T} = one(Vec{N, T})
 
-Base.reinterpret(::Type{Vec{N, T}}, v::Vec) where {T, N} = Vec(Intrinsics.bitcast(Intrinsics.LVec{N, T}, v.data))
-Base.reinterpret(::Type{Vec{N, T}}, v::ScalarTypes) where {T, N} = Vec(Intrinsics.bitcast(Intrinsics.LVec{N, T}, v))
-Base.reinterpret(::Type{T}, v::Vec) where {T} = Intrinsics.bitcast(T, v.data)
+@inline Base.reinterpret(::Type{Vec{N, T}}, v::Vec) where {T, N} = Vec(Intrinsics.bitcast(Intrinsics.LVec{N, T}, v.data))
+@inline Base.reinterpret(::Type{Vec{N, T}}, v::ScalarTypes) where {T, N} = Vec(Intrinsics.bitcast(Intrinsics.LVec{N, T}, v))
+@inline Base.reinterpret(::Type{T}, v::Vec) where {T} = Intrinsics.bitcast(T, v.data)
 
 const FASTMATH = Intrinsics.FastMathFlags(Intrinsics.FastMath.fast)
 
@@ -154,19 +154,19 @@ for (op, constraint, llvmop) in UNARY_OPS
         Vec($(llvmop)(x.data))
 end
 
-Base.:+(v::Vec{<:Any, <:ScalarTypes}) = v
-Base.:-(v::Vec{<:Any, <:IntegerTypes}) = zero(v) - v
-Base.:-(v::Vec{<:Any, <:FloatingTypes}) = Vec(Intrinsics.fneg(v.data))
-Base.FastMath.sub_fast(v::Vec{<:Any, <:FloatingTypes}) = Vec(Intrinsics.fneg(v.data, FASTMATH))
-Base.:~(v::Vec{N, T}) where {N, T<:IntegerTypes} = Vec(Intrinsics.xor(v.data, Vec{N, T}(-1).data))
-Base.:~(v::Vec{N, Bool}) where {N} = Vec(Intrinsics.xor(v.data, Vec{N, Bool}(true).data))
-Base.abs(v::Vec{N, T}) where {N, T} = Vec(vifelse(v < zero(T), -v, v))
-Base.:!(v1::Vec{N,Bool}) where {N} = ~v1
+@inline Base.:+(v::Vec{<:Any, <:ScalarTypes}) = v
+@inline Base.:-(v::Vec{<:Any, <:IntegerTypes}) = zero(v) - v
+@inline Base.:-(v::Vec{<:Any, <:FloatingTypes}) = Vec(Intrinsics.fneg(v.data))
+@inline Base.FastMath.sub_fast(v::Vec{<:Any, <:FloatingTypes}) = Vec(Intrinsics.fneg(v.data, FASTMATH))
+@inline Base.:~(v::Vec{N, T}) where {N, T<:IntegerTypes} = Vec(Intrinsics.xor(v.data, Vec{N, T}(-1).data))
+@inline Base.:~(v::Vec{N, Bool}) where {N} = Vec(Intrinsics.xor(v.data, Vec{N, Bool}(true).data))
+@inline Base.abs(v::Vec{N, T}) where {N, T} = Vec(vifelse(v < zero(T), -v, v))
+@inline @inline Base.:!(v1::Vec{N,Bool}) where {N} = ~v1
 Base.inv(v::Vec{N, T}) where {N, T<:FloatingTypes} = one(T) / v
 
 _unsigned(::Type{Float32}) = UInt32
 _unsigned(::Type{Float64}) = UInt64
-function Base.issubnormal(x::Vec{N, T}) where {N, T<:FloatingTypes}
+@inline function Base.issubnormal(x::Vec{N, T}) where {N, T<:FloatingTypes}
     y = reinterpret(Vec{N, _unsigned(T)}, x)
     (y & Base.exponent_mask(T) == 0) & (y & Base.significand_mask(T) != 0)
 end
