@@ -199,6 +199,13 @@ v = arr[idx]                  # vgather
 arr[idx] = v                  # vscatter
 ```
 
+### `@inbounds` usage
+
+Note that `vload`, `vstore` etc, by default, check that the indices are in
+bounds of the array. These boundschecks can be turned off using the `@inbounds`
+macro, e.g. `@inbounds vload(V, a, i)`.  This is often crucial for good
+performance.
+
 ## Vector shuffles
 
 Vector shuffle is available through the `shufflevector` function.
