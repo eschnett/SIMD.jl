@@ -809,4 +809,18 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
             @test shufflevector(a, b, Val((2,3,4,5))) === Vec{4,Bool}((true,false,false,false))
         end
     end
+
+    @testset "Contiguous ReinterpretArrays load/store" begin
+        a = UInt8[1:32...]
+        b = reinterpret(UInt32, a)
+        c = vload(Vec{4,UInt32}, b, 2)
+        c_expected = Vec{4, UInt32}((0x08070605, 0x0c0b0a09, 0x100f0e0d, 0x14131211))
+        @test vec === vec_expected
+
+        c += 1
+        a_expected = copy(a)
+        a_expected[[5,9,13,17]] .+= 1
+        vstore(vec, b, 2)
+        @test all(a .== a)
+    end
 # end
