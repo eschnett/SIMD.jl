@@ -28,14 +28,14 @@ ContiguousSubArray{T,N,P,
 
 Array types with contiguous first dimension.
 """
-ContiguousArray{T,N} = Union{DenseArray{T,N}, ContiguousSubArray{T,N}}
+ContiguousArray{T,N} = Union{DenseArray{T,N}, ContiguousSubArray{T,N}, Base.ReinterpretArray{T,1,T2,A} where {A <: Union{DenseArray{T2,N}, ContiguousSubArray{T2,N}}} where {T2}}
 
 """
     FastContiguousArray{T,N}
 
 This is the type of arrays that `pointer(A, i)` works.
 """
-FastContiguousArray{T,N} = Union{DenseArray{T,N}, Base.FastContiguousSubArray{T,N}}
+FastContiguousArray{T,N} = Union{DenseArray{T,N}, Base.FastContiguousSubArray{T,N}, Base.ReinterpretArray{T,1,T2,A} where {A <: Union{DenseArray{T2,N}, Base.FastContiguousSubArray{T2,N}}} where {T2}}
 # https://github.com/eschnett/SIMD.jl/pull/40#discussion_r254131184
 # https://github.com/JuliaArrays/MappedArrays.jl/pull/24#issuecomment-460568978
 
