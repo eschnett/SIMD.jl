@@ -821,6 +821,6 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         a_expected = copy(a)
         a_expected[[5,9,13,17]] .+= 1
         vstore(c, b, 2)
-        @test all(a .== a)
+        @test a == a_expected
     end
 # end
