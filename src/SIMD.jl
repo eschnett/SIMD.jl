@@ -18,7 +18,12 @@ const FloatingTypes = Union{Float32, Float64} # Float16 support is non-native in
 const ScalarTypes   = Union{IntegerTypes, FloatingTypes}
 const VecTypes      = Union{ScalarTypes, Ptr, Bool}
 
-include("LLVM_intrinsics.jl")
+if VERSION < v"1.6.0-DEV.674"
+    include("LLVM_intrinsics_old.jl")
+else
+    include("LLVM_intrinsics.jl")
+end
+
 include("simdvec.jl")
 include("arrayops.jl")
 
