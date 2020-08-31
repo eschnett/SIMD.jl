@@ -165,7 +165,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         logabs(x) = log(abs(x))
         log10abs(x) = log10(abs(x))
         log2abs(x) = log2(abs(x))
-        powi4(x) = x^4
+        powi4(x) = x^Int32(4)
         sqrtabs(x) = sqrt(abs(x))
         for op in (
                 +, -,
@@ -251,11 +251,11 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         end
 
         v = V4F64(v4f64)
-        @test v^5 === v * v * v * v * v
+        @test v^Int32(5) === v * v * v * v * v
 
         # Make sure our dispatching rule does not select floating point `pow`.
         # See: https://github.com/eschnett/SIMD.jl/pull/43
-        ir = llvm_ir(^, (V4F64(v4f64), 2))
+        ir = llvm_ir(^, (V4F64(v4f64), Int32(2)))
         @test occursin("@llvm.powi.v4f64", ir)
     end
 

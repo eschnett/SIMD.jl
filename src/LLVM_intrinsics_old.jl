@@ -111,6 +111,8 @@ const UNARY_INTRINSICS_INT = [
     :bitreverse
     :bswap
     :ctpop
+    :ctlz
+    :cttz
     :fshl
     :fshr
 ]
@@ -126,29 +128,6 @@ for (fs, c) in zip([UNARY_INTRINSICS_FLOAT, UNARY_INTRINSICS_INT],
                 )
             end
         end
-    end
-end
-
-# ctlz/cttz: additional i1 flag argument, is_zero_undef
-for f in [:ctlz, :cttz]
-    @eval @generated function $(f)(x::T) where {T<:LT{<:IntegerTypes}}
-        ff = llvm_name($(QuoteNode(f)), T,)
-        typ = llvm_type(T)
-        mod = """
-            declare $typ @$(ff)($typ, i1)
-
-            define $typ @entry($typ) #0 {
-            top:
-                %res = call $typ @$(ff)($typ %0, i1 0)
-                ret $typ %res
-            }
-
-            attributes #0 = { alwaysinline }
-        """
-        return :(
-            $(Expr(:meta, :inline));
-            Base.llvmcall($(mod, "entry"), T, Tuple{T}, x)
-        )
     end
 end
 
@@ -258,7 +237,7 @@ for (fs, c) in zip([BINARY_INTRINSICS_FLOAT, BINARY_INTRINSICS_INT],
 end
 
 # pow, powi
-for (f, c) in [(:pow, FloatingTypes), (:powi, Union{Int32,UInt32})]
+for (f, c) in [(:pow, FloatingTypes), (:powi, IntegerTypes)]
     @eval @generated function $(f)(x::T, y::T2) where {T <: LT{<:FloatingTypes}, T2 <: $c}
         ff = llvm_name($(QuoteNode(f)), T)
         return :(
@@ -289,29 +268,23 @@ for f in OVERFLOW_INTRINSICS
             str = "this intrinsic ($ff) is broken on i686"
             return :(error($str))
         end
+        decl = "declare {<$N x $(d[T])>, <$N x i1>} @$ff(<$N x $(d[T])>, <$N x $(d[T])>)"
 
         # Julia passes Tuple{[U]Int8, Bool} as [2 x i8] so we need to special case that scenario
         ret_type = sizeof(T) == 1 ? "[2 x <$N x i8>]" : "{<$N x $(d[T])>, <$N x i8>}"
 
-        mod = """
-            declare {<$N x $(d[T])>, <$N x i1>} @$ff(<$N x $(d[T])>, <$N x $(d[T])>)
-
-            define $ret_type @entry(<$N x $(d[T])>, <$N x $(d[T])>) #0 {
-            top:
-                %res = call {<$N x $(d[T])>, <$N x i1>} @$ff(<$N x $(d[T])> %0, <$N x $(d[T])> %1)
-                %plus     = extractvalue {<$N x $(d[T])>, <$N x i1>} %res, 0
-                %overflow = extractvalue {<$N x $(d[T])>, <$N x i1>} %res, 1
-                %overflow_ext = zext <$(N) x i1> %overflow to <$(N) x i8>
-                %new_tuple   = insertvalue $ret_type undef,      <$N x $(d[T])> %plus,         0
-                %new_tuple_2 = insertvalue $ret_type %new_tuple, <$N x i8>      %overflow_ext, 1
-                ret $ret_type %new_tuple_2
-            }
-
-            attributes #0 = { alwaysinline }
+        s = """
+        %res = call {<$N x $(d[T])>, <$N x i1>} @$ff(<$N x $(d[T])> %0, <$N x $(d[T])> %1)
+        %plus     = extractvalue {<$N x $(d[T])>, <$N x i1>} %res, 0
+        %overflow = extractvalue {<$N x $(d[T])>, <$N x i1>} %res, 1
+        %overflow_ext = zext <$(N) x i1> %overflow to <$(N) x i8>
+        %new_tuple   = insertvalue $ret_type undef,      <$N x $(d[T])> %plus,         0
+        %new_tuple_2 = insertvalue $ret_type %new_tuple, <$N x i8>      %overflow_ext, 1
+        ret $ret_type %new_tuple_2
         """
         return :(
             $(Expr(:meta, :inline));
-            Base.llvmcall(($mod, "entry"), Tuple{LVec{N, T}, LVec{N, Bool}}, Tuple{LVec{N, T}, LVec{N, T}}, x, y)
+            Base.llvmcall(($decl, $s), Tuple{LVec{N, T}, LVec{N, Bool}}, Tuple{LVec{N, T}, LVec{N, T}}, x, y)
         )
     end
 end
@@ -440,22 +413,16 @@ end
 @generated function maskedload(ptr::Ptr{T}, mask::LVec{N,Bool},
                                ::Val{Al}=Val(false), ::Val{Te}=Val(false)) where {N, T, Al, Te}
     # TODO: Allow setting the passthru
-    mod = """
-        declare <$N x $(d[T])> @llvm.masked.load.$(suffix(N, T))(<$N x $(d[T])>*, i32, <$N x i1>, <$N x $(d[T])>)
-
-        define <$N x $(d[T])> @entry($(d[Int]), <$(N) x i8>) #0 {
-        top:
-            %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
-            %ptr = inttoptr $(d[Int]) %0 to <$N x $(d[T])>*
-            %res = call <$N x $(d[T])> @llvm.masked.load.$(suffix(N, T))(<$N x $(d[T])>* %ptr, i32 $(n_align(Al, N, T)), <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
-            ret <$N x $(d[T])> %res
-        }
-
-        attributes #0 = { alwaysinline }
+    decl = "declare <$N x $(d[T])> @llvm.masked.load.$(suffix(N, T))(<$N x $(d[T])>*, i32, <$N x i1>, <$N x $(d[T])>)"
+    s = """
+    %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
+    %ptr = inttoptr $(d[Int]) %0 to <$N x $(d[T])>*
+    %res = call <$N x $(d[T])> @llvm.masked.load.$(suffix(N, T))(<$N x $(d[T])>* %ptr, i32 $(n_align(Al, N, T)), <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
+    ret <$N x $(d[T])> %res
     """
     return :(
         $(Expr(:meta, :inline));
-        Base.llvmcall(($mod, "entry"), LVec{N, T}, Tuple{Ptr{T}, LVec{N,Bool}}, ptr, mask)
+        Base.llvmcall(($decl, $s), LVec{N, T}, Tuple{Ptr{T}, LVec{N,Bool}}, ptr, mask)
     )
 end
 
@@ -476,64 +443,46 @@ end
 @generated function maskedstore(x::LVec{N, T}, ptr::Ptr{T}, mask::LVec{N,Bool},
                                ::Val{Al}=Val(false), ::Val{Te}=Val(false)) where {N, T, Al, Te}
     # TODO: Allow setting the passthru
-    mod = """
-        declare void @llvm.masked.store.$(suffix(N, T))(<$N x $(d[T])>, <$N x $(d[T])>*, i32, <$N x i1>)
-
-        define void @entry(<$N x $(d[T])>, $(d[Int]), <$(N) x i8>) #0 {
-        top:
-            %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
-            %ptr = inttoptr $(d[Int]) %1 to <$N x $(d[T])>*
-            call void @llvm.masked.store.$(suffix(N, T))(<$N x $(d[T])> %0, <$N x $(d[T])>* %ptr, i32 $(n_align(Al, N, T)), <$N x i1> %mask)
-            ret void
-        }
-
-        attributes #0 = { alwaysinline }
+    decl = "declare <$N x $(d[T])> @llvm.masked.store.$(suffix(N, T))(<$N x $(d[T])>, <$N x $(d[T])>*, i32, <$N x i1>)"
+    s = """
+    %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
+    %ptr = inttoptr $(d[Int]) %1 to <$N x $(d[T])>*
+    %res = call <$N x $(d[T])> @llvm.masked.store.$(suffix(N, T))(<$N x $(d[T])> %0, <$N x $(d[T])>* %ptr, i32 $(n_align(Al, N, T)), <$N x i1> %mask)
+    ret void
     """
     return :(
         $(Expr(:meta, :inline));
-        Base.llvmcall(($mod, "entry"), Cvoid, Tuple{LVec{N, T}, Ptr{T}, LVec{N,Bool}}, x, ptr, mask)
+        Base.llvmcall(($decl, $s), Cvoid, Tuple{LVec{N, T}, Ptr{T}, LVec{N,Bool}}, x, ptr, mask)
     )
 end
 
 @generated function maskedexpandload(ptr::Ptr{T}, mask::LVec{N,Bool}) where {N, T}
     # TODO: Allow setting the passthru
-    mod = """
-        declare <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))($(d[T])*, <$N x i1>, <$N x $(d[T])>)
-
-        define <$N x $(d[T])> @entry($(d[Int]), <$(N) x i8>) #0 {
-        top:
-            %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
-            %ptr = inttoptr $(d[Int]) %0 to $(d[T])*
-            %res = call <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))($(d[T])* %ptr, <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
-            ret <$N x $(d[T])> %res
-        }
-
-        attributes #0 = { alwaysinline }
+    decl = "declare <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))($(d[T])*, <$N x i1>, <$N x $(d[T])>)"
+    s = """
+    %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
+    %ptr = inttoptr $(d[Int]) %0 to $(d[T])*
+    %res = call <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))($(d[T])* %ptr, <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
+    ret <$N x $(d[T])> %res
     """
     return :(
         $(Expr(:meta, :inline));
-        Base.llvmcall(($mod, "entry"), LVec{N, T}, Tuple{Ptr{T}, LVec{N, Bool}}, ptr, mask)
+        Base.llvmcall(($decl, $s), LVec{N, T}, Tuple{Ptr{T}, LVec{N, Bool}}, ptr, mask)
     )
 end
 
 @generated function maskedcompressstore(x::LVec{N, T}, ptr::Ptr{T},
                                         mask::LVec{N,Bool}) where {N, T}
-    mod = """
-        declare void @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])>, $(d[T])*, <$N x i1>)
-
-        define void @entry(<$N x $(d[T])>, $(d[Int]), <$(N) x i8>) #0 {
-        top:
-            %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
-            %ptr = inttoptr $(d[Int]) %1 to $(d[T])*
-            call void @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])> %0, $(d[T])* %ptr, <$N x i1> %mask)
-            ret void
-        }
-
-        attributes #0 = { alwaysinline }
+    decl = "declare <$N x $(d[T])> @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])>, $(d[T])*, <$N x i1>)"
+    s = """
+    %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
+    %ptr = inttoptr $(d[Int]) %1 to $(d[T])*
+    call <$N x $(d[T])> @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])> %0, $(d[T])* %ptr, <$N x i1> %mask)
+    ret void
     """
     return :(
         $(Expr(:meta, :inline));
-        Base.llvmcall(($mod, "entry"), Cvoid, Tuple{LVec{N, T}, Ptr{T}, LVec{N, Bool}}, x, ptr, mask)
+        Base.llvmcall(($decl, $s), Cvoid, Tuple{LVec{N, T}, Ptr{T}, LVec{N, Bool}}, x, ptr, mask)
     )
 end
 
@@ -545,43 +494,32 @@ end
 @generated function maskedgather(ptrs::LVec{N,Ptr{T}},
                                  mask::LVec{N,Bool}, ::Val{Al}=Val(false)) where {N, T, Al}
     # TODO: Allow setting the passthru
-    mod = """
-        declare <$N x $(d[T])> @llvm.masked.gather.$(suffix(N, T))(<$N x $(d[T])*>, i32, <$N x i1>, <$N x $(d[T])>)
-
-        define <$N x $(d[T])> @entry(<$N x $(d[Int])>, <$(N) x i8>) #0 {
-        top:
-            %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
-            %ptrs = inttoptr <$N x $(d[Int])> %0 to <$N x $(d[T])*>
-            %res = call <$N x $(d[T])> @llvm.masked.gather.$(suffix(N, T))(<$N x $(d[T])*> %ptrs, i32 $(n_align(Al, N, T)), <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
-            ret <$N x $(d[T])> %res
-        }
-
-        attributes #0 = { alwaysinline }
+    decl = "declare <$N x $(d[T])> @llvm.masked.gather.$(suffix(N, T))(<$N x $(d[T])*>, i32, <$N x i1>, <$N x $(d[T])>)"
+    s = """
+    %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
+    %ptrs = inttoptr <$N x $(d[Int])> %0 to <$N x $(d[T])*>
+    %res = call <$N x $(d[T])> @llvm.masked.gather.$(suffix(N, T))(<$N x $(d[T])*> %ptrs, i32 $(n_align(Al, N, T)), <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
+    ret <$N x $(d[T])> %res
     """
     return :(
         $(Expr(:meta, :inline));
-        Base.llvmcall(($mod, "entry"), LVec{N, T}, Tuple{LVec{N, Ptr{T}}, LVec{N, Bool}}, ptrs, mask)
+        Base.llvmcall(($decl, $s), LVec{N, T}, Tuple{LVec{N, Ptr{T}}, LVec{N, Bool}}, ptrs, mask)
     )
 end
 
 @generated function maskedscatter(x::LVec{N, T}, ptrs::LVec{N, Ptr{T}},
                                   mask::LVec{N,Bool}, ::Val{Al}=Val(false)) where {N, T, Al}
-    mod = """
-        declare void @llvm.masked.scatter.$(suffix(N, T))(<$N x $(d[T])>, <$N x $(d[T])*>, i32, <$N x i1>)
 
-        define void @entry(<$N x $(d[T])>, <$N x $(d[Int])>, <$(N) x i8>) #0 {
-        top:
-            %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
-            %ptrs = inttoptr <$N x $(d[Int])> %1 to <$N x $(d[T])*>
-            call void @llvm.masked.scatter.$(suffix(N, T))(<$N x $(d[T])> %0, <$N x $(d[T])*> %ptrs, i32 $(n_align(Al, N, T)), <$N x i1> %mask)
-            ret void
-        }
-
-        attributes #0 = { alwaysinline }
+    decl = "declare <$N x $(d[T])> @llvm.masked.scatter.$(suffix(N, T))(<$N x $(d[T])>, <$N x $(d[T])*>, i32, <$N x i1>)"
+    s = """
+    %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
+    %ptrs = inttoptr <$N x $(d[Int])> %1 to <$N x $(d[T])*>
+    call <$N x $(d[T])> @llvm.masked.scatter.$(suffix(N, T))(<$N x $(d[T])> %0, <$N x $(d[T])*> %ptrs, i32 $(n_align(Al, N, T)), <$N x i1> %mask)
+    ret void
     """
     return :(
         $(Expr(:meta, :inline));
-        Base.llvmcall(($mod, "entry"), Cvoid, Tuple{LVec{N, T}, LVec{N, Ptr{T}}, LVec{N, Bool}}, x, ptrs, mask)
+        Base.llvmcall(($decl, $s), Cvoid, Tuple{LVec{N, T}, LVec{N, Ptr{T}}, LVec{N, Bool}}, x, ptrs, mask)
     )
 end
 
@@ -761,20 +699,14 @@ for (fs, c) in zip([HORZ_REDUCTION_OPS_FLOAT, HORZ_REDUCTION_OPS_INT],
         f_red = Symbol("reduce_", f)
         @eval @generated function $f_red(x::LVec{N, T}) where {N,T<:$c}
             ff = llvm_name(string("experimental.vector.reduce.", $(QuoteNode(f))), N, T)
-            mod = """
-                declare $(d[T]) @$ff(<$N x $(d[T])>)
-
-                define $(d[T]) @entry(<$N x $(d[T])>) #0 {
-                top:
-                    %res = call $(d[T]) @$ff(<$N x $(d[T])> %0)
-                    ret $(d[T]) %res
-                }
-
-                attributes #0 = { alwaysinline }
+            decl = "declare $(d[T]) @$ff(<$N x $(d[T])>)"
+            s2 = """
+            %res = call $(d[T]) @$ff(<$N x $(d[T])> %0)
+            ret $(d[T]) %res
             """
             return quote
                 $(Expr(:meta, :inline));
-                Base.llvmcall($(mod, "entry"), T, Tuple{LVec{N, T},}, x)
+                Base.llvmcall($(decl, s2), T, Tuple{LVec{N, T},}, x)
             end
         end
     end
@@ -786,20 +718,14 @@ for (f, neutral) in [(:fadd, "0.0"), (:fmul, "1.0")]
     f_red = Symbol("reduce_", f)
     @eval @generated function $f_red(x::LVec{N, T}) where {N,T<:FloatingTypes}
         ff = llvm_name(string("experimental.vector.reduce.$horz_reduction_version", $(QuoteNode(f))), N, T)
-        mod = """
-            declare $(d[T]) @$ff($(d[T]), <$N x $(d[T])>)
-
-            define $(d[T]) @entry(<$N x $(d[T])>) #0 {
-            top:
-                %res = call $(d[T]) @$ff($(d[T]) $($neutral), <$N x $(d[T])> %0)
-                ret $(d[T]) %res
-            }
-
-            attributes #0 = { alwaysinline }
+        decl = "declare $(d[T]) @$ff($(d[T]), <$N x $(d[T])>)"
+        s2 = """
+        %res = call $(d[T]) @$ff($(d[T]) $($neutral), <$N x $(d[T])> %0)
+        ret $(d[T]) %res
         """
         return quote
             $(Expr(:meta, :inline));
-            Base.llvmcall($(mod, "entry"), T, Tuple{LVec{N, T},}, x)
+            Base.llvmcall($(decl, s2), T, Tuple{LVec{N, T},}, x)
         end
     end
 end
@@ -820,22 +746,16 @@ end
         ret i$(native_bit_width) %res
         """
     end
-    mod = """
-        declare i$(N) @llvm.ctpop.i$(N)(i$(N))
-
-        define i$(native_bit_width) @entry(<$(N) x i8>) #0 {
-        top:
-            %mask = trunc <$(N) x i8> %0 to <$(N) x i1>
-            %maski = bitcast <$(N) x i1> %mask to i$(N)
-            %maskipopcnt = call i$(N) @llvm.ctpop.i$(N)(i$(N) %maski)
-            $(ret)
-        }
-
-        attributes #0 = { alwaysinline }
+    decl = "declare i$(N) @llvm.ctpop.i$(N)(i$(N))"
+    s = """
+    %mask = trunc <$(N) x i8> %0 to <$(N) x i1>
+    %maski = bitcast <$(N) x i1> %mask to i$(N)
+    %maskipopcnt = call i$(N) @llvm.ctpop.i$(N)(i$(N) %maski)
+    $(ret)
     """
     return :(
         $(Expr(:meta, :inline));
-        Base.llvmcall(($mod, "entry"), Int, Tuple{LVec{N, Bool}}, x)
+        Base.llvmcall(($decl, $s), Int, Tuple{LVec{N, Bool}}, x)
     )
 end
 
