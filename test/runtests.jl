@@ -831,7 +831,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
 
         # multidimensional indexing
         d = reshape(a, (8,4))
-        e = reinterpret(UInt32, d)
+        e = reinterpret(UInt32, d)::Base.ReinterpretArray
         @test e[VecRange{2}(1), 2] === Vec{2, UInt32}((0x0c0b0a0a, 0x100f0e0e))
         e[VecRange{2}(1), 2] = Vec{2, UInt32}((0x0a0a0b0c, 0x0e0e0f10))
         @test e[1:2, 2] == [0x0a0a0b0c, 0x0e0e0f10]
