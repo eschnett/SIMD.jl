@@ -280,6 +280,10 @@ Base.@propagate_inbounds _pointer(arr::Base.FastContiguousSubArray, i, I) =
     pointer(arr, (i, I...))
 Base.@propagate_inbounds _pointer(arr::Base.FastContiguousSubArray, i, I::Tuple{}) =
     pointer(arr, i)
+Base.@propagate_inbounds _pointer(arr::Base.ReinterpretArray, i, I) =
+    pointer(arr, LinearIndices(arr)[i, I...])
+Base.@propagate_inbounds _pointer(arr::Base.ReinterpretArray, i, I::Tuple{}) =
+    pointer(arr, i)
 Base.@propagate_inbounds _pointer(arr::SubArray, i, I) =
     pointer(Base.unsafe_view(arr, 1, I...), i)
 
