@@ -673,7 +673,8 @@ for (fs, c) in zip([CAST_SIZE_CHANGE_FLOAT, CAST_SIZE_CHANGE_INT],
             sT1, sT2 = sizeof(T1) * 8, sizeof(T2) * 8
             # Not changing size is not allowed
             if !$criteria(sT1, sT2)
-                return :(error("size of conversion type ($T2: $sT2) must be $($criteria) than the element type ($T1: $sT1)"))
+                str = "size of conversion type ($T2: $sT2) must be $($criteria) than the element type ($T1: $sT1)"
+                return :(throw(ArgumentError($str)))
             end
             ff = $(QuoteNode(f))
             s = """
@@ -721,9 +722,9 @@ end
 ###########
 
 @generated function bitcast(::Type{T1}, x::T2) where {T1<:LT, T2<:LT}
-    sT1, sT2 = sizeof(T1), sizeof(T2)
+    sT1, sT2 = sizeof(T1) * 8, sizeof(T2) * 8
     if sT1 != sT2
-        return :(error("size of conversion type ($T1: $sT1) must be equal to the vector type ($T2: $sT2)"))
+        return :(throw(ArgumentError(("size of conversion type ($($T1): $($sT1)) must be equal to the vector type ($($T2): $($sT2))"))))
     end
     s = """
     %2 = bitcast $(llvm_type(T2)) %0 to $(llvm_type(T1))

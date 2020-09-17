@@ -40,6 +40,11 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test size(V4F64) == (L4,)
     end
 
+    @testset "Errors" begin
+        @test_throws ArgumentError("size of conversion type (Int64: 64) must be equal to the vector type (UInt8: 8)") SIMD.Intrinsics.bitcast(Int64,0x1) 
+        @test_throws ArgumentError("size of conversion type (Int64: 64) must be > than the element type (Int64: 64)") SIMD.Intrinsics.trunc(SIMD.LVec{4,Int64}, Vec{4,Int64}((1,2,3,4)).data)
+    end
+
     @testset "Type conversion" begin
         @test string(V8I32(v8i32)) == "<8 x Int32>[" * string(v8i32)[2:end-1] * "]"
         @test string(V4F64(v4f64)) == "<4 x Float64>[" * string(v4f64)[2:end-1] * "]"
