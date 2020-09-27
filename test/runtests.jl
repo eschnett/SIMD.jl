@@ -41,7 +41,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
     end
 
     @testset "Errors" begin
-        @test_throws ArgumentError("size of conversion type (Int64: 64) must be equal to the vector type (UInt8: 8)") SIMD.Intrinsics.bitcast(Int64,0x1) 
+        @test_throws ArgumentError("size of conversion type (Int64: 64) must be equal to the vector type (UInt8: 8)") SIMD.Intrinsics.bitcast(Int64,0x1)
         @test_throws ArgumentError("size of conversion type (Int64: 64) must be > than the element type (Int64: 64)") SIMD.Intrinsics.trunc(SIMD.LVec{4,Int64}, Vec{4,Int64}((1,2,3,4)).data)
     end
 
@@ -357,6 +357,9 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         end
         for i in 1:L8:length(arri32)-(L8-1)
             @test vloada(V8I32, arri32, i) === V8I32(ntuple(j->i+j-1, L8))
+        end
+        for i in 1:L8:length(arri32)-(L8-1)
+            @test vloada(V8I32, pointer(arri32) + i-1) === V8I32(ntuple(j->i+j-1, L8))
         end
         vstorea(V8I32(0), arri32, 1)
         vstore(V8I32(1), arri32, 2)
