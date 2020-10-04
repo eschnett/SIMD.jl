@@ -396,7 +396,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
             ptr = pointer(arr)
             mask = Vec{N,Bool}(ntuple(n->(n & 1), N))
 
-            for (l,s) in zip([vload, vloada, vloada], [vstore, vstorea, vstorent])
+            for (l,s) in zip([vload, vloada, vloadnt], [vstore, vstorea, vstorent])
                 s(vec1, arr, 1)
                 s(vec2, arr, 1+N)
                 @test l(V, arr, 1) === vec1
