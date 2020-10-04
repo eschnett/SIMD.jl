@@ -406,6 +406,8 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                 @test l(V, arr, 1) === vec2
                 @test l(V, arr, 1+N) === vec1
                 s(vec1, arr, 1, mask)
+                @test l(V, arr, 1) !== vec1
+                @test l(V, arr, 1) !== vec2
                 @test l(V, arr, 1) === l(V, arr, 1, mask) + l(V, arr, 1, ~mask)
 
                 s(vec1, ptr)
@@ -417,6 +419,8 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                 @test l(V, ptr) === vec2
                 @test l(V, ptr + sizeof(T) * N) === vec1
                 s(vec1, ptr, mask)
+                @test l(V, ptr) !== vec1
+                @test l(V, ptr) !== vec2
                 @test l(V, ptr) === l(V, ptr, mask) + l(V, ptr, ~mask)
             end
         end
