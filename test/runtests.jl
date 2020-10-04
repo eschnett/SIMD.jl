@@ -359,7 +359,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
             @test vloada(V8I32, arri32, i) === V8I32(ntuple(j->i+j-1, L8))
         end
         for i in 1:L8:length(arri32)-(L8-1)
-            @test vloada(V8I32, pointer(arri32) + i-1) === V8I32(ntuple(j->i+j-1, L8))
+            @test vloada(V8I32, pointer(arri32) + sizeof(eltype(V8I32)) * (i-1)) === V8I32(ntuple(j->i+j-1, L8))
         end
         vstorea(V8I32(0), arri32, 1)
         vstore(V8I32(1), arri32, 2)
