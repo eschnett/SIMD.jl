@@ -57,8 +57,10 @@ end
         vload(Vec{N, T}, ptr, mask, Val(Aligned), Val(Nontemporal))
     end
 end
-@propagate_inbounds vloada(::Type{T}, a, i, mask=nothing) where {T<:Vec} = vload(T, a, i, mask, Val(true))
-@propagate_inbounds vloadnt(::Type{T}, a, i, mask=nothing) where {T<:Vec} = vload(T, a, i, mask, Val(true), Val(true))
+@propagate_inbounds vloada(::Type{Vec{N, T}}, ptr::Ptr{T}, mask=nothing) where {N, T} = vload(Vec{N, T}, ptr, mask, Val(true))
+@propagate_inbounds vloadnt(::Type{Vec{N, T}}, ptr::Ptr{T}, mask=nothing) where {N, T} = vload(Vec{N, T}, ptr, mask, Val(true), Val(true))
+@propagate_inbounds vloada(::Type{Vec{N, T}}, a::FastContiguousArray{T,1}, i::Integer, mask=nothing) where {N, T} = vload(Vec{N, T}, a, i, mask, Val(true))
+@propagate_inbounds vloadnt(::Type{Vec{N, T}}, a::FastContiguousArray{T,1}, i::Integer, mask=nothing) where {N, T} = vload(Vec{N, T}, a, i, mask, Val(true), Val(true))
 
 # vstore
 @propagate_inbounds function vstore(x::Vec{N, T}, ptr::Ptr{T}, mask::Union{Nothing, Vec{N, Bool}}=nothing,
@@ -78,8 +80,10 @@ end
     end
     return a
 end
-@propagate_inbounds vstorea(x::Vec, a, i, mask=nothing) = vstore(x, a, i, nothing, Val(true))
-@propagate_inbounds vstorent(x::Vec, a, i, mask=nothing) = vstore(x, a, i, nothing, Val(true), Val(true))
+@propagate_inbounds vstorea(x::Vec, ptr::Ptr, mask=nothing) = vstore(x, ptr, mask, Val(true))
+@propagate_inbounds vstorent(x::Vec, ptr::Ptr, mask=nothing) = vstore(x, ptr, mask, Val(true), Val(true))
+@propagate_inbounds vstorea(x::Vec, a, i, mask=nothing) = vstore(x, a, i, mask, Val(true))
+@propagate_inbounds vstorent(x::Vec, a, i, mask=nothing) = vstore(x, a, i, mask, Val(true), Val(true))
 
 @inline vloadx(ptr::Ptr, mask::Vec{<:Any, Bool}) =
     Vec(Intrinsics.maskedexpandload(ptr, mask.data))

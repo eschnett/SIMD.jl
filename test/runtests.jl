@@ -41,7 +41,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
     end
 
     @testset "Errors" begin
-        @test_throws ArgumentError("size of conversion type (Int64: 64) must be equal to the vector type (UInt8: 8)") SIMD.Intrinsics.bitcast(Int64,0x1) 
+        @test_throws ArgumentError("size of conversion type (Int64: 64) must be equal to the vector type (UInt8: 8)") SIMD.Intrinsics.bitcast(Int64,0x1)
         @test_throws ArgumentError("size of conversion type (Int64: 64) must be > than the element type (Int64: 64)") SIMD.Intrinsics.trunc(SIMD.LVec{4,Int64}, Vec{4,Int64}((1,2,3,4)).data)
     end
 
@@ -358,6 +358,9 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         for i in 1:L8:length(arri32)-(L8-1)
             @test vloada(V8I32, arri32, i) === V8I32(ntuple(j->i+j-1, L8))
         end
+        for i in 1:L8:length(arri32)-(L8-1)
+            @test vloada(V8I32, pointer(arri32) + sizeof(eltype(V8I32)) * (i-1)) === V8I32(ntuple(j->i+j-1, L8))
+        end
         vstorea(V8I32(0), arri32, 1)
         vstore(V8I32(1), arri32, 2)
         for i in 1:length(arri32)
@@ -371,10 +374,55 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         for i in 1:4:length(arrf64)-(L4-1)
             @test vloada(V4F64, arrf64, i) === V4F64(ntuple(j->i+j-1, L4))
         end
+        for i in 1:4:length(arrf64)-(L4-1)
+            @test vloada(V4F64, pointer(arrf64) + sizeof(eltype(V4F64)) * (i-1)) === V4F64(ntuple(j->i+j-1, L4))
+        end
         vstorea(V4F64(0), arrf64, 1)
         vstore(V4F64(1), arrf64, 2)
         for i in 1:length(arrf64)
             @test arrf64[i] == if i==1 0 elseif i<=(L4+1) 1 else i end
+        end
+
+
+    end
+
+    @testset "Load and store with pointers" begin
+        for T in [UInt16, Float64], bytes_per_vec in [32, 64]
+            N = bytes_per_vec ÷ sizeof(T)
+            V = Vec{N,T}
+            vec1 = V(ntuple(n->n, N))
+            vec2 = V(ntuple(n->n+N, N))
+            arr = valloc(T, N, 2*N) do _ 0 end
+            ptr = pointer(arr)
+            mask = Vec{N,Bool}(ntuple(n->(n & 1), N))
+
+            for (l,s) in zip([vload, vloada, vloadnt], [vstore, vstorea, vstorent])
+                s(vec1, arr, 1)
+                s(vec2, arr, 1+N)
+                @test l(V, arr, 1) === vec1
+                @test l(V, arr, 1+N) === vec2
+                s(vec2, arr, 1)
+                s(vec1, arr, 1+N)
+                @test l(V, arr, 1) === vec2
+                @test l(V, arr, 1+N) === vec1
+                s(vec1, arr, 1, mask)
+                @test l(V, arr, 1) !== vec1
+                @test l(V, arr, 1) !== vec2
+                @test l(V, arr, 1) === l(V, arr, 1, mask) + l(V, arr, 1, ~mask)
+
+                s(vec1, ptr)
+                s(vec2, ptr + sizeof(T) * N)
+                @test l(V, ptr) === vec1
+                @test l(V, ptr + sizeof(T) * N) === vec2
+                s(vec2, ptr)
+                s(vec1, ptr + sizeof(T) * N)
+                @test l(V, ptr) === vec2
+                @test l(V, ptr + sizeof(T) * N) === vec1
+                s(vec1, ptr, mask)
+                @test l(V, ptr) !== vec1
+                @test l(V, ptr) !== vec2
+                @test l(V, ptr) === l(V, ptr, mask) + l(V, ptr, ~mask)
+            end
         end
     end
 
