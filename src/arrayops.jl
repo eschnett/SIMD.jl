@@ -28,14 +28,18 @@ ContiguousSubArray{T,N,P,
 
 Array types with contiguous first dimension.
 """
-ContiguousArray{T,N} = Union{DenseArray{T,N}, ContiguousSubArray{T,N}}
+ContiguousArray{T,N} = Union{DenseArray{T,N}, ContiguousSubArray{T,N},
+    Base.ReinterpretArray{T,N,T2,A} where {A <: Union{DenseArray{T2,N},
+                                                      ContiguousSubArray{T2,N}}} where {T2}}
 
 """
     FastContiguousArray{T,N}
 
 This is the type of arrays that `pointer(A, i)` works.
 """
-FastContiguousArray{T,N} = Union{DenseArray{T,N}, Base.FastContiguousSubArray{T,N}}
+FastContiguousArray{T,N} = Union{DenseArray{T,N}, Base.FastContiguousSubArray{T,N},
+    Base.ReinterpretArray{T,N,T2,A} where {A <: Union{DenseArray{T2,N},
+                                                      Base.FastContiguousSubArray{T2,N}}} where {T2}}
 # https://github.com/eschnett/SIMD.jl/pull/40#discussion_r254131184
 # https://github.com/JuliaArrays/MappedArrays.jl/pull/24#issuecomment-460568978
 
@@ -274,11 +278,14 @@ end
     _pointer(arr, i, I)
 Pointer to the element `arr[i, I...]`.
 """
-Base.@propagate_inbounds _pointer(arr::Array, i, I) =
+Base.@propagate_inbounds _pointer(arr::Union{Array, Base.ReinterpretArray}, i, I) =
     pointer(arr, LinearIndices(arr)[i, I...])
 Base.@propagate_inbounds _pointer(arr::Base.FastContiguousSubArray, i, I) =
     pointer(arr, (i, I...))
 Base.@propagate_inbounds _pointer(arr::Base.FastContiguousSubArray, i, I::Tuple{}) =
+    pointer(arr, i)
+# must be separate methods to resolve ambiguity
+Base.@propagate_inbounds _pointer(arr::Base.ReinterpretArray, i, I::Tuple{}) =
     pointer(arr, i)
 Base.@propagate_inbounds _pointer(arr::SubArray, i, I) =
     pointer(Base.unsafe_view(arr, 1, I...), i)
