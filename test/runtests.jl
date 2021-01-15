@@ -482,6 +482,62 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                 arr[idx, mask] = v
                 @test arr[idxarr] == varr .* maskarr
             end
+
+            @testset "multi-dimensional array" begin
+                # Create an arbitrary matrix whose the beginning part
+                # is identical to `arr`:
+                m = 5
+                n = cld(length(arr), m)
+                mat = zeros(eltype(arr), m, n)
+                mat[1:length(arr)] .= arr
+
+                # Valid index for the first column:
+                idx1arr = [1, 3, 4, 5]
+                idx1 = Vec(Tuple(idx1arr))
+                @assert minimum(idx1arr) >= 1
+                @assert minimum(idx1arr) <= m
+                VT1 = Vec{4,eltype(VT)}
+                v1arr = [111, 222, 333, 444]
+                v1 = VT1(Tuple(v1arr))
+                @assert length(v1arr) == length(idx1arr)
+
+                @testset "no mask" begin
+                    @test mat[idx] === VT(Tuple(mat[idxarr]))
+                    @test mat[idx1, 1] === VT1(Tuple(mat[idx1arr, 1]))
+
+                    @testset "scatter" begin
+                        @testset "y[idx] = v" begin
+                            y = zero(mat)
+                            y[idx] = v
+                            @test y[idxarr] == varr
+                        end
+                        @testset "y[idx1, 1] = v" begin
+                            y = zero(mat)
+                            y[idx1, 1] = v1
+                            @test y[idx1arr, 1] == v1arr
+                        end
+                    end
+                end
+
+                @testset "mask[$i] == true (1D access)" for i in 1:length(VT)
+                    maskarr = zeros(Bool, length(VT))
+                    mask = Vec(Tuple(maskarr))
+
+                    y = zero(mat)
+                    y[idx, mask] = v
+                    @test y[idxarr] == varr .* maskarr
+                end
+
+                @testset "mask[$i] == true (2D access)" for i in 1:length(idx1arr)
+                    maskarr = zeros(Bool, length(idx1arr))
+                    mask = Vec(Tuple(maskarr))
+                    @test mat[idx1, 1, mask] === VT1(Tuple(idx1arr .* maskarr))
+
+                    y = zero(mat)
+                    y[idx1, 1, mask] = v1
+                    @test y[idx1arr, 1] == v1arr .* maskarr
+                end
+            end
         end
     end
 

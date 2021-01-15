@@ -152,6 +152,8 @@ end
                  mask::Vec{N,Bool}=one(Vec{N,Bool}),
                  ::Val{Aligned}=Val(false)) where {N, T<:ScalarTypes, Aligned} =
     return Vec(Intrinsics.maskedgather(ptrs.data, mask.data))
+@inline vgather(ptrs::Vec{<:Any,<:Ptr{<:ScalarTypes}}, ::Nothing, aligned::Val = Val(false)) =
+    vgather(ptrs, one(Vec{length(ptrs),Bool}), aligned)
 @propagate_inbounds function vgather(a::FastContiguousArray{T,1}, idx::Vec{N, Int},
                                      mask::Vec{N,Bool}=one(Vec{N,Bool}),
                                      ::Val{Aligned}=Val(false)) where {N, T<:ScalarTypes, Aligned}
@@ -173,6 +175,9 @@ end
 @propagate_inbounds vscatter(x::Vec{N,T}, ptrs::Vec{N,Ptr{T}},
                              mask::Vec{N,Bool}, ::Val{Aligned}=Val(false)) where {N, T<:ScalarTypes, Aligned} =
     Intrinsics.maskedscatter(x.data, ptrs.data, mask.data)
+@inline vscatter(x::Vec{N,T}, ptrs::Vec{N,Ptr{T}},
+                 ::Nothing, aligned::Val=Val(false)) where {N, T<:ScalarTypes} =
+    vscatter(x, ptrs, one(Vec{N, Bool}), aligned)
 @propagate_inbounds function vscatter(x::Vec{N,T}, a::FastContiguousArray{T,1}, idx::Vec{N, Int},
                                       mask::Vec{N,Bool}=one(Vec{N, Bool}),
                                       ::Val{Aligned}=Val(false)) where {N, T<:ScalarTypes, Aligned}
