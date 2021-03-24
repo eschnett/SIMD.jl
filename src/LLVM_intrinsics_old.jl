@@ -113,8 +113,6 @@ const UNARY_INTRINSICS_INT = [
     :ctpop
     :ctlz
     :cttz
-    :fshl
-    :fshr
 ]
 for (fs, c) in zip([UNARY_INTRINSICS_FLOAT, UNARY_INTRINSICS_INT],
                    [FloatingTypes,          IntegerTypes])
@@ -130,6 +128,24 @@ for (fs, c) in zip([UNARY_INTRINSICS_FLOAT, UNARY_INTRINSICS_INT],
         end
     end
 end
+
+const SHIFT_INTRINSICS_INT = [
+    :fshl
+    :fshr
+]
+
+for f in SHIFT_INTRINSICS_INT
+    @eval begin
+        @generated function $(f)(a::T, b::T, c::T) where T<:LT{<:IntegerTypes}
+            ff = llvm_name($(QuoteNode(f)), T)
+            return :(
+                $(Expr(:meta, :inline));
+                ccall($ff, llvmcall, T, (T,T,T), a, b, c)
+            )
+        end
+    end
+end
+
 
 # fneg (not an intrinsic so cannot use `ccall)
 @generated function fneg(x::T, ::F=nothing) where {T<:LT{<:FloatingTypes}, F<:FPFlags}

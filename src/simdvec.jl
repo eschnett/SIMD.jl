@@ -435,6 +435,11 @@ for (op, llvmop) in [(:fma, Intrinsics.fma), (:muladd, Intrinsics.fmuladd)]
     end
 end
 
+if isdefined(Base, :bitrotate)
+    @inline Base.bitrotate(x::Vec, k::Vec) = Vec(Intrinsics.fshl(x.data, x.data, k.data))
+    @inline Base.bitrotate(x::Vec{N, T}, k::Integer) where {N, T} = bitrotate(x, Vec{N, T}(k))
+end
+
 
 ##############
 # Reductions #

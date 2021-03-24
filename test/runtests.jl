@@ -945,4 +945,28 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         e[VecRange{2}(1), 2] = Vec{2, UInt32}((0x0a0a0b0c, 0x0e0e0f10))
         @test e[1:2, 2] == [0x0a0a0b0c, 0x0e0e0f10]
     end
+
+    @testset "funnel shift" begin
+        @test SIMD.Intrinsics.fshl(0x00011000, 0xaa000000, UInt32(8)) == 0x011000aa
+        @test SIMD.Intrinsics.fshr(0x00000011, 0x000000aa, UInt32(4)) == 0x1000000a
+
+        if isdefined(Base, :bitrotate)
+            SAME = (
+                ( 0x00000004, (0x5000000a, 0x050000a0), (0x000000a5, 0x50000a00) ),
+                ( 0xfffffffc, (0x5000000a, 0x050000a0), (0xa5000000, 0x0050000a) )
+            )
+            for (amount, data, result) in SAME
+                @test bitrotate(Vec(data), amount) === Vec(result)
+            end
+
+            DIFF = (
+                ( ( 0x00000004, 0xfffffffc), (0x5000000a, 0x050000a0), (0x000000a5, 0x0050000a) ),
+                ( ( 0x00000004, 0x0000000c), (0x5000000a, 0x050000a0), (0x000000a5, 0x000a0050) )
+            )
+            for (amount, data, result) in DIFF
+                @test bitrotate(Vec(data), Vec(amount)) === Vec(result)
+            end
+        end
+    end
+
 # end
