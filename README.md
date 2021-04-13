@@ -2,7 +2,6 @@
 
 Explicit SIMD vectorization in Julia
 
-[![Build status](https://ci.appveyor.com/api/projects/status/xwaa3hm5wkiqrc54/branch/master?svg=true)](https://ci.appveyor.com/project/eschnett/simd-jl/branch/master)
 [![Code Coverage](https://codecov.io/gh/eschnett/SIMD.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/eschnett/SIMD.jl)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3355421.svg)](https://doi.org/10.5281/zenodo.3355421)
 
