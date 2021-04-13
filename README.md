@@ -2,10 +2,14 @@
 
 Explicit SIMD vectorization in Julia
 
-[![Build Status](https://travis-ci.org/eschnett/SIMD.jl.svg?branch=master)](https://travis-ci.org/eschnett/SIMD.jl)
 [![Build status](https://ci.appveyor.com/api/projects/status/xwaa3hm5wkiqrc54/branch/master?svg=true)](https://ci.appveyor.com/project/eschnett/simd-jl/branch/master)
-[![codecov.io](https://codecov.io/github/eschnett/SIMD.jl/coverage.svg?branch=master)](https://codecov.io/github/eschnett/SIMD.jl?branch=master)
+[![Code Coverage](https://codecov.io/gh/eschnett/SIMD.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/eschnett/SIMD.jl)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3355421.svg)](https://doi.org/10.5281/zenodo.3355421)
+
+| Julia   | CI |
+| ------- | -- |
+| v1      | [![CI](https://github.com/eschnett/SIMD.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/eschnett/SIMD.jl/actions/workflows/ci.yml) |
+| nightly | [![CI (Julia nightly)](https://github.com/eschnett/SIMD.jl/actions/workflows/ci_julia_nightly.yml/badge.svg)](https://github.com/eschnett/SIMD.jl/actions/workflows/ci_julia_nightly.yml) |
 
 ## Overview
 
