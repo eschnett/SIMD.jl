@@ -11,7 +11,7 @@ module Intrinsics
 # intrinsic is called (e.g uitofp vs sitofp).
 
 import ..SIMD: SIMD, VE, LVec, FloatingTypes
-# Inlcude Bool in IntegerTypes
+# Include Bool in IntegerTypes
 const IntegerTypes = Union{SIMD.IntegerTypes, Bool}
 
 const d = Dict{DataType, String}(
