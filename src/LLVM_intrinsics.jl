@@ -771,13 +771,13 @@ const HORZ_REDUCTION_OPS_INT = [
     :umin
 ]
 
+const horizontal_reduction_prefix = Base.libllvm_version < v"12" ? "experimental.vector.reduce." : "vector.reduce."
 for (fs, c) in zip([HORZ_REDUCTION_OPS_FLOAT, HORZ_REDUCTION_OPS_INT],
                    [FloatingTypes,            IntegerTypes])
     for f in fs
         f_red = Symbol("reduce_", f)
-        ff_base = Base.libllvm_version < v"12" ? "experimental.vector.reduce." : "vector.reduce."
         @eval @generated function $f_red(x::LVec{N, T}) where {N,T<:$c}
-            ff = llvm_name(string($ff_base, $(QuoteNode(f))), N, T)
+            ff = llvm_name(string(horizontal_reduction_prefix, $(QuoteNode(f))), N, T)
             mod = """
                 declare $(d[T]) @$ff(<$N x $(d[T])>)
 
@@ -799,11 +799,12 @@ end
 
 # The fadd and fmul reductions take an initializer
 const horz_reduction_version = (v"9" < Base.libllvm_version < v"12") ? "v2." : ""
+const horz_experimental = Base.libllvm_version < v"12" ? "experimental." : ""
+const horizontal_reduction_2arg_prefix =  "$(horz_experimental)vector.reduce.$horz_reduction_version"
 for (f, neutral) in [(:fadd, "0.0"), (:fmul, "1.0")]
     f_red = Symbol("reduce_", f)
-    ff_base = Base.libllvm_version < v"12" ? "experimental.vector.reduce.$horz_reduction_version" : "vector.reduce.$horz_reduction_version"
     @eval @generated function $f_red(x::LVec{N, T}) where {N,T<:FloatingTypes}
-        ff = llvm_name(string($ff_base, $(QuoteNode(f))), N, T)
+        ff = llvm_name(string(horizontal_reduction_2arg_prefix, $(QuoteNode(f))), N, T)
         mod = """
             declare $(d[T]) @$ff($(d[T]), <$N x $(d[T])>)
 
