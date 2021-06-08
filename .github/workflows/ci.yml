@@ -22,7 +22,6 @@ jobs:
           - ubuntu-latest
           - windows-latest
         version:
-          - '1.5'
           - '1' # automatically expands to the latest stable 1.x release of Julia
         exclude:
           - os: macOS-latest
