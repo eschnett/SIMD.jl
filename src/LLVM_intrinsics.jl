@@ -430,6 +430,10 @@ for f in MULADD_INTRINSICS
     end
 end
 
+function fmuladdsub(a::LVec{N,T}, b::LVec{N,T}, c::LVec{N,T}) where {N,T<:Float64}
+    ff = llvm_name("fma_vfmaddsub_pd")
+    ccall(ff, llvmcall, LVec{N,T}, (LVec{N, T}, LVec{N, T}, LVec{N, T}), a, b, c)
+end
 
 ################
 # Load / store #
