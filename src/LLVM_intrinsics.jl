@@ -418,6 +418,7 @@ end
 const MULADD_INTRINSICS = [
     :fmuladd,
     :fma,
+    :fma_fmaddsub
 ]
 
 for f in MULADD_INTRINSICS
@@ -428,11 +429,6 @@ for f in MULADD_INTRINSICS
             ccall($ff, llvmcall, LVec{N, T}, (LVec{N, T}, LVec{N, T}, LVec{N, T}), a, b, c)
         )
     end
-end
-
-function fmuladdsub(a::LVec{N,T}, b::LVec{N,T}, c::LVec{N,T}) where {N,T<:Float64}
-    ff = llvm_name("fma_vfmaddsub_pd")
-    ccall(ff, llvmcall, LVec{N,T}, (LVec{N, T}, LVec{N, T}, LVec{N, T}), a, b, c)
 end
 
 ################
