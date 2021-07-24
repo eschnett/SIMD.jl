@@ -417,7 +417,8 @@ end
 
 const MULADD_INTRINSICS = [
     :fmuladd,
-    :fma
+    :fma,
+
 ]
 
 for f in MULADD_INTRINSICS
@@ -430,9 +431,23 @@ for f in MULADD_INTRINSICS
     end
 end
 
-function fmaddsub(a::LVec{N, T}, b::LVec{N, T}, c::LVec{N, T}) where {N, T<:FloatingTypes}
-    Base.llvmcall("llvm.x86.fma.fmaddsub_pd", LVec{N, T}, (LVec{N, T}, LVec{N, T}, LVec{N, T}), a, b, c)
+
+for (t, N, T) in [("d"    , 2, Float64), ("s"    , 4, Float32),
+                  ("d.256", 4, Float64), ("s.256", 8, Float32),
+                  # ("d.512", 8, Float64), ("s.512", 16, Float32) # These don't seem supported by LLVM yet
+                 ]
+    @eval @generated function fmaddsub(a::LVec{$N, $T}, b::LVec{$N, $T}, c::LVec{$N, $T})
+        ff = "llvm.x86.fma.vfmaddsub.p"*$t
+        return :(
+            $(Expr(:meta, :inline));
+            ccall($ff, llvmcall, LVec{$($N), $($T)}, (LVec{$($N), $($T)}, LVec{$($N), $($T)}, LVec{$($N), $($T)}), a, b, c)
+        )
+    end
 end
+
+# function fmaddsub(a::LVec{4, Float64}, b::LVec{4, Float64}, c::LVec{4, Float64}) where N
+#     ccall("llvm.x86.fma.vfmaddsub.pd.256", llvmcall, LVec{4, Float64}, (LVec{4, Float64}, LVec{4, Float64}, LVec{4, Float64}), a, b, c)
+# end
 
 ################
 # Load / store #
