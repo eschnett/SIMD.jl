@@ -431,23 +431,23 @@ for f in MULADD_INTRINSICS
     end
 end
 
-
-for (t, N, T) in [("d"    , 2, Float64), ("s"    , 4, Float32),
+const AVX_EXTS = [("d"    , 2, Float64), ("s"    , 4, Float32),
                   ("d.256", 4, Float64), ("s.256", 8, Float32),
                   # ("d.512", 8, Float64), ("s.512", 16, Float32) # These don't seem supported by LLVM yet
-                 ]
-    @eval @generated function fmaddsub(a::LVec{$N, $T}, b::LVec{$N, $T}, c::LVec{$N, $T})
-        ff = "llvm.x86.fma.vfmaddsub.p"*$t
-        return :(
-            $(Expr(:meta, :inline));
-            ccall($ff, llvmcall, LVec{$($N), $($T)}, (LVec{$($N), $($T)}, LVec{$($N), $($T)}, LVec{$($N), $($T)}), a, b, c)
-        )
+                  ]
+const MULALTADD_INTRINSICS = [:vfmaddsub, :vfmsubadd]
+
+for f in MULALTADD_INTRINSICS
+    for (t, N, T) in AVX_EXTS
+        @eval @generated function ($f)(a::LVec{$N, $T}, b::LVec{$N, $T}, c::LVec{$N, $T})
+            ff = "llvm.x86.fma."*(string($f))*".p"*($t)
+            return :(
+                $(Expr(:meta, :inline));
+                ccall($ff, llvmcall, LVec{$($N), $($T)}, (LVec{$($N), $($T)}, LVec{$($N), $($T)}, LVec{$($N), $($T)}), a, b, c)
+            )
+        end
     end
 end
-
-# function fmaddsub(a::LVec{4, Float64}, b::LVec{4, Float64}, c::LVec{4, Float64}) where N
-#     ccall("llvm.x86.fma.vfmaddsub.pd.256", llvmcall, LVec{4, Float64}, (LVec{4, Float64}, LVec{4, Float64}, LVec{4, Float64}), a, b, c)
-# end
 
 ################
 # Load / store #

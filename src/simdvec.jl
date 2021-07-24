@@ -435,6 +435,9 @@ for (op, llvmop) in [(:fma, Intrinsics.fma), (:muladd, Intrinsics.fmuladd)]
     end
 end
 
+@inline vfmaddsub(a::Vec{N,T}, b::Vec{N,T}, c::Vec{N,T}) where {N, T <: FloatingTypes} = Vec{N,T}(Intrinsics.vfmaddsub(a.data, b.data, c.data))
+@inline vfmsubadd(a::Vec{N,T}, b::Vec{N,T}, c::Vec{N,T}) where {N, T <: FloatingTypes} = Vec{N,T}(Intrinsics.vfmaddsub(a.data, b.data, c.data))
+
 if isdefined(Base, :bitrotate)
     @inline Base.bitrotate(x::Vec, k::Vec) = Vec(Intrinsics.fshl(x.data, x.data, k.data))
     @inline Base.bitrotate(x::Vec{N, T}, k::Integer) where {N, T} = bitrotate(x, Vec{N, T}(k))

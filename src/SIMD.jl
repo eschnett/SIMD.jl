@@ -4,7 +4,7 @@ using Base: @propagate_inbounds
 
 export Vec, vload, vloada, vloadnt, vloadx, vstore, vstorea, vstorent, vstorec,
        vgather, vgathera, vscatter, vscattera, shufflevector, vifelse, valloc,
-       VecRange
+       VecRange, vfmaddsub, vfmasubadd
 
 const VE         = Base.VecElement
 const LVec{N, T} = NTuple{N, VE{T}}
