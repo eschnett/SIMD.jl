@@ -821,8 +821,8 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
 
         let xs = valloc(Float64, 4, 13) do i i end
             s = vsum_masked(xs, V4F64)
-            @code_llvm vsum(xs, V4F64)
-            @code_native vsum(xs, V4F64)
+            #@code_llvm vsum(xs, V4F64)
+            #@code_native vsum(xs, V4F64)
             @test s === sum(xs)
 
             ir = llvm_ir(vsum_masked, (xs, V4F64))
@@ -862,8 +862,8 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                 vcompress!(dest, pred, src)
                 @test dest[1:sum(pred)] == src[src .> 0]
 
-                @code_llvm vcompress!(dest, pred, src)
-                @code_native vcompress!(dest, pred, src)
+                #@code_llvm vcompress!(dest, pred, src)
+                #@code_native vcompress!(dest, pred, src)
 
                 ir = llvm_ir(vcompress!, (dest, pred, src))
                 @test occursin("masked.compressstore.v4f64", ir)
