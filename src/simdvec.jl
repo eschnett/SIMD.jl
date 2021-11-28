@@ -21,6 +21,7 @@ Base.copy(v::Vec) = v
 @inline Vec{N, T1}(v::Vec{N, T2}) where {N, T1<:Union{IntegerTypes, Ptr}, T2<:Union{IntegerTypes, Ptr}} =
     convert(Vec{N, T1}, v)
 
+Base.promote_rule(::Type{Vec{N,T1}}, ::Type{Vec{N,T2}}) where {N,T1,T2} = Vec{N,promote_type(T1,T2)}
 @inline Base.convert(::Type{Vec{N,T}}, v::Vec{N,T}) where {N,T} = v
 @inline function Base.convert(::Type{Vec{N, T1}}, v::Vec{N, T2}) where {T1, T2, N}
     if T1 <: Union{IntegerTypes, Ptr}
@@ -246,13 +247,15 @@ function get_fastmath_function(op)
 end
 
 for (op, constraint, llvmop) in BINARY_OPS
-    @eval @inline function $op(x::Vec{N, T}, y::Vec{N, T}) where {N, T <: $constraint}
+    @eval @inline function $op(x::Vec{N, T1}, y::Vec{N, T2}) where {N, T1 <: $constraint, T2 <: $constraint}
+        x, y = promote(x, y)
         Vec($(llvmop)(x.data, y.data))
     end
 
     # Add a fast math version if applicable
     if (fast_op = get_fastmath_function(op)) !== nothing
-        @eval @inline function $(fast_op)(x::Vec{N, T}, y::Vec{N, T}) where {N, T <: $constraint}
+        @eval @inline function $(fast_op)(x::Vec{N, T1}, y::Vec{N, T2}) where {N, T1 <: $constraint, T2 <: $constraint}
+            x, y = promote(x,y)
             Vec($(llvmop)(x.data, y.data, FASTMATH))
         end
     end
@@ -374,9 +377,6 @@ for (op, constraint) in [BINARY_OPS;
         (:(Base.signbit)  , ScalarTypes)
         (:(Base.min)      , IntegerTypes)
         (:(Base.max)      , IntegerTypes)
-        (:(Base.:<<)      , IntegerTypes)
-        (:(Base.:>>)      , IntegerTypes)
-        (:(Base.:>>>)     , IntegerTypes)
         (:(Base.Checked.add_with_overflow) , IntTypes)
         (:(Base.Checked.add_with_overflow) , UIntTypes)
         (:(Base.Checked.sub_with_overflow) , IntTypes)
@@ -389,12 +389,27 @@ for (op, constraint) in [BINARY_OPS;
         push!(ops, fast_op)
     end
     for op in ops
-        @eval @inline function $op(x::T2, y::Vec{N, T}) where {N, T2<:ScalarTypes, T <: $constraint}
-            $op(Vec{N, T}(x), y)
+        @eval @inline function $op(x::T1, y::Vec{N, T2}) where {N, T1<:ScalarTypes, T2 <: $constraint}
+            T = promote_type(T1, T2)
+            $op(Vec{N, T}(x), convert(Vec{N,T}, y))
         end
-        @eval @inline function $op(x::Vec{N, T}, y::T2) where {N, T2 <:ScalarTypes, T <: $constraint}
-            $op(x, Vec{N, T}(y))
+        @eval @inline function $op(x::Vec{N, T1}, y::T2) where {N, T2 <:ScalarTypes, T1 <: $constraint}
+            T = promote_type(T1, T2)
+            $op(convert(Vec{N,T}, x), Vec{N, T}(y))
         end
+    end
+end
+
+for (op, constraint) in [
+        (:(Base.:<<)      , IntegerTypes)
+        (:(Base.:>>)      , IntegerTypes)
+        (:(Base.:>>>)     , IntegerTypes)
+    ]
+    @eval @inline function $op(x::T2, y::Vec{N, T}) where {N, T2<:ScalarTypes, T <: $constraint}
+        $op(Vec{N, T}(x), y)
+    end
+    @eval @inline function $op(x::Vec{N, T}, y::T2) where {N, T2 <:ScalarTypes, T <: $constraint}
+        $op(x, Vec{N, T}(y))
     end
 end
 

@@ -271,26 +271,26 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         for op in (
                 ==, !=, <, <=, >, >=,
                 &, |, ⊻, +, -, *, copysign, div, flipsign, max, min, rem)
-            @test op(42, V8I32(v8i32)) === op(V8I32(42), V8I32(v8i32))
-            @test op(V8I32(v8i32), 42) === op(V8I32(v8i32), V8I32(42))
+            @test op(Int32(42), V8I32(v8i32)) === op(V8I32(42), V8I32(v8i32))
+            @test op(V8I32(v8i32), Int32(42)) === op(V8I32(v8i32), V8I32(42))
         end
         @test vifelse(signbit(V8I32(v8i32)), 42, V8I32(v8i32)) ===
             vifelse(signbit(V8I32(v8i32)), V8I32(42), V8I32(v8i32))
         @test vifelse(signbit(V8I32(v8i32)), V8I32(v8i32), 42) ===
             vifelse(signbit(V8I32(v8i32)), V8I32(v8i32), V8I32(42))
         for op in (muladd,)
-            @test op(42, 42, V8I32(v8i32)) ===
-                op(V8I32(42), V8I32(42), V8I32(v8i32))
-            @test op(42, V8I32(v8i32), V8I32(v8i32)) ===
-                op(V8I32(42), V8I32(v8i32), V8I32(v8i32))
-            @test op(V8I32(v8i32), 42, V8I32(v8i32)) ===
-                op(V8I32(v8i32), V8I32(42), V8I32(v8i32))
-            @test op(V8I32(v8i32), V8I32(v8i32), 42) ===
-                op(V8I32(v8i32), V8I32(v8i32), V8I32(42))
-            @test op(42, V8I32(v8i32), 42) ===
-                op(V8I32(42), V8I32(v8i32), V8I32(42))
-            @test op(V8I32(v8i32), 42, 42) ===
-                op(V8I32(v8i32), V8I32(42), V8I32(42))
+            @test op(Int32(42), Int32(42), V8I32(v8i32)) ===
+                op(V8I32(Int32(42)), V8I32(Int32(42)), V8I32(v8i32))
+            @test op(Int32(42), V8I32(v8i32), V8I32(v8i32)) ===
+                op(V8I32(Int32(42)), V8I32(v8i32), V8I32(v8i32))
+            @test op(V8I32(v8i32), Int32(42), V8I32(v8i32)) ===
+                op(V8I32(v8i32), V8I32(Int32(42)), V8I32(v8i32))
+            @test op(V8I32(v8i32), V8I32(v8i32), Int32(42)) ===
+                op(V8I32(v8i32), V8I32(v8i32), V8I32(Int32(42)))
+            @test op(Int32(42), V8I32(v8i32), Int32(42)) ===
+                op(V8I32(Int32(42)), V8I32(v8i32), V8I32(Int32(42)))
+            @test op(V8I32(v8i32), Int32(42), Int32(42)) ===
+                op(V8I32(v8i32), V8I32(Int32(42)), V8I32(Int32(42)))
         end
 
         for op in (
@@ -928,7 +928,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         c_expected = Vec{4, UInt32}((0x08070605, 0x0c0b0a09, 0x100f0e0d, 0x14131211))
         @test c === c_expected
 
-        c += 1
+        c += UInt32(1)
         a_expected = copy(a)
         a_expected[[5,9,13,17]] .+= 1
         vstore(c, b, 2)
