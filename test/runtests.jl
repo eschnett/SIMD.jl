@@ -46,8 +46,10 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
     end
 
     @testset "Type conversion" begin
-        @test string(V8I32(v8i32)) == "<8 x Int32>[" * string(v8i32)[2:end-1] * "]"
-        @test string(V4F64(v4f64)) == "<4 x Float64>[" * string(v4f64)[2:end-1] * "]"
+        @test sprint((io,x)->show(io, MIME("text/plain"), x), V8I32(v8i32)) == "<8 x Int32>[" * string(v8i32)[2:end-1] * "]"
+        @test sprint((io,x)->show(io, MIME("text/plain"), x), V4F64(v4f64)) == "<4 x Float64>[" * string(v4f64)[2:end-1] * "]"
+        @test string(V8I32(v8i32)) == "Vec(" * string(v8i32)[2:end-1] * ")"
+        @test string(V4F64(v4f64)) == "Vec(" * string(v4f64)[2:end-1] * ")"
 
         @test convert(V8I32, V8I32(v8i32)) === V8I32(v8i32)
         @test convert(Vec{L8,Int64}, V8I32(v8i32)) ===
