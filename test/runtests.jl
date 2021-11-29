@@ -20,10 +20,13 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
     global const V8I32 = Vec{L8,Int32}
     global const V8I64 = Vec{L8,Int64}
     global const V4F64 = Vec{L4,Float64}
+    global const V4F32 = Vec{L4,Float32}
+
 
     global const v8i32 = ntuple(i->Int32(ifelse(isodd(i), i, -i)), L8)
     global const v8i64 = ntuple(i->Int64(ifelse(isodd(i), i, -i)), L8)
     global const v4f64 = ntuple(i->Float64(ifelse(isodd(i), i, -i)), L4)
+    global const v4f32 = ntuple(i->Float32(ifelse(isodd(i), i, -i)), L4)
 
     is_checking_bounds = Core.Compiler.inbounds_option() == :on
 
@@ -104,8 +107,12 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         global const v8i32c = map(x->Int32(x*2), v8i32)
 
         notbool(x) = !(x>=typeof(x)(0))
-        for op in (~, +, -, abs, notbool, sign, signbit, count_ones, count_zeros,
-                   leading_ones, leading_zeros, trailing_ones, trailing_zeros)
+        for op in (~, +, -, abs, notbool, sign, signbit)
+            @show op, V8I32
+            @test Tuple(op(V8I32(v8i32))) === map(op, v8i32)
+        end
+
+        for op in (count_ones, count_zeros, leading_ones, leading_zeros, trailing_ones, trailing_zeros)
             @test Tuple(op(V8I32(v8i32))) == map(op, v8i32)
         end
 
@@ -245,6 +252,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                 +, -, *, /, %, ^, ==, !=, <, <=, >, >=,
                 copysign, flipsign, max, min, rem)
             @test Tuple(op(V4F64(v4f64), V4F64(v4f64b))) === map(op, v4f64, v4f64b)
+            @test Tuple(op(V4F64(v4f64), V4F64(v4f32))) === map(op, v4f64, v4f32)
         end
 
         @test Tuple(V4F64(v4f64)^0) === v4f64.^0
@@ -255,6 +263,10 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         for op in (fma, vifelsebool, muladd)
             @test Tuple(op(V4F64(v4f64), V4F64(v4f64b), V4F64(v4f64c))) ===
                 map(op, v4f64, v4f64b, v4f64c)
+            @test Tuple(op(V4F64(v4f64), V4F64(v4f32), V4F64(v4f64c))) ===
+                map(op, v4f64, v4f32, v4f64c)
+            @test Tuple(op(V4F64(v4f64), V4F64(v4f64b), V4F64(v4f32))) ===
+                map(op, v4f64, v4f64b, v4f32)
         end
 
         v = V4F64(v4f64)
@@ -952,22 +964,20 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test SIMD.Intrinsics.fshl(0x00011000, 0xaa000000, UInt32(8)) == 0x011000aa
         @test SIMD.Intrinsics.fshr(0x00000011, 0x000000aa, UInt32(4)) == 0x1000000a
 
-        if isdefined(Base, :bitrotate)
-            SAME = (
-                ( 0x00000004, (0x5000000a, 0x050000a0), (0x000000a5, 0x50000a00) ),
-                ( 0xfffffffc, (0x5000000a, 0x050000a0), (0xa5000000, 0x0050000a) )
-            )
-            for (amount, data, result) in SAME
-                @test bitrotate(Vec(data), amount) === Vec(result)
-            end
+        SAME = (
+            ( 0x00000004, (0x5000000a, 0x050000a0), (0x000000a5, 0x50000a00) ),
+            ( 0xfffffffc, (0x5000000a, 0x050000a0), (0xa5000000, 0x0050000a) )
+        )
+        for (amount, data, result) in SAME
+            @test bitrotate(Vec(data), amount) === Vec(result)
+        end
 
-            DIFF = (
-                ( ( 0x00000004, 0xfffffffc), (0x5000000a, 0x050000a0), (0x000000a5, 0x0050000a) ),
-                ( ( 0x00000004, 0x0000000c), (0x5000000a, 0x050000a0), (0x000000a5, 0x000a0050) )
-            )
-            for (amount, data, result) in DIFF
-                @test bitrotate(Vec(data), Vec(amount)) === Vec(result)
-            end
+        DIFF = (
+            ( ( 0x00000004, 0xfffffffc), (0x5000000a, 0x050000a0), (0x000000a5, 0x0050000a) ),
+            ( ( 0x00000004, 0x0000000c), (0x5000000a, 0x050000a0), (0x000000a5, 0x000a0050) )
+        )
+        for (amount, data, result) in DIFF
+            @test bitrotate(Vec(data), Vec(amount)) === Vec(result)
         end
     end
 

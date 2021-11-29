@@ -20,6 +20,7 @@ Base.copy(v::Vec) = v
 @inline Vec{N, T1}(v::T2) where {N, T1<:VecTypes, T2<:VecTypes} = constantvector(v, Vec{N, T1})
 @inline Vec{N, T1}(v::Vec{N, T2}) where {N, T1<:Union{IntegerTypes, Ptr}, T2<:Union{IntegerTypes, Ptr}} =
     convert(Vec{N, T1}, v)
+@inline Vec{N}(v::T) where {N,T} = Vec{N,T}(v)
 
 Base.promote_rule(::Type{Vec{N,T1}}, ::Type{Vec{N,T2}}) where {N,T1,T2} = Vec{N,promote_type(T1,T2)}
 @inline Base.convert(::Type{Vec{N,T}}, v::Vec{N,T}) where {N,T} = v
@@ -131,8 +132,8 @@ const UNARY_OPS = [
     (:abs            , FloatingTypes , Intrinsics.fabs)       ,
     (:floor          , FloatingTypes , Intrinsics.floor)      ,
     (:ceil           , FloatingTypes , Intrinsics.ceil)       ,
-    # (:rint         , FloatingTypes , Intrinsics)            ,
-    # (:nearbyint    , FloatingTypes , Intrinsics)            ,
+  # (:rint           , FloatingTypes , Intrinsics)            ,
+  # (:nearbyint      , FloatingTypes , Intrinsics)            ,
     (:round          , FloatingTypes , Intrinsics.round)      ,
 
     (:bswap          , IntegerTypes  , Intrinsics.bswap)      ,
@@ -430,27 +431,43 @@ end
 # fma, muladd and vectorization of these
 for (op, llvmop) in [(:fma, Intrinsics.fma), (:muladd, Intrinsics.fmuladd)]
     @eval begin
-        @inline Base.$op(a::Vec{N, T}, b::Vec{N, T}, c::Vec{N, T}) where {N,T<:FloatingTypes} =
+        @inline function Base.$op(a::Vec{N,T1}, b::Vec{N,T2}, c::Vec{N,T3}) where {N,T1<:FloatingTypes,T2<:FloatingTypes,T3<:FloatingTypes}
+            a, b, c = promote(a, b, c)
             Vec($llvmop(a.data, b.data, c.data))
-        @inline Base.$op(s1::ScalarTypes, v2::Vec{N,T}, v3::Vec{N,T}) where {N,T<:FloatingTypes} =
-            $op(Vec{N,T}(s1), v2, v3)
-        @inline Base.$op(v1::Vec{N,T}, s2::ScalarTypes, v3::Vec{N,T}) where {N,T<:FloatingTypes} =
-            $op(v1, Vec{N,T}(s2), v3)
-        @inline Base.$op(s1::ScalarTypes, s2::ScalarTypes, v3::Vec{N,T}) where {N,T<:FloatingTypes} =
-            $op(Vec{N,T}(s1), Vec{N,T}(s2), v3)
-        @inline Base.$op(v1::Vec{N,T}, v2::Vec{N,T}, s3::ScalarTypes) where {N,T<:FloatingTypes} =
-            $op(v1, v2, Vec{N,T}(s3))
-        @inline Base.$op(s1::ScalarTypes, v2::Vec{N,T}, s3::ScalarTypes) where {N,T<:FloatingTypes} =
-            $op(Vec{N,T}(s1), v2, Vec{N,T}(s3))
-        @inline Base.$op(v1::Vec{N,T}, s2::ScalarTypes, s3::ScalarTypes) where {N,T<:FloatingTypes} =
-            $op(v1, Vec{N,T}(s2), Vec{N,T}(s3))
+        end
+        @inline function Base.$op(a::Vec{N}, b::Vec{N}, c::Vec{N}) where {N}
+            return a*b + c
+        end
+        @inline function Base.$op(s1::T1, v2::Vec{N,T2}, v3::Vec{N,T3}) where {N,T1<:ScalarTypes,T2<:ScalarTypes,T3<:ScalarTypes}
+            T = promote_type(T1, T2, T3)
+            $op(Vec{N,T}(s1), convert(Vec{N,T}, v2), convert(Vec{N,T}, v3))
+        end
+        @inline function Base.$op(v1::Vec{N,T1}, s2::T2, v3::Vec{N,T3}) where {N,T1<:ScalarTypes,T2<:ScalarTypes,T3<:ScalarTypes}
+            T = promote_type(T1, T2, T3)
+            $op(convert(Vec{N,T}, v1), Vec{N,T}(s2), convert(Vec{N,T}, v3))
+        end
+        @inline function Base.$op(s1::T1, s2::T2, v3::Vec{N,T3}) where {N,T1<:ScalarTypes,T2<:ScalarTypes,T3<:ScalarTypes}
+            T = promote_type(T1, T2, T3)
+            $op(Vec{N,T}(s1), Vec{N,T}(s2), convert(Vec{N,T}, v3))
+        end
+        @inline function Base.$op(v1::Vec{N,T1}, v2::Vec{N,T2}, s3::T3) where {N,T1<:ScalarTypes,T2<:ScalarTypes,T3<:ScalarTypes}
+            T = promote_type(T1, T2, T3)
+            $op(convert(Vec{N,T}, v1), convert(Vec{N,T}, v2), Vec{N,T}(s3))
+        end
+        @inline function Base.$op(s1::T1, v2::Vec{N,T2}, s3::T3) where {N,T1<:ScalarTypes,T2<:ScalarTypes,T3<:ScalarTypes}
+            T = promote_type(T1, T2, T3)
+            $op(Vec{N,T}(s1), convert(Vec{N,T}, v2), Vec{N,T}(s3))
+        end
+        @inline function Base.$op(v1::Vec{N,T1}, s2::T2, s3::T3) where {N,T1<:ScalarTypes,T2<:ScalarTypes,T3<:ScalarTypes}
+            T = promote_type(T1, T2, T3)
+            $op(convert(Vec{N,T}, v1), Vec{N,T}(s2), Vec{N,T}(s3))
+        end
     end
 end
 
-if isdefined(Base, :bitrotate)
-    @inline Base.bitrotate(x::Vec, k::Vec) = Vec(Intrinsics.fshl(x.data, x.data, k.data))
-    @inline Base.bitrotate(x::Vec{N, T}, k::Integer) where {N, T} = bitrotate(x, Vec{N, T}(k))
-end
+@inline Base.bitrotate(x::Vec{N,T}, k::Vec{N,T}) where{N, T<:IntegerTypes} = 
+    Vec(Intrinsics.fshl(x.data, x.data, k.data))
+@inline Base.bitrotate(x::Vec{N, T}, k::Integer) where {N, T <:IntegerTypes} = bitrotate(x, Vec{N, T}(k))
 
 
 ##############
