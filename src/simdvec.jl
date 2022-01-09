@@ -471,6 +471,8 @@ Base.reduce(F::Any, v::Vec) = error("reduction not defined for SIMD.Vec on $F")
 @inline Base.minimum(v::Vec) = reduce(min, v)
 @inline Base.prod(v::Vec) = reduce(*, v)
 @inline Base.sum(v::Vec) = reduce(+, v)
+@inline Base.prod(v::Vec{<:Any, <:FloatingTypes}) = Intrinsics.reduce_fmul(v.data, Intrinsics.FastMathFlags(Intrinsics.FastMath.reassoc))
+@inline Base.sum(v::Vec{<:Any, <:FloatingTypes}) = Intrinsics.reduce_fadd(v.data, Intrinsics.FastMathFlags(Intrinsics.FastMath.reassoc))
 
 ############
 # Shuffles #
