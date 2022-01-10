@@ -803,14 +803,15 @@ const horz_experimental = Base.libllvm_version < v"12" ? "experimental." : ""
 const horizontal_reduction_2arg_prefix =  "$(horz_experimental)vector.reduce.$horz_reduction_version"
 for (f, neutral) in [(:fadd, "0.0"), (:fmul, "1.0")]
     f_red = Symbol("reduce_", f)
-    @eval @generated function $f_red(x::LVec{N, T}) where {N,T<:FloatingTypes}
+    @eval @generated function $f_red(x::LVec{N, T}, ::F=nothing) where {N,T<:FloatingTypes, F<:FPFlags}
+        fpflags = fp_str(F)
         ff = llvm_name(string(horizontal_reduction_2arg_prefix, $(QuoteNode(f))), N, T)
         mod = """
             declare $(d[T]) @$ff($(d[T]), <$N x $(d[T])>)
 
             define $(d[T]) @entry(<$N x $(d[T])>) #0 {
             top:
-                %res = call $(d[T]) @$ff($(d[T]) $($neutral), <$N x $(d[T])> %0)
+                %res = call $(fpflags) $(d[T]) @$ff($(d[T]) $($neutral), <$N x $(d[T])> %0)
                 ret $(d[T]) %res
             }
 
