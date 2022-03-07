@@ -320,7 +320,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
     @testset "Reduction operations" begin
 
         for op in (maximum, minimum, sum, prod)
-            @test op(V8I32(v8i32)) === op(v8i32)
+            @test op(V8I32(v8i32)) == op(v8i32) # Using `==` here because Base does slightly different promotions than us.
         end
         t = Vec(true, true, true, true)
         tf = Vec(true, false, true, false)
