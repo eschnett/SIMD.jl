@@ -275,7 +275,7 @@ end
 # pow, powi
 for (f, c) in [(:pow, FloatingTypes), (:powi, Union{Int32,UInt32})]
     @eval @generated function $(f)(x::T, y::T2) where {T <: LT{<:FloatingTypes}, T2 <: $c}
-        ff = llvm_name($(QuoteNode(f)), T)
+        ff = llvm_name($(QuoteNode(f)), T)  * "." * suffix(T2)
         return :(
             $(Expr(:meta, :inline));
             ccall($ff, llvmcall, T, (T, T2), x, y)
