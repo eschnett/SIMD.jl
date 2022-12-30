@@ -17,9 +17,9 @@ const BIntegerTypes = Union{IntegerTypes, Bool}
 const FloatingTypes = Union{Float32, Float64} # Float16 support is non-native in Julia and gets passed as an i16
 const ScalarTypes   = Union{IntegerTypes, FloatingTypes}
 const VecTypes      = Union{ScalarTypes, Ptr, Bool}
-
 include("LLVM_intrinsics.jl")
 include("simdvec.jl")
 include("arrayops.jl")
+include("precompile.jl")
 
 end
