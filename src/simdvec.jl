@@ -95,12 +95,12 @@ end
 @inline Base.checkbounds(v::Vec, i::IntegerTypes) =
 (i < 1 || i > length(v.data)) && Base.throw_boundserror(v, i)
 
-function Base.getindex(v::Vec, i::IntegerTypes)
+@propagate_inbounds function Base.getindex(v::Vec, i::IntegerTypes)
     @boundscheck checkbounds(v, i)
     return Intrinsics.extractelement(v.data, i-1)
 end
 
-@inline function Base.setindex(v::Vec{N,T}, x, i::IntegerTypes) where {N,T}
+@propagate_inbounds function Base.setindex(v::Vec{N,T}, x, i::IntegerTypes) where {N,T}
     @boundscheck checkbounds(v, i)
     Vec(Intrinsics.insertelement(v.data, _unsafe_convert(T, x), i-1))
 end
