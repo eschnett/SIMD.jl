@@ -255,22 +255,10 @@ for (op, constraint, llvmop) in BINARY_OPS
 
     # Add a fast math version if applicable
     if (fast_op = get_fastmath_function(op)) !== nothing
-        if !in(op, [:(Base.min), :(Base.max)]) 
-            @eval @inline function $(fast_op)(x::Vec{N, T}, y::Vec{N, T}) where {N, T <: $constraint}
-                Vec($(llvmop)(x.data, y.data, FASTMATH))
-            end
+        @eval @inline function $(fast_op)(x::Vec{N, T}, y::Vec{N, T}) where {N, T <: $constraint}
+            Vec($(llvmop)(x.data, y.data, FASTMATH))
         end
     end
-end
-
-function Base.FastMath.min_fast(x::Vec{N, T}, y::Vec{N, T}) where {N, T <: FloatingTypes}
-    mask = @fastmath x < y
-    return vifelse(mask, x, y)
-end
-
-function Base.FastMath.max_fast(x::Vec{N, T}, y::Vec{N, T}) where {N, T <: FloatingTypes}
-    mask = @fastmath x > y
-    return vifelse(mask, x, y)
 end
 
 # overflow

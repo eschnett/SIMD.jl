@@ -49,7 +49,7 @@ llvm_name(llvmf, ::Type{LVec{N, T}}) where {N,T} = string("llvm", ".", dotit(llv
 llvm_name(llvmf, ::Type{T}) where {T}            = string("llvm", ".", dotit(llvmf), ".", suffix(T))
 
 llvm_type(::Type{T}) where {T}            = d[T]
-llvm_type(::Type{LVec{N, T}}) where {N,T} = "< $N x $(d[T])>"
+llvm_type(::Type{LVec{N, T}}) where {N,T} = "<$N x $(d[T])>"
 
 ############
 # FastMath #
@@ -259,18 +259,38 @@ const BINARY_INTRINSICS_INT = [
     :usub_sat
 ]
 
-for (fs, c) in zip([BINARY_INTRINSICS_FLOAT, BINARY_INTRINSICS_INT],
-                   [FloatingTypes,           IntegerTypes])
-    for f in fs
-        @eval @generated function $(f)(x::T, y::T) where T<:LT{<:$c}
-            ff = llvm_name($(QuoteNode(f)), T,)
-            return :(
-                $(Expr(:meta, :inline));
-                ccall($ff, llvmcall, T, (T, T), x, y)
-            )
-        end
+for f in BINARY_INTRINSICS_FLOAT
+    @eval @generated function $(f)(x::LVec{N, T}, y::LVec{N, T}, ::F=nothing) where {N, T<:FloatingTypes, F<:FPFlags}
+        XT = llvm_type(LVec{N, T})
+        ff = $f
+        fpflags = fp_str(F)
+        mod = """
+            declare $XT @llvm.$ff.$(suffix(N, T))($XT, $XT)
+            define $XT @entry($XT , $XT) #0 {
+            top:
+                %res = call $fpflags $XT @llvm.$ff.$(suffix(N, T))($XT %0, $XT %1)
+                ret $XT %res
+            }
+    
+            attributes #0 = { alwaysinline }
+        """
+        return :(
+            $(Expr(:meta, :inline));
+            Base.llvmcall(($mod, "entry"), LVec{N, T}, Tuple{LVec{N, T}, LVec{N, T}}, x, y)
+        )
     end
 end
+
+for f in BINARY_INTRINSICS_INT
+    @eval @generated function $(f)(x::T, y::T) where T<:LT{<:IntegerTypes}
+        ff = llvm_name($(QuoteNode(f)), T,)
+        return :(
+            $(Expr(:meta, :inline));
+            ccall($ff, llvmcall, T, (T, T), x, y)
+        )
+    end
+end
+
 
 # pow, powi
 for (f, c) in [(:pow, FloatingTypes), (:powi, Union{Int32,UInt32})]
