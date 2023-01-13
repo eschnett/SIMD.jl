@@ -969,4 +969,13 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         end
     end
 
+    @testset "fastmath min" begin
+        x = Vec(1.0, 2.0, 3.0, 4.0)
+        y = Vec(4.0, 3.0, 2.0, 1.0)
+        r = @fastmath min(x, y)
+        @test all(r == Vec(1.0, 2.0, 2.0, 1.0))
+        r = @fastmath max(x, y)
+        @test all(r == Vec(4.0, 3.0, 3.0, 4.0))
+    end
+
 # end
