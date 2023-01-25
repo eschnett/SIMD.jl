@@ -228,7 +228,7 @@ Base.checkindex(::Type{Bool}, inds::AbstractUnitRange, idx::VecRange) =
 Base.checkindex(::Type{Bool}, inds::AbstractUnitRange, idx::Vec) =
     all(first(inds) <= idx) && all(idx <= last(inds))
 
-@inline _checkarity(::AbstractArray{<:Any,N}, ::Vararg{<:Any,N}) where {N} =
+@inline _checkarity(::AbstractArray{<:Any,N}, ::Vararg{Any,N}) where {N} =
     nothing
 
 @inline _checkarity(::T, ::Any) where {T <: AbstractArray} =
@@ -241,7 +241,7 @@ Base.checkindex(::Type{Bool}, inds::AbstractUnitRange, idx::Vec) =
         """))
     end
 
-_checkarity(::AbstractArray{<:Any,N}, ::Vararg{<:Any,M}) where {N,M} =
+_checkarity(::AbstractArray{<:Any,N}, ::Vararg{Any,M}) where {N,M} =
     throw(ArgumentError("""
     $M indices are given to $N-dimensional array.
     Exactly $N (non-mask) indices have to be specified when using SIMD.
