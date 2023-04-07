@@ -235,9 +235,11 @@ export LoopVecRange
 Analogous to `UnitRange` but for iterating over a vector with SIMD vectors of width `N`.
 # Examples
 ```jldoctest
-julia> xs = ones(4);
-julia> xs[VecRange{4}(1)]  # calls `vload(Vec{4,Float64}, xs, 1)`
-<4 x Float64>[1.0, 1.0, 1.0, 1.0]
+julia> function vadd!(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}}) where {N, T}
+    for lane in LoopVecRange{N}(xs)
+        xs[lane] += ys[lane]
+    end
+end
 ```
 """
 struct LoopVecRange{N} <: AbstractUnitRange{Int}
