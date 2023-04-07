@@ -819,8 +819,8 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
 
         let xs = valloc(Float64, 4, 13) do i i end
             s = vsum_masked(xs, V4F64)
-            @code_llvm vsum(xs, V4F64)
-            @code_native vsum(xs, V4F64)
+            # @code_llvm vsum(xs, V4F64)
+            # @code_native vsum(xs, V4F64)
             @test s === sum(xs)
 
             ir = llvm_ir(vsum_masked, (xs, V4F64))
@@ -860,14 +860,119 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                 vcompress!(dest, pred, src)
                 @test dest[1:sum(pred)] == src[src .> 0]
 
-                @code_llvm vcompress!(dest, pred, src)
-                @code_native vcompress!(dest, pred, src)
+                # @code_llvm vcompress!(dest, pred, src)
+                # @code_native vcompress!(dest, pred, src)
 
                 ir = llvm_ir(vcompress!, (dest, pred, src))
                 @test occursin("masked.compressstore.v4f64", ir)
             end
         end
 
+    end
+
+    @testset "LoopVecRange Real-world examples" begin
+
+        function vadd!(xs::AbstractArray{T,1}, ys::AbstractArray{T,1},
+                        ::Type{Vec{N,T}}) where {N,T}
+            @assert length(ys) == length(xs)
+            @assert length(xs) % N == 0
+            @inbounds for lane in LoopVecRange{N}(xs)
+                xs[lane] += ys[lane]
+            end
+        end
+
+        let xs = valloc(Float64, L4, 4*L4) do i i end,
+            ys = valloc(Float64, L4, 4*L4) do i 1 end
+            vadd!(xs, ys, V4F64)
+            @test xs == Float64[i+1 for i in 1:(4*L4)]
+            # @code_native vadd!(xs, ys, V4F64)
+    
+            ir = llvm_ir(vadd!, (xs, ys, V4F64))
+            @test occursin(r"( load <4 x double>.*){2}"s, ir)
+            @test occursin(" store <4 x double>", ir)
+            @test occursin(" fadd <4 x double>", ir)
+        end
+    
+        function vsum(xs::AbstractArray{T,1}, ::Type{Vec{N,T}}) where {N,T}
+            @assert length(xs) % N == 0
+            sv = Vec{N,T}(0)
+            @inbounds for lane in LoopVecRange{N}(xs)
+                sv += xs[lane]
+            end
+            sum(sv)
+        end
+
+        let xs = valloc(Float64, L4, 4*L4) do i i end
+            s = vsum(xs, V4F64)
+            @test s === (x->(x^2+x)/2)(Float64(4*L4))
+            # @code_native vsum(xs, V4F64)
+
+            ir = llvm_ir(vsum, (xs, V4F64))
+            @test occursin(" load <4 x double>", ir)
+            @test occursin(" fadd <4 x double>", ir)
+            # @test occursin(r"( shufflevector <4 x double>.*){2}"s, ir)
+        end
+
+    
+        function vadd_masked!(xs::AbstractArray{T,1}, ys::AbstractArray{T,1},
+                                ::Type{Vec{N,T}}) where {N, T}
+            @assert length(ys) == length(xs)
+            limit = length(xs) - (N-1)
+            vlimit = Vec(ntuple(i -> length(xs) - i + 1, Val(N)))
+            @inbounds for lane in LoopVecRange{N}(xs, unsafe=true)
+                if lane.i <= limit
+                    xs[lane] += ys[lane]
+                else
+                    mask = Vec{N,Int}(lane.i) <= vlimit
+                    xs[lane, mask] = xs[lane, mask] + ys[lane, mask]
+                end
+            end
+        end
+
+        let xs = valloc(Float64, 4, 13) do i i end,
+            ys = valloc(Float64, 4, 13) do i 1 end
+            vadd_masked!(xs, ys, V4F64)
+            @test xs == Float64[i+1 for i in 1:13]
+            # @code_native vadd!(xs, ys, V4F64)
+    
+            ir = llvm_ir(vadd_masked!, (xs, ys, V4F64))
+            @test occursin(r"(masked.load.v4f64.*){2}"s, ir)
+            @test occursin("masked.store.v4f64", ir)
+            @test occursin(" store <4 x double>", ir)
+            @test occursin(" fadd <4 x double>", ir)
+        end
+        
+        function vsum_masked(xs::AbstractArray{T,1}, ::Type{Vec{N,T}}) where {N,T}
+            vlimit = Vec(ntuple(i -> length(xs) - i + 1, Val(N)))
+            sv = Vec{N,T}(0)
+            @inbounds for lane in LoopVecRange{N}(xs, unsafe=true)
+                mask = Vec{N,Int}(lane.i) <= vlimit
+                sv += xs[lane, mask]
+            end
+            sum(sv)
+        end
+
+        let xs = valloc(Float64, 4, 13) do i i end
+            s = vsum_masked(xs, V4F64)
+            # @code_llvm vsum(xs, V4F64)
+            # @code_native vsum(xs, V4F64)
+            @test s === sum(xs)
+
+            ir = llvm_ir(vsum_masked, (xs, V4F64))
+            @test occursin("masked.load.v4f64", ir)
+            @test occursin(" fadd <4 x double>", ir)
+            # @test occursin(r"( shufflevector <4 x double>.*){2}"s, ir)
+        end
+
+    end
+
+    @testset "LoopVecRange" begin
+        @test_throws ArgumentError LoopVecRange{-1}(1, 8)
+        @test_throws ArgumentError LoopVecRange{0}(1, 8)
+        @test_throws ArgumentError LoopVecRange{2}(1, 3)
+        @test_throws ArgumentError LoopVecRange{2}(3, 2)
+        @test_throws ArgumentError LoopVecRange{1}(3, 2)
+        @test_throws ArgumentError LoopVecRange{4}(3, 3)
     end
 
     @testset "Vector shuffles" begin

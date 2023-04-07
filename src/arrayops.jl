@@ -228,6 +228,61 @@ Base.checkindex(::Type{Bool}, inds::AbstractUnitRange, idx::VecRange) =
 Base.checkindex(::Type{Bool}, inds::AbstractUnitRange, idx::Vec) =
     all(first(inds) <= idx) && all(idx <= last(inds))
 
+export LoopVecRange
+
+"""
+    LoopVecRange{N}(start::Int, stop::Int)
+Analogous to `UnitRange` but for iterating over a vector with SIMD vectors of width `N`.
+# Examples
+```jldoctest
+julia> xs = ones(4);
+julia> xs[VecRange{4}(1)]  # calls `vload(Vec{4,Float64}, xs, 1)`
+<4 x Float64>[1.0, 1.0, 1.0, 1.0]
+```
+"""
+struct LoopVecRange{N} <: AbstractUnitRange{Int}
+    start::Int
+    stop::Int
+
+    Base.@propagate_inbounds function LoopVecRange{N}(start::Int, stop::Int; unsafe=false) where N
+        N <= 0 && throw(ArgumentError("Width cannot be less than 1"))
+
+        if !unsafe
+            @boundscheck (abs(stop - start) + 1) % N != 0 && throw(ArgumentError("Length of range, has to be a multiple of the width"))
+
+            @boundscheck stop < start && throw(ArgumentError("Stop cannot be less than start"))
+        end
+
+        return new{N}(start, stop)
+    end
+end
+
+Base.@propagate_inbounds LoopVecRange{N}(r::Base.OneTo; unsafe=false) where N = LoopVecRange{N}(1, r.stop, unsafe=unsafe)
+Base.@propagate_inbounds LoopVecRange{N}(r::UnitRange; unsafe=false) where N = LoopVecRange{N}(r.start, r.stop, unsafe=unsafe)
+Base.@propagate_inbounds LoopVecRange{N}(x::AbstractVector; unsafe=false) where N = LoopVecRange{N}(eachindex(x), unsafe=unsafe)
+
+Base.isempty(r::LoopVecRange) = r.start > r.stop
+
+Base.step(r::LoopVecRange{N}) where N = N
+Base.has_offset_axes(::LoopVecRange) = false
+
+Base.first(r::LoopVecRange{N}) where N = VecRange{N}(r.start)
+Base.last(r::LoopVecRange{N}) where N = VecRange{N}(r.stop - N + 1)
+
+Base.iterate(r::LoopVecRange) = isempty(r) ? nothing : (first(r), first(r))
+
+function Base.iterate(r::LoopVecRange{N}, i::VecRange{N}) where N
+    @inline
+    i.i >= (r.stop - N + 1) && return nothing # greater than or equal prevents infinite loop if length of range is not a multiple of width
+    next = i + step(r)
+    (next, next)
+end
+
+Base.length(r::LoopVecRange{N}) where N = (r.stop - r.start + 1) ÷ N
+Base.eltype(::Type{LoopVecRange{N}}) where N = VecRange{N}
+
+Base.show(io::IO, r::LoopVecRange) = print(io, repr(first(r)), ':', repr(last(r)))
+
 @inline _checkarity(::AbstractArray{<:Any,N}, ::Vararg{Any,N}) where {N} =
     nothing
 
