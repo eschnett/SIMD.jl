@@ -29,9 +29,8 @@ using SIMD
 function vadd!(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}}) where {N, T}
     @assert length(ys) == length(xs)
     @assert length(xs) % N == 0
-    lane = VecRange{N}(0)
-    @inbounds for i in 1:N:length(xs)
-        xs[lane + i] += ys[lane + i]
+    @inbounds for lane in LoopVecRange{N}(xs)
+        xs[lane] += ys[lane]
     end
 end
 ```
