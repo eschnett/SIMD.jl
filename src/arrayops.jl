@@ -242,7 +242,7 @@ julia> function vadd!(xs::Vector{T}, ys::Vector{T}, ::Type{Vec{N,T}}) where {N, 
 end
 ```
 """
-struct LoopVecRange{N} <: AbstractUnitRange{Int}
+struct LoopVecRange{N} <: AbstractRange{Int}
     start::Int
     stop::Int
 
