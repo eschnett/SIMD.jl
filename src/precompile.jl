@@ -1,6 +1,6 @@
-using SnoopPrecompile
+using PrecompileTools
 
-@precompile_all_calls begin
+@compile_workload begin
     for dim in (2, 3, 4)
         v = SIMD.Vec(ntuple(i -> 0.0, dim))
         v + v
