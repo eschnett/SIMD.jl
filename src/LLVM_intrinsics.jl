@@ -271,7 +271,7 @@ for f in BINARY_INTRINSICS_FLOAT
                 %res = call $fpflags $XT @llvm.$ff.$(suffix(N, T))($XT %0, $XT %1)
                 ret $XT %res
             }
-    
+
             attributes #0 = { alwaysinline }
         """
         return :(
