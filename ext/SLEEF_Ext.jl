@@ -67,28 +67,27 @@ const unops_FM_SP_slow = filter(unops_SP) do op
     in(n, unops_FM) && !in(n, unops_SP)
 end
 
-let vec = SIMD.Vec{<:Any,<:Union{Float32,Float64}}
+const vec = SIMD.Vec{<:Any,<:Union{Float32,Float64}}
 
-    for op in unops_Base_SP
-        @eval begin
-            @inline Base.$op(x::$vec) = SIMDVec(SP.$op(VBVec(x)))
-        end
+for op in unops_Base_SP
+    @eval begin
+        @inline Base.$op(x::$vec) = SIMDVec(SP.$op(VBVec(x)))
     end
-    for op in unops_FM_SP
-        @eval @inline FM.$op(x::$vec) = SIMDVec(SP.$op(VBVec(x)))
-    end
-    for op in unops_FM_SP_slow
-        op_fast = Symbol(op, :_fast)
-        @eval @inline FM.$op_fast(x::$vec) = SIMDVec(SP.$op(VBVec(x)))
-    end
-
-    # two-argument functions : x^n with n scalar
-    @eval @inline FM.pow_fast(x::SIMD.Vec{<:Any,F}, n::F) where {F<:Union{Float32,Float64}} = FM.exp_fast(n * FM.log_fast(x))
 end
+for op in unops_FM_SP
+    @eval @inline FM.$op(x::$vec) = SIMDVec(SP.$op(VBVec(x)))
+end
+for op in unops_FM_SP_slow
+    op_fast = Symbol(op, :_fast)
+    @eval @inline FM.$op_fast(x::$vec) = SIMDVec(SP.$op(VBVec(x)))
+end
+
+# two-argument functions : x^n with n scalar
+@eval @inline FM.pow_fast(x::SIMD.Vec{<:Any,F}, n::F) where {F<:Union{Float32,Float64}} = FM.exp_fast(n * FM.log_fast(x))
 
 for op in union(unops_FM_SP, unops_FM_SP_slow), F in (Float32, Float64), N in (4,8,16)
     op_fast = getfield(FM, op)
     precompile(op_fast, (SIMD.Vec{N,F},))
 end
 
-end # module SIMDFunctions
+end
