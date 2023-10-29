@@ -51,11 +51,15 @@ end
 
 # some operators have a fast version in FastMath, but not all
 # and some operators have a fast version in SP, but not all !
-const not_unops = (:eval, :include, :evalpoly, :hypot, :ldexp, :sincos)
-unop(n) = !occursin("#", string(n)) && !in(n, not_unops)
+const not_unops = (:eval, :include, :evalpoly, :hypot, :ldexp, :sincos, :sincos_fast, :pow_fast)
+# These functions either error or return incorrect results
+# We should file issues with SLEEFPirates
+const broken_unops = (:cospi, :sinpi, :log10_fast, :log2_fast)
+unop(n) = !(occursin("#", string(n)) || in(n, not_unops) || in(n, broken_unops) )
 
 const unops_SP = filter(unop, names(SP; all = true))
 const unops_FM = filter(unop, names(FM; all = true))
+
 
 # "slow" operators provided by SP
 const unops_Base_SP = intersect(unops_SP, names(Base))
