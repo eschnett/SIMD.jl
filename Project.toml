@@ -6,6 +6,13 @@ version = "3.4.5"
 [deps]
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 
+[weakdeps]
+SLEEFPirates = "476501e8-09a2-5ece-8869-fb82de89a1fa"
+VectorizationBase = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
+
+[extensions]
+SLEEF_Ext = ["SLEEFPirates", "VectorizationBase"]
+
 [compat]
 PrecompileTools = "1"
 julia = "1.6"
@@ -13,6 +20,8 @@ julia = "1.6"
 [extras]
 InteractiveUtils = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+SLEEFPirates = "476501e8-09a2-5ece-8869-fb82de89a1fa"
+VectorizationBase = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
 
 [targets]
-test = ["Test", "InteractiveUtils"]
+test = ["Test", "InteractiveUtils", "SLEEFPirates"]
