@@ -293,7 +293,7 @@ end
 
 
 # pow, powi
-for (f, c) in [(:pow, FloatingTypes), (:powi, Union{Int32,Int64,UInt32,UInt64})]
+for (f, c) in [(:pow, FloatingTypes), (:powi, Union{Int32,UInt32})]
     @eval @generated function $(f)(x::T, y::T2) where {T <: LT{<:FloatingTypes}, T2 <: $c}
         ff = llvm_name($(QuoteNode(f)), T)  * "." * suffix(T2)
         return :(
