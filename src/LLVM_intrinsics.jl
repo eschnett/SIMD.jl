@@ -224,7 +224,7 @@ for f in BINARY_OPS_FLOAT
 end
 
 for f in BINARY_OPS_INT
-    @eval @generated function $f(x::T, y::T) where T<:LT{<:IntegerTypes}
+    @eval @generated function $f(x::T, y::T, ::F=nothing) where {T<:LT{<:IntegerTypes}, F<:FPFlags}
         ff = $(QuoteNode(f))
         s = """
         %3 = $ff $(llvm_type(T)) %0, %1
