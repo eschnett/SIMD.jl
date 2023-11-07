@@ -129,6 +129,13 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
             end
         end
 
+        f(v) = v << 64
+        f2(v) = v >> 64
+        f3(v) = v >>> 64
+        @test all(f(Vec(1,2,3,4)) == Vec(0,0,0,0))
+        @test all(f2(Vec(1,2,3,4)) == Vec(0,0,0,0))
+        @test all(f3(Vec(1,2,3,4)) == Vec(0,0,0,0))
+
         @test Tuple(V8I32(v8i32)^0) === v8i32.^0
         @test Tuple(V8I32(v8i32)^1) === v8i32.^1
         @test Tuple(V8I32(v8i32)^2) === v8i32.^2
