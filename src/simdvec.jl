@@ -321,19 +321,19 @@ end
 # Shifting with a value larger than the number of bits in the type is undefined behavior
 # so set to zero in those cases.
 @inline function shl_int(x::Vec{N, T1}, y::Vec{N, T2}) where {N, T1<:IntegerTypes, T2<:IntegerTypes}
-    vifelse(y > sizeof(T1) * 8,
+    vifelse(y >= sizeof(T1) * 8,
         zero(Vec{N, T1}),
         Vec(Intrinsics.shl(x.data, convert(Vec{N,T1}, y).data)))
 end
 
 @inline function lshr_int(x::Vec{N, T1}, y::Vec{N, T2}) where {N, T1<:IntegerTypes, T2<:IntegerTypes}
-    vifelse(y > sizeof(T1) * 8,
+    vifelse(y >= sizeof(T1) * 8,
         zero(Vec{N, T1}),
         Vec(Intrinsics.lshr(x.data, convert(Vec{N,T1}, y).data)))
 end
 
 @inline function ashr_int(x::Vec{N, T1}, y::Vec{N, T2}) where {N, T1<:IntegerTypes, T2<:IntegerTypes}
-    vifelse(y > sizeof(T1) * 8,
+    vifelse(y >= sizeof(T1) * 8,
             Vec(Intrinsics.ashr(x.data, Vec{N,T1}(sizeof(T1)*8-1).data)),
             Vec(Intrinsics.ashr(x.data, Vec{N,T1}(y).data)))
 end
