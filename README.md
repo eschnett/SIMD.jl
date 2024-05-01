@@ -4,6 +4,7 @@ Explicit SIMD vectorization in Julia
 
 [![Code Coverage](https://codecov.io/gh/eschnett/SIMD.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/eschnett/SIMD.jl)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3355421.svg)](https://doi.org/10.5281/zenodo.3355421)
+[![PkgEval](https://juliaci.github.io/NanosoldierReports/pkgeval_badges/S/SIMD.svg)](https://juliaci.github.io/NanosoldierReports/pkgeval_badges/S/SIMD.html)
 
 | Julia   | CI |
 | ------- | -- |
