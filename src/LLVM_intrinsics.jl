@@ -33,7 +33,15 @@ const d = Dict{DataType, String}(
     Float64      => "double",
 )
 # Add the Ptr translations
-foreach(x -> (d[Ptr{x}] = d[Int]), collect(keys(d)))
+# Julia <=1.11 (LLVM <=16) passes `Ptr{T}` as `i64`, Julia >=1.12 (LLVM >=17) passes them as `T*`.
+# Use `argtoptr` e.g. as `%ptr = $argtoptr $(d[Ptr{T}]) %0 to <$N x $(d[T])>*`
+@static if VERSION >= v"1.12-DEV"
+    const argtoptr = "bitcast"
+    foreach(x -> (d[Ptr{x}] = "$(d[x])*"), collect(keys(d)))
+else
+    const argtoptr = "inttoptr"
+    foreach(x -> (d[Ptr{x}] = "$(d[Int])"), collect(keys(d)))
+end
 
 # LT = LLVM Type (scalar and vectors), we keep type names intentionally short
 # to make the signatures smaller
@@ -462,7 +470,7 @@ temporal_str(temporal) = temporal ? ", !nontemporal !{i32 1}" : ""
 @generated function load(x::Type{LVec{N, T}}, ptr::Ptr{T},
                          ::Val{Al}=Val(false), ::Val{Te}=Val(false)) where {N, T, Al, Te}
     s = """
-    %ptr = inttoptr $(d[Int]) %0 to <$N x $(d[T])>*
+    %ptr = $argtoptr $(d[Ptr{T}]) %0 to <$N x $(d[T])>*
     %res = load <$N x $(d[T])>, <$N x $(d[T])>* %ptr, align $(n_align(Al, N, T)) $(temporal_str(Te))
     ret <$N x $(d[T])> %res
     """
@@ -478,10 +486,10 @@ end
     mod = """
         declare <$N x $(d[T])> @llvm.masked.load.$(suffix(N, T))(<$N x $(d[T])>*, i32, <$N x i1>, <$N x $(d[T])>)
 
-        define <$N x $(d[T])> @entry($(d[Int]), <$(N) x i8>) #0 {
+        define <$N x $(d[T])> @entry($(d[Ptr{T}]), <$(N) x i8>) #0 {
         top:
             %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
-            %ptr = inttoptr $(d[Int]) %0 to <$N x $(d[T])>*
+            %ptr = $argtoptr $(d[Ptr{T}]) %0 to <$N x $(d[T])>*
             %res = call <$N x $(d[T])> @llvm.masked.load.$(suffix(N, T))(<$N x $(d[T])>* %ptr, i32 $(n_align(Al, N, T)), <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
             ret <$N x $(d[T])> %res
         }
@@ -497,7 +505,7 @@ end
 @generated function store(x::LVec{N, T}, ptr::Ptr{T},
                           ::Val{Al}=Val(false), ::Val{Te}=Val(false)) where {N, T, Al, Te}
     s = """
-    %ptr = inttoptr $(d[Int]) %1 to <$N x $(d[T])>*
+    %ptr = $argtoptr $(d[Ptr{T}]) %1 to <$N x $(d[T])>*
     store <$N x $(d[T])> %0, <$N x $(d[T])>* %ptr, align $(n_align(Al, N, T)) $(temporal_str(Te))
     ret void
     """
@@ -514,10 +522,10 @@ end
     mod = """
         declare void @llvm.masked.store.$(suffix(N, T))(<$N x $(d[T])>, <$N x $(d[T])>*, i32, <$N x i1>)
 
-        define void @entry(<$N x $(d[T])>, $(d[Int]), <$(N) x i8>) #0 {
+        define void @entry(<$N x $(d[T])>, $(d[Ptr{T}]), <$(N) x i8>) #0 {
         top:
             %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
-            %ptr = inttoptr $(d[Int]) %1 to <$N x $(d[T])>*
+            %ptr = $argtoptr $(d[Ptr{T}]) %1 to <$N x $(d[T])>*
             call void @llvm.masked.store.$(suffix(N, T))(<$N x $(d[T])> %0, <$N x $(d[T])>* %ptr, i32 $(n_align(Al, N, T)), <$N x i1> %mask)
             ret void
         }
@@ -535,10 +543,10 @@ end
     mod = """
         declare <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))($(d[T])*, <$N x i1>, <$N x $(d[T])>)
 
-        define <$N x $(d[T])> @entry($(d[Int]), <$(N) x i8>) #0 {
+        define <$N x $(d[T])> @entry($(d[Ptr{T}]), <$(N) x i8>) #0 {
         top:
             %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
-            %ptr = inttoptr $(d[Int]) %0 to $(d[T])*
+            %ptr = $argtoptr $(d[Ptr{T}]) %0 to $(d[T])*
             %res = call <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))($(d[T])* %ptr, <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
             ret <$N x $(d[T])> %res
         }
@@ -556,10 +564,10 @@ end
     mod = """
         declare void @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])>, $(d[T])*, <$N x i1>)
 
-        define void @entry(<$N x $(d[T])>, $(d[Int]), <$(N) x i8>) #0 {
+        define void @entry(<$N x $(d[T])>, $(d[Ptr{T}]), <$(N) x i8>) #0 {
         top:
             %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
-            %ptr = inttoptr $(d[Int]) %1 to $(d[T])*
+            %ptr = $argtoptr $(d[Ptr{T}]) %1 to $(d[T])*
             call void @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])> %0, $(d[T])* %ptr, <$N x i1> %mask)
             ret void
         }
@@ -583,10 +591,10 @@ end
     mod = """
         declare <$N x $(d[T])> @llvm.masked.gather.$(suffix(N, T))(<$N x $(d[T])*>, i32, <$N x i1>, <$N x $(d[T])>)
 
-        define <$N x $(d[T])> @entry(<$N x $(d[Int])>, <$(N) x i8>) #0 {
+        define <$N x $(d[T])> @entry(<$N x $(d[Ptr{T}])>, <$(N) x i8>) #0 {
         top:
             %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
-            %ptrs = inttoptr <$N x $(d[Int])> %0 to <$N x $(d[T])*>
+            %ptrs = $argtoptr <$N x $(d[Ptr{T}])> %0 to <$N x $(d[T])*>
             %res = call <$N x $(d[T])> @llvm.masked.gather.$(suffix(N, T))(<$N x $(d[T])*> %ptrs, i32 $(n_align(Al, N, T)), <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
             ret <$N x $(d[T])> %res
         }
@@ -604,10 +612,10 @@ end
     mod = """
         declare void @llvm.masked.scatter.$(suffix(N, T))(<$N x $(d[T])>, <$N x $(d[T])*>, i32, <$N x i1>)
 
-        define void @entry(<$N x $(d[T])>, <$N x $(d[Int])>, <$(N) x i8>) #0 {
+        define void @entry(<$N x $(d[T])>, <$N x $(d[Ptr{T}])>, <$(N) x i8>) #0 {
         top:
             %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
-            %ptrs = inttoptr <$N x $(d[Int])> %1 to <$N x $(d[T])*>
+            %ptrs = $argtoptr <$N x $(d[Ptr{T}])> %1 to <$N x $(d[T])*>
             call void @llvm.masked.scatter.$(suffix(N, T))(<$N x $(d[T])> %0, <$N x $(d[T])*> %ptrs, i32 $(n_align(Al, N, T)), <$N x i1> %mask)
             ret void
         }
@@ -751,6 +759,29 @@ for (fs, (from, to)) in zip([CONVERSION_FLOAT_TO_INT,       CONVERSION_INT_TO_FL
     end
 end
 
+@generated function inttoptr(::Type{LVec{N, Ptr{T2}}}, x::LVec{N, T1}) where {N, T1 <: IntegerTypes, T2 <: Union{IntegerTypes, FloatingTypes}}
+    convert = VERSION >= v"1.12-DEV" ? "inttoptr" : "bitcast"
+    s = """
+    %2 = $convert <$(N) x $(d[T1])> %0 to <$(N) x $(d[Ptr{T2}])>
+    ret <$(N) x $(d[Ptr{T2}])> %2
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall($s, LVec{N, Ptr{T2}}, Tuple{LVec{N, T1}}, x)
+    )
+end
+
+@generated function ptrtoint(::Type{LVec{N, T2}}, x::LVec{N, Ptr{T1}}) where {N, T1 <: Union{IntegerTypes, FloatingTypes}, T2 <: IntegerTypes}
+    convert = VERSION >= v"1.12-DEV" ? "ptrtoint" : "bitcast"
+    s = """
+    %2 = $convert <$(N) x $(d[Ptr{T1}])> %0 to <$(N) x $(d[T2])>
+    ret <$(N) x $(d[T2])> %2
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall($s, LVec{N, T2}, Tuple{LVec{N, Ptr{T1}}}, x)
+    )
+end
 
 ###########
 # Bitcast #

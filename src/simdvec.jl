@@ -23,8 +23,12 @@ Base.copy(v::Vec) = v
 
 @inline Base.convert(::Type{Vec{N,T}}, v::Vec{N,T}) where {N,T} = v
 @inline function Base.convert(::Type{Vec{N, T1}}, v::Vec{N, T2}) where {T1, T2, N}
-    if T1 <: Union{IntegerTypes, Ptr}
-        if T2 <: Union{IntegerTypes, Ptr, Bool}
+    if T1 <: Ptr
+        return Vec(Intrinsics.inttoptr(Intrinsics.LVec{N, T1}, v.data))
+    elseif T1 <: IntegerTypes
+        if T2 <: Ptr
+            return Vec(Intrinsics.ptrtoint(Intrinsics.LVec{N, T1}, v.data))
+        elseif T2 <: Union{IntegerTypes, Bool}
             if sizeof(T1) < sizeof(T2)
                 return Vec(Intrinsics.trunc(Intrinsics.LVec{N, T1}, v.data))
             elseif sizeof(T1) == sizeof(T2)
@@ -43,8 +47,7 @@ Base.copy(v::Vec) = v
                 return Vec(Intrinsics.fptosi(Intrinsics.LVec{N, T1}, v.data))
             end
         end
-    end
-    if T1 <: FloatingTypes
+    elseif T1 <: FloatingTypes
         if T2 <: UIntTypes
             return Vec(Intrinsics.uitofp(Intrinsics.LVec{N, T1}, v.data))
         elseif T2 <: IntTypes
@@ -303,18 +306,21 @@ _signed(::Type{Float64}) = Int64
     signbit(reinterpret(Vec{N, _signed(T)}, x))
 
 # Pointer arithmetic
-for op in (:+, :-)
-    @eval begin
-        # Cast pointer to Int and back
-        @inline Base.$op(x::Vec{N,Ptr{T}}, y::Vec{N,Ptr{T}}) where {N,T} =
-            convert(Vec{N, Ptr{T}}, ($(op)(convert(Vec{N, Int}, x), convert(Vec{N, Int}, y))))
-        @inline Base.$op(x::Vec{N,Ptr{T}}, y::Union{IntegerTypes}) where {N,T} = $(op)(x, Vec{N,Ptr{T}}(y))
-        @inline Base.$op(x::IntegerTypes, y::Union{Vec{N,Ptr{T}}}) where {N,T} = $(op)(y, x)
+# Cast pointer to Int and back
+@inline Base.:+(x::Vec{N,Ptr{T}}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(Vec{N,Ptr{T}}, convert(Vec{N,UInt}, x) + y)
+@inline Base.:-(x::Vec{N,Ptr{T}}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(Vec{N,Ptr{T}}, convert(Vec{N,UInt}, x) - y)
+@inline Base.:+(x::Ptr{T}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(Vec{N,Ptr{T}}, convert(UInt, x) + y)
+@inline Base.:-(x::Ptr{T}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(Vec{N,Ptr{T}}, convert(UInt, x) - y)
+@inline Base.:+(x::Vec{N,Ptr{T}}, y::IntegerTypes) where {N,T} = convert(Vec{N,Ptr{T}}, convert(Vec{N,UInt}, x) + y)
+@inline Base.:-(x::Vec{N,Ptr{T}}, y::IntegerTypes) where {N,T} = convert(Vec{N,Ptr{T}}, convert(Vec{N,UInt}, x) - y)
 
-        @inline Base.$op(x::Vec{N,<:IntegerTypes}, y::Ptr{T}) where {N,T} = $(op)(Vec{N,Ptr{T}}(x), Vec{N,Ptr{T}}(y))
-        @inline Base.$op(x::Ptr{T}, y::Vec{N,<:IntegerTypes}) where {N,T} = $(op)(y, x)
-    end
-end
+@inline Base.:+(y::Vec{N,<:IntegerTypes}, x::Vec{N,Ptr{T}}, ) where {N,T} = x + y
+@inline Base.:+(y::Vec{N,<:IntegerTypes}, x::Ptr{T}) where {N,T} = x + y
+@inline Base.:+(y::IntegerTypes, x::Vec{N,Ptr{T}}) where {N,T} = x + y
+
+@inline Base.:-(x::Vec{N,Ptr{T}}, y::Vec{N,Ptr{T}}) where {N,T} = convert(Vec{N,Int}, x) - convert(Vec{N,Int}, y)
+@inline Base.:-(x::Ptr{T}, y::Vec{N,Ptr{T}}) where {N,T} = convert(UInt, x) % Int - convert(Vec{N,Int}, y)
+@inline Base.:-(x::Vec{N,Ptr{T}}, y::Ptr{T}) where {N,T} = convert(Vec{N,Int}, x) - convert(UInt, y) % Int
 
 # Bitshifts
 # See https://github.com/JuliaLang/julia/blob/7426625b5c07b0d93110293246089a259a0a677d/src/intrinsics.cpp#L1179-L1196
