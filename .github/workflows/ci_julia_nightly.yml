@@ -32,7 +32,7 @@ jobs:
           - 'nightly'
         exclude:
           - os: macOS-latest
-            arch: x86 # 32-bit Julia binaries are not available on macOS
+            arch: x86   # 32-bit Julia binaries are not available on macOS
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
