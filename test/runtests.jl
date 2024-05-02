@@ -882,7 +882,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
 
     @testset "Vector shuffles" begin
 
-        for T in (Int8,UInt8,Int16,UInt16,Int32,UInt32,Int64,UInt64,Float32,Float64)
+        for T in (Int8,UInt8,Int16,UInt16,Int32,UInt32,Int64,UInt64,Float16,Float32,Float64)
             a = Vec{4,T}((1,2,3,4))
             b = Vec{4,T}((5,6,7,8))
             @test shufflevector(a, b, Val((2,3,4,5))) === Vec{4,T}((3,4,5,6))
@@ -905,7 +905,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
             @test shufflevector(a, b, Val((2,3,4,5))) === Vec{4,Bool}((true,false,false,false))
         end
 
-        for T in (Int8,UInt8,Int16,UInt16,Int32,UInt32,Int64,UInt64,Float32,Float64)
+        for T in (Int8,UInt8,Int16,UInt16,Int32,UInt32,Int64,UInt64,Float16,Float32,Float64)
             a = Vec{4,T}((1,2,3,4))
             b = Vec{4,T}((5,6,7,8))
             @test shufflevector(a, b, Val((2,3,4,5))) === Vec{4,T}((3,4,5,6))

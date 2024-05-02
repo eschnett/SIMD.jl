@@ -14,7 +14,7 @@ const BIntTypes     = Union{IntTypes, Bool}
 const UIntTypes     = Union{UInt8, UInt16, UInt32, UInt64}
 const IntegerTypes  = Union{IntTypes, UIntTypes}
 const BIntegerTypes = Union{IntegerTypes, Bool}
-const FloatingTypes = Union{Float32, Float64} # Float16 support is non-native in Julia and gets passed as an i16
+const FloatingTypes = Union{Float16, Float32, Float64}
 const ScalarTypes   = Union{IntegerTypes, FloatingTypes}
 const VecTypes      = Union{ScalarTypes, Ptr, Bool}
 include("LLVM_intrinsics.jl")

@@ -28,7 +28,7 @@ const d = Dict{DataType, String}(
     UInt64       => "i64",
     UInt128      => "i128",
 
-    #Float16     => "half",
+    Float16      => "half",
     Float32      => "float",
     Float64      => "double",
 )

@@ -167,6 +167,7 @@ Base.abs(v::Vec{N, T}) where {N, T} = Vec(vifelse(v < zero(T), -v, v))
 Base.:!(v1::Vec{N,Bool}) where {N} = ~v1
 Base.inv(v::Vec{N, T}) where {N, T<:FloatingTypes} = one(T) / v
 
+_unsigned(::Type{Float16}) = UInt16
 _unsigned(::Type{Float32}) = UInt32
 _unsigned(::Type{Float64}) = UInt64
 function Base.issubnormal(x::Vec{N, T}) where {N, T<:FloatingTypes}
@@ -300,6 +301,7 @@ end
     vifelse(signbit(v2), -v1, v1)
 @inline Base.copysign(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T<:IntTypes} =
     vifelse(signbit(v2), -abs(v1), abs(v1))
+_signed(::Type{Float16}) = Int16
 _signed(::Type{Float32}) = Int32
 _signed(::Type{Float64}) = Int64
 @inline Base.signbit(x::Vec{N, T}) where {N, T <:FloatingTypes} =
