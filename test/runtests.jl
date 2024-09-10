@@ -988,4 +988,12 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test all(r == Vec(4.0, 3.0, 3.0, 4.0))
     end
 
+    @testset "No-op functions" begin
+        for x in (Vec(1.0, 2.0, 3.0, 4.0), Vec(1, 2))
+            for op in (real, conj)
+                @test op(x) === x
+            end
+        end
+    end
+
 # end

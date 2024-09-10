@@ -492,3 +492,11 @@ end
 @inline function shufflevector(x::Vec{N, T}, y::Vec{N, T}, ::Val{I}) where {N, T, I}
     Vec(Intrinsics.shufflevector(x.data, y.data, Val(I)))
 end
+
+###################
+# No-op functions #
+###################
+
+for op in (:real, :conj)
+    @eval @inline Base.$op(v::Vec{<:Any, <:Union{<:FloatingTypes, <:IntegerTypes}}) = v
+end
