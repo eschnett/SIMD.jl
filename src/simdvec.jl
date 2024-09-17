@@ -164,6 +164,7 @@ Base.FastMath.sub_fast(v::Vec{<:Any, <:FloatingTypes}) = Vec(Intrinsics.fneg(v.d
 Base.:~(v::Vec{N, T}) where {N, T<:IntegerTypes} = Vec(Intrinsics.xor(v.data, Vec{N, T}(-1).data))
 Base.:~(v::Vec{N, Bool}) where {N} = Vec(Intrinsics.xor(v.data, Vec{N, Bool}(true).data))
 Base.abs(v::Vec{N, T}) where {N, T} = Vec(vifelse(v < zero(T), -v, v))
+Base.abs2(v::Vec{N, T}) where {N, T} = v*v
 Base.:!(v1::Vec{N,Bool}) where {N} = ~v1
 Base.inv(v::Vec{N, T}) where {N, T<:FloatingTypes} = one(T) / v
 
