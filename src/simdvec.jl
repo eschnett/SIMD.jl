@@ -494,10 +494,11 @@ end
     Vec(Intrinsics.shufflevector(x.data, y.data, Val(I)))
 end
 
-###################
-# No-op functions #
-###################
+############################
+# Complex Number functions #
+############################
 
-for op in (:real, :conj)
-    @eval @inline Base.$op(v::Vec{<:Any, <:Union{<:FloatingTypes, <:IntegerTypes}}) = v
-end
+@inline Base.real(v::Vec{N, T}) where {N, T<:ScalarTypes} = v
+@inline Base.conj(v::Vec{N, T}) where {N, T<:ScalarTypes} = v
+@inline Base.angle(v::Vec{N, T}) where {N, T <: FloatingTypes} = vifelse(signbit(v), Vec(ntuple(i -> convert(T, pi), Val(N))), zero(v))
+@inline Base.imag(v::Vec{N, T}) where {N, T <: ScalarTypes} = zero(v)

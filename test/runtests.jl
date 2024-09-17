@@ -103,7 +103,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
 
         notbool(x) = !(x>=typeof(x)(0))
         for op in (~, +, -, abs, abs2, notbool, sign, signbit, count_ones, count_zeros,
-                   leading_ones, leading_zeros, trailing_ones, trailing_zeros)
+                   leading_ones, leading_zeros, conj, real, imag, trailing_ones, trailing_zeros)
             @test Tuple(op(V8I32(v8i32))) == map(op, v8i32)
         end
 
@@ -181,8 +181,8 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         sqrtabs(x) = sqrt(abs(x))
         for op in (
                 +, -,
-                abs, abs2, ceil, inv, isfinite, isinf, isnan, issubnormal, floor, powi4,
-                round, sign, signbit, sqrtabs, trunc)
+                abs, abs2, angle, ceil, conj, inv, imag, isfinite, isinf, isnan, issubnormal, floor, powi4,
+                real, round, sign, signbit, sqrtabs, trunc)
             @test Tuple(op(V4F64(v4f64))) === map(op, v4f64)
         end
         function Base.isapprox(t1::Tuple,t2::Tuple)
@@ -986,14 +986,6 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test all(r == Vec(1.0, 2.0, 2.0, 1.0))
         r = @fastmath max(x, y)
         @test all(r == Vec(4.0, 3.0, 3.0, 4.0))
-    end
-
-    @testset "No-op functions" begin
-        for x in (Vec(1.0, 2.0, 3.0, 4.0), Vec(1, 2))
-            for op in (real, conj)
-                @test op(x) === x
-            end
-        end
     end
 
 # end
