@@ -500,5 +500,5 @@ end
 
 @inline Base.real(v::Vec{N, T}) where {N, T<:ScalarTypes} = v
 @inline Base.conj(v::Vec{N, T}) where {N, T<:ScalarTypes} = v
-@inline Base.angle(v::Vec{N, T}) where {N, T <: FloatingTypes} = vifelse(signbit(v), Vec(ntuple(i -> convert(T, pi), Val(N))), zero(v))
+@inline Base.angle(v::Vec{N, T}) where {N, T <: FloatingTypes} = vifelse(signbit(v), Vec{N, T}(T(pi)), zero(v))
 @inline Base.imag(v::Vec{N, T}) where {N, T <: ScalarTypes} = zero(v)
