@@ -446,6 +446,7 @@ end
 const MULADD_INTRINSICS = [
     :fmuladd,
     :fma,
+
 ]
 
 for f in MULADD_INTRINSICS
@@ -458,6 +459,23 @@ for f in MULADD_INTRINSICS
     end
 end
 
+const AVX_EXTS = [("d"    , 2, Float64), ("s"    , 4, Float32),
+                  ("d.256", 4, Float64), ("s.256", 8, Float32),
+                  # ("d.512", 8, Float64), ("s.512", 16, Float32) # These don't seem supported by LLVM yet
+                  ]
+const MULALTADD_INTRINSICS = [:vfmaddsub, :vfmsubadd]
+
+for f in MULALTADD_INTRINSICS
+    for (t, N, T) in AVX_EXTS
+        @eval @generated function ($f)(a::LVec{$N, $T}, b::LVec{$N, $T}, c::LVec{$N, $T})
+            ff = "llvm.x86.fma."*(string($f))*".p"*($t)
+            return :(
+                $(Expr(:meta, :inline));
+                ccall($ff, llvmcall, LVec{$($N), $($T)}, (LVec{$($N), $($T)}, LVec{$($N), $($T)}, LVec{$($N), $($T)}), a, b, c)
+            )
+        end
+    end
+end
 
 ################
 # Load / store #
