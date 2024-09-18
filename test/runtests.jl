@@ -102,8 +102,8 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         global const v8i32c = map(x->Int32(x*2), v8i32)
 
         notbool(x) = !(x>=typeof(x)(0))
-        for op in (~, +, -, abs, notbool, sign, signbit, count_ones, count_zeros,
-                   leading_ones, leading_zeros, trailing_ones, trailing_zeros)
+        for op in (~, +, -, abs, abs2, notbool, sign, signbit, count_ones, count_zeros,
+                   leading_ones, leading_zeros, conj, real, imag, trailing_ones, trailing_zeros)
             @test Tuple(op(V8I32(v8i32))) == map(op, v8i32)
         end
 
@@ -181,8 +181,8 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         sqrtabs(x) = sqrt(abs(x))
         for op in (
                 +, -,
-                abs, ceil, inv, isfinite, isinf, isnan, issubnormal, floor, powi4,
-                round, sign, signbit, sqrtabs, trunc)
+                abs, abs2, angle, ceil, conj, inv, imag, isfinite, isinf, isnan, issubnormal, floor, powi4,
+                real, round, sign, signbit, sqrtabs, trunc)
             @test Tuple(op(V4F64(v4f64))) === map(op, v4f64)
         end
         function Base.isapprox(t1::Tuple,t2::Tuple)
