@@ -10,7 +10,7 @@ module Intrinsics
 # when passed to LLVM. It is up to the caller to make sure that the correct
 # intrinsic is called (e.g uitofp vs sitofp).
 
-import ..SIMD: SIMD, VE, LVec, FloatingTypes
+import ..SIMD: SIMD, VE, LVec, FloatingTypes, BFloat16
 # Include Bool in IntegerTypes
 const IntegerTypes = Union{SIMD.IntegerTypes, Bool}
 
@@ -31,6 +31,7 @@ const d = Dict{DataType, String}(
     Float16      => "half",
     Float32      => "float",
     Float64      => "double",
+    BFloat16     => "bfloat",
 )
 # Add the Ptr translations
 # Julia <=1.11 (LLVM <=16) passes `Ptr{T}` as `i64`, Julia >=1.12 (LLVM >=17) passes them as `T*`.
