@@ -321,12 +321,8 @@ const OVERFLOW_INTRINSICS = [
     :umul_with_overflow
 ]
 
-const SUPPORTS_VEC_OVERFLOW = Base.libllvm_version >= v"9"
 for f in OVERFLOW_INTRINSICS
     @eval @generated function $f(x::LVec{N, T}, y::LVec{N, T}) where {N, T <: IntegerTypes}
-        if !SUPPORTS_VEC_OVERFLOW
-            return :(error("LLVM version 9.0 or greater required (Julia 1.5 or greater)"))
-        end
         ff = llvm_name($(QuoteNode(f)), N, T)
         if $(QuoteNode(f)) == :smul_with_overflow && Sys.ARCH == :i686 && T == Int64
             str = "this intrinsic ($ff) is broken on i686"
@@ -822,13 +818,12 @@ const HORZ_REDUCTION_OPS_INT = [
     :umin
 ]
 
-const horizontal_reduction_prefix = Base.libllvm_version < v"12" ? "experimental.vector.reduce." : "vector.reduce."
 for (fs, c) in zip([HORZ_REDUCTION_OPS_FLOAT, HORZ_REDUCTION_OPS_INT],
                    [FloatingTypes,            IntegerTypes])
     for f in fs
         f_red = Symbol("reduce_", f)
         @eval @generated function $f_red(x::LVec{N, T}) where {N,T<:$c}
-            ff = llvm_name(string(horizontal_reduction_prefix, $(QuoteNode(f))), N, T)
+            ff = llvm_name(string("vector.reduce.", $(QuoteNode(f))), N, T)
             mod = """
                 declare $(d[T]) @$ff(<$N x $(d[T])>)
 
@@ -849,9 +844,7 @@ for (fs, c) in zip([HORZ_REDUCTION_OPS_FLOAT, HORZ_REDUCTION_OPS_INT],
 end
 
 # The fadd and fmul reductions take an initializer
-const horz_reduction_version = (v"9" < Base.libllvm_version < v"12") ? "v2." : ""
-const horz_experimental = Base.libllvm_version < v"12" ? "experimental." : ""
-const horizontal_reduction_2arg_prefix =  "$(horz_experimental)vector.reduce.$horz_reduction_version"
+const horizontal_reduction_2arg_prefix =  "vector.reduce."
 for (f, neutral) in [(:fadd, "0.0"), (:fmul, "1.0")]
     f_red = Symbol("reduce_", f)
     @eval @generated function $f_red(x::LVec{N, T}, ::F=nothing) where {N,T<:FloatingTypes, F<:FPFlags}

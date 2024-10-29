@@ -152,19 +152,17 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
     end
 
     using Base.Checked: add_with_overflow, sub_with_overflow, mul_with_overflow
-    if Base.libllvm_version >= v"9"
-        @testset "overflow arithmetic" begin
-            for f in (add_with_overflow, sub_with_overflow, mul_with_overflow)
-                for T in [Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64]
-                    t2 = div(typemax(T), T(2)) + one(T)
-                    t1 = div(typemin(T), T(2)) - (T <: Unsigned ? zero(T) : one(T))
-                    v = Vec(t2, t1, T(0), t2 - one(T))
-                    if f == mul_with_overflow && Sys.ARCH == :i686 && T == Int64
-                        @test_throws ErrorException f(v,v)
-                        continue
-                    end
-                    @test Tuple(zip(Tuple.(f(v,v))...)) === map(f, Tuple(v), Tuple(v))
+    @testset "overflow arithmetic" begin
+        for f in (add_with_overflow, sub_with_overflow, mul_with_overflow)
+            for T in [Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64]
+                t2 = div(typemax(T), T(2)) + one(T)
+                t1 = div(typemin(T), T(2)) - (T <: Unsigned ? zero(T) : one(T))
+                v = Vec(t2, t1, T(0), t2 - one(T))
+                if f == mul_with_overflow && Sys.ARCH == :i686 && T == Int64
+                    @test_throws ErrorException f(v,v)
+                    continue
                 end
+                @test Tuple(zip(Tuple.(f(v,v))...)) === map(f, Tuple(v), Tuple(v))
             end
         end
     end
@@ -552,7 +550,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
     end
 
     @testset "expandload" begin
-        if Base.libllvm_version >= v"9" || Sys.CPU_NAME == "skylake"
+        if Sys.CPU_NAME == "skylake"
             for arr in [arri32, arrf64]
                 VT = Vec{4,eltype(arr)}
                 arr .= 1:length(arr)
@@ -563,12 +561,12 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                 @test vloadx(arr, 1, Vec((false, false, false, false))) === VT((0, 0, 0, 0))
             end
         else
-            @info "Skipping tests for `expandload`" Base.libllvm_version Sys.CPU_NAME
+            @info "Skipping tests for `expandload`" Sys.CPU_NAME
         end
     end
 
     @testset "compressstore" begin
-        if Base.libllvm_version >= v"9" || Sys.CPU_NAME == "skylake"
+        if Sys.CPU_NAME == "skylake"
             for arr in [arri32, arrf64]
                 VT = Vec{4,eltype(arr)}
                 arr .= 1:length(arr)
@@ -585,7 +583,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                     zero(arr)
             end
         else
-            @info "Skipping tests for `compressstore`" Base.libllvm_version Sys.CPU_NAME
+            @info "Skipping tests for `compressstore`" Sys.CPU_NAME
         end
     end
 
@@ -861,7 +859,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
             return dest
         end
 
-        if Base.libllvm_version >= v"9" || Sys.CPU_NAME == "skylake"
+        if Sys.CPU_NAME == "skylake"
             let n = 15
                 src = randn(n)
                 pred = Vector{Bool}(src .> 0)

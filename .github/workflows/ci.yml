@@ -1,13 +1,11 @@
-name: CI
+name: Run tests
 
 on:
-  pull_request:
-    branches:
-      - master
   push:
     branches:
       - master
-    tags: '*'
+      - main
+  pull_request:
 
 # needed to allow julia-actions/cache to delete old caches that it has created
 permissions:
@@ -16,51 +14,24 @@ permissions:
 
 jobs:
   test:
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # See <https://julialang-s3.julialang.org/bin/versions.json> for available Julia versions
-        include:
-          - arch: "x64"
-            os: "ubuntu-latest"
-            version: "1.10"
-          - arch: "x64"
-            os: "windows-latest"
-            version: "1.10"
-          - arch: "x64"
-            os: "macOS-latest"
-            version: "1.10"
-          - arch: "x86"
-            os: "ubuntu-latest"
-            version: "1.10"
-          - arch: "x64"
-            os: "ubuntu-latest"
-            version: "1.9"
-          - arch: "x64"
-            os: "ubuntu-latest"
-            version: "1.8"
-          - arch: "x64"
-            os: "ubuntu-latest"
-            version: "1.7"
-          - arch: "x64"
-            os: "ubuntu-latest"
-            version: "1.6"
-          # - arch: "x64"
-          #   os: "ubuntu-latest"
-          #   version: "nightly"
+        julia-version: ['lts', '1', 'pre']
+        julia-arch: [x64, x86]
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        exclude:
+          - os: macOS-latest
+            julia-arch: x86
+
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
-          version: ${{ matrix.version }}
-          arch: ${{ matrix.arch }}
-      - uses: julia-actions/cache@v1
+          version: ${{ matrix.julia-version }}
+          arch: ${{ matrix.julia-arch }}
+      - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
-      - uses: julia-actions/julia-processcoverage@v1
-      - uses: codecov/codecov-action@v2
-        env:
-          CODECOV_TOKEN: 82aae245-ad5c-41ac-9e30-b64617ce25b0
-        with:
-          file: lcov.info
+        # with:
+        #   annotate: true
