@@ -806,9 +806,11 @@ end
 # Horizontal reductions (LLVM 9) #
 ##################################
 
+const SUPPORTS_FMAXIMUM_FMINIMUM = Base.libllvm_version >= v"18"
+
 const HORZ_REDUCTION_OPS_FLOAT = [
-    :fmax
-    :fmin
+    SUPPORTS_FMAXIMUM_FMINIMUM ? :fmaximum : :fmax
+    SUPPORTS_FMAXIMUM_FMINIMUM ? :fminimum : :fmin
 ]
 
 const HORZ_REDUCTION_OPS_INT = [
