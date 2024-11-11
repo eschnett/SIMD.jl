@@ -997,4 +997,10 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test all(r == Vec(4.0, 3.0, 3.0, 4.0))
     end
 
+    @testset "parsable repr" begin
+        v = Vec(1.0, 2.0, 3.0, 4.0)
+        v2 = eval(Meta.parse(repr(v)))
+        @test v === v2
+    end
+
 # end
