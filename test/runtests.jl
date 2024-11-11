@@ -354,6 +354,15 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
 
         @test sum(Vec{3,Float64}(1)) === 3.0
         @test prod(Vec{5,Float64}(2)) === 32.0
+
+        # Floating point reduce IEEEE # https://github.com/eschnett/SIMD.jl/issues/129
+        if SIMD.Intrinsics.SUPPORTS_FMAXIMUM_FMINIMUM
+            t = (1.0, 2.0, NaN, 0.5)
+            tv = SIMD.Vec(t)
+
+            @test isnan(reduce(min, t))
+            @test isnan(reduce(min, tv))
+        end
     end
 
     @testset "Load and store functions" begin
