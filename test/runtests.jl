@@ -103,7 +103,8 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
 
         notbool(x) = !(x>=typeof(x)(0))
         for op in (~, +, -, abs, abs2, notbool, sign, signbit, count_ones, count_zeros,
-                   leading_ones, leading_zeros, conj, real, imag, trailing_ones, trailing_zeros)
+                   leading_ones, leading_zeros, conj, real, imag, trailing_ones, trailing_zeros,
+                   bswap)
             @test Tuple(op(V8I32(v8i32))) == map(op, v8i32)
         end
 
@@ -140,6 +141,14 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test Tuple(V8I32(v8i32)^1) === v8i32.^1
         @test Tuple(V8I32(v8i32)^2) === v8i32.^2
         @test Tuple(V8I32(v8i32)^3) === v8i32.^3
+    end
+
+    @testset "bswap" begin
+        for sz in [1, 2, 4, 8, 16, 32]
+            VszI8 = Vec{sz,Int8}
+            vszi8 = ntuple(i->Int8(ifelse(isodd(i), i, -i)), sz)
+            @test Tuple(bswap(VszI8(vszi8))) == map(bswap, vszi8)
+        end
     end
 
     @testset "saturation" begin
