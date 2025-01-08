@@ -157,6 +157,10 @@ for (op, constraint, llvmop) in UNARY_OPS
         Vec($(llvmop)(x.data))
 end
 
+# Fix up bswap (see <https://github.com/eschnett/SIMD.jl/issues/122>):
+# bswap for 1-byte types is a no-op
+Base.bswap(x::Vec{<:Any, <:Union{Int8,UInt8}}) = x
+
 Base.:+(v::Vec{<:Any, <:ScalarTypes}) = v
 Base.:-(v::Vec{<:Any, <:IntegerTypes}) = zero(v) - v
 Base.:-(v::Vec{<:Any, <:FloatingTypes}) = Vec(Intrinsics.fneg(v.data))
