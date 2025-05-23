@@ -53,7 +53,7 @@ The SIMD package provides the usual arithmetic and logical operations for SIMD v
 
 `+ - * / % ^ ! ~ & | $ << >> >>> == != < <= > >=`
 
-`abs cbrt ceil copysign cos div exp exp10 exp2 flipsign floor fma inv isfinite isinf isnan issubnormal log log10 log2 muladd rem round sign signbit sin sqrt trunc vifelse`
+`abs ceil copysign cos div exp exp2 flipsign floor fma inv isfinite isinf isnan issubnormal log log10 log2 muladd rem round sign signbit sin sqrt trunc vifelse`
 
 (Currently missing: `exponent ldexp significand`, many trigonometric functions)
 
