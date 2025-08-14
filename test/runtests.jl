@@ -1006,4 +1006,13 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test all(r == Vec(4.0, 3.0, 3.0, 4.0))
     end
 
+    @testset "bitmask" begin
+        for N in [1, 8, 24, 31]
+            vmask = one(Vec{N,Bool})
+            imask = bitmask(vmask)
+            @test count_ones(imask) == N
+            @test leading_zeros(imask) == nextpow(2, max(N, 8)) - N
+        end
+    end
+
 # end
