@@ -807,6 +807,9 @@ end
 ###########
 
 @generated function bitmask(x::LVec{N, Bool}) where {N}
+    if N > 128 # Julia doesn't export anything larger than UInt128
+        return :(throw(ArgumentError(("vector length $(N) must be <= 128"))))
+    end
     P = nextpow(2, max(N, 8))
     T = Symbol("UInt", P)
     if N == P
