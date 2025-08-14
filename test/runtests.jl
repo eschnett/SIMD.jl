@@ -1014,7 +1014,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
             @assert count_ones(imask) == sum(tmask)
 
             M = N - something(findlast(==(true), tmask), 0) # Num original leading zeros
-            K = nextpow(2, max(N, 8)) - N # Num extended leading zeros
+            K = sizeof(imask)*8 - N # Num extended leading zeros
             @assert leading_zeros(imask) == M + K
         end
     end
