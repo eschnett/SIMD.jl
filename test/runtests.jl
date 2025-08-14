@@ -1007,11 +1007,15 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
     end
 
     @testset "bitmask" begin
-        for N in [1, 8, 24, 31]
-            vmask = one(Vec{N,Bool})
+        for N in [1, 8, 24, 31, 64]
+            tmask = Tuple(rand(Bool,N))
+            vmask = Vec{N,Bool}(tmask)
             imask = bitmask(vmask)
-            @test count_ones(imask) == N
-            @test leading_zeros(imask) == nextpow(2, max(N, 8)) - N
+            @assert count_ones(imask) == sum(tmask)
+
+            M = N - something(findlast(==(true), tmask), 0) # Num original leading zeros
+            K = nextpow(2, max(N, 8)) - N # Num extended leading zeros
+            @assert leading_zeros(imask) == M + K
         end
     end
 
