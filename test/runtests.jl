@@ -1011,11 +1011,11 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
             tmask = Tuple(rand(Bool,N))
             vmask = Vec{N,Bool}(tmask)
             imask = bitmask(vmask)
-            @assert count_ones(imask) == sum(tmask)
+            @test count_ones(imask) == sum(tmask)
 
             M = N - something(findlast(==(true), tmask), 0) # Num original leading zeros
             K = sizeof(imask)*8 - N # Num extended leading zeros
-            @assert leading_zeros(imask) == M + K
+            @test leading_zeros(imask) == M + K
         end
     end
 
