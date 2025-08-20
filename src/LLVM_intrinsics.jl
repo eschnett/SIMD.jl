@@ -802,6 +802,36 @@ end
     )
 end
 
+###########
+# Bitmask #
+###########
+
+@generated function bitmask(x::LVec{N, Bool}) where {N}
+    if N > 128 # Julia doesn't export anything larger than UInt128
+        return :(throw(ArgumentError(("vector length $(N) must be <= 128"))))
+    end
+    P = nextpow(2, max(N, 8))
+    T = Symbol("UInt", P)
+    if N == P
+        s = """
+        %mask = trunc <$(N) x i8> %0 to <$(N) x i1>
+        %maski = bitcast <$(N) x i1> %mask to i$(N)
+        ret i$(N) %maski
+        """
+    else
+        s = """
+        %mask = trunc <$(N) x i8> %0 to <$(N) x i1>
+        %maski = bitcast <$(N) x i1> %mask to i$(N)
+        %maskizext = zext i$(N) %maski to i$(P)
+        ret i$(P) %maskizext
+        """
+    end
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall($s, $T, Tuple{LVec{N, Bool}}, x)
+    )
+end
+
 ##################################
 # Horizontal reductions (LLVM 9) #
 ##################################
