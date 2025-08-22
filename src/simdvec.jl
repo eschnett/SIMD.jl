@@ -48,7 +48,7 @@ Base.copy(v::Vec) = v
             end
         end
     elseif T1 <: FloatingTypes
-        if T2 <: UIntTypes
+        if T2 <: Union{UIntTypes, Bool}
             return Vec(Intrinsics.uitofp(Intrinsics.LVec{N, T1}, v.data))
         elseif T2 <: IntTypes
             return Vec(Intrinsics.sitofp(Intrinsics.LVec{N, T1}, v.data))
