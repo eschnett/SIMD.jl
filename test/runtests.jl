@@ -70,6 +70,32 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test all(Tuple(convert(Vec{8, Float64}, v)) .== Tuple(v))
     end
 
+    @testset "convert(target_type, source)" begin
+        for ST in (Bool, Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64, Float16, Float32, Float64)
+            for TT in (Bool, Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64, Float16, Float32, Float64)
+                lower = if ST <: Union{SIMD.UIntTypes, Bool} || TT <: Union{SIMD.UIntTypes, Bool}
+                    zero(ST)
+                elseif ST <: SIMD.FloatingTypes || TT <: SIMD.FloatingTypes
+                    ST(typemin(Int8)) # A reasonable lower bound for any float/signed combination
+                else
+                    ST(max(typemin(TT),typemin(ST)))
+                end
+                upper = if ST <: Bool || TT <: Bool
+                    ST(one(Bool))
+                elseif ST <: SIMD.FloatingTypes || TT <: SIMD.FloatingTypes
+                    ST(typemax(Int8)) # A reasonable upper bound for any float/integer combination
+                else
+                    ST(min(typemax(TT),typemax(ST)))
+                end
+
+                v8s = Tuple(rand(lower:upper,8))
+                v8t = TT.(v8s)
+
+                @test Tuple(SIMD.convert(SIMD.Vec{8,TT}, SIMD.Vec{8,ST}(v8s))) == v8t
+            end
+        end
+    end
+
     @testset "Element-wise access" begin
 
         for i in 1:L8
