@@ -2,6 +2,8 @@ module SIMD
 
 using Base: @propagate_inbounds
 
+using BFloat16s: BFloat16
+
 export Vec, vload, vloada, vloadnt, vloadx, vstore, vstorea, vstorent, vstorec,
        vgather, vgathera, vscatter, vscattera, shufflevector, vifelse, valloc,
        VecRange, bitmask
@@ -14,7 +16,7 @@ const BIntTypes     = Union{IntTypes, Bool}
 const UIntTypes     = Union{UInt8, UInt16, UInt32, UInt64}
 const IntegerTypes  = Union{IntTypes, UIntTypes}
 const BIntegerTypes = Union{IntegerTypes, Bool}
-const FloatingTypes = Union{Float16, Float32, Float64}
+const FloatingTypes = Union{Float16, Float32, Float64, BFloat16}
 const ScalarTypes   = Union{IntegerTypes, FloatingTypes}
 const VecTypes      = Union{ScalarTypes, Ptr, Bool}
 include("LLVM_intrinsics.jl")
