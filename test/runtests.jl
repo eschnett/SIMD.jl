@@ -1019,4 +1019,6 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         end
     end
 
+include("opencl.jl")
+
 # end

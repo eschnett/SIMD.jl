@@ -1,6 +1,7 @@
 module SIMD
 
 using Base: @propagate_inbounds
+using Core: LLVMPtr
 
 export Vec, vload, vloada, vloadnt, vloadx, vstore, vstorea, vstorent, vstorec,
        vgather, vgathera, vscatter, vscattera, shufflevector, vifelse, valloc,
@@ -16,7 +17,7 @@ const IntegerTypes  = Union{IntTypes, UIntTypes}
 const BIntegerTypes = Union{IntegerTypes, Bool}
 const FloatingTypes = Union{Float16, Float32, Float64}
 const ScalarTypes   = Union{IntegerTypes, FloatingTypes}
-const VecTypes      = Union{ScalarTypes, Ptr, Bool}
+const VecTypes      = Union{ScalarTypes, Ptr, LLVMPtr, Bool}
 include("LLVM_intrinsics.jl")
 include("simdvec.jl")
 include("arrayops.jl")
