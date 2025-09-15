@@ -9,6 +9,7 @@ export Vec, vload, vloada, vloadnt, vloadx, vstore, vstorea, vstorent, vstorec,
 
 const VE         = Base.VecElement
 const LVec{N, T} = NTuple{N, VE{T}}
+const AnyPtr{T}  = Union{Ptr{T}, LLVMPtr{T}}
 
 const IntTypes      = Union{Int8, Int16, Int32, Int64} # Int128 and UInt128 does not get passed as LLVM vectors
 const BIntTypes     = Union{IntTypes, Bool}
