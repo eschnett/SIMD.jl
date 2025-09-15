@@ -41,6 +41,11 @@ jobs:
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v1
       - uses: julia-actions/julia-buildpkg@v1
+      - name: Checkout OpenCL
+        run: |
+          julia --project -e '
+            using Pkg
+            Pkg.add(name="OpenCL", rev="sds/validate")'
       - uses: julia-actions/julia-runtest@v1
         with:
           check_bounds: auto
