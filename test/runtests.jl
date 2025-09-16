@@ -1019,6 +1019,10 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         end
     end
 
-include("opencl.jl")
+if parse(Bool, get(ENV, "TEST_OPENCL", "true"))
+    include("opencl.jl")
+else
+    @info "Skipping OpenCL tests"
+end
 
 # end
