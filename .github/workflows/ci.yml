@@ -86,10 +86,8 @@ jobs:
         run: |
           julia --project -e '
             using Pkg
-            Pkg.add(name="OpenCL", rev="sds/validate")
             Pkg.activate("test")
-            Pkg.add(name="OpenCL", rev="sds/validate")
-            Pkg.add(["KernelAbstractions", "pocl_jll"])
+            Pkg.add(["KernelAbstractions", "OpenCL", "pocl_jll"])
             rm("test/Manifest.toml")'
         if: matrix.test-opencl
       - uses: julia-actions/julia-runtest@v1
