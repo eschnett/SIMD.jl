@@ -26,7 +26,7 @@ Base.copy(v::Vec) = v
     if T1 <: Ptr || T1 <: LLVMPtr
         return Vec(Intrinsics.inttoptr(Intrinsics.LVec{N, T1}, v.data))
     elseif T1 <: IntegerTypes
-        if T2 <: Ptr
+        if T2 <: Ptr || T2 <: LLVMPtr
             return Vec(Intrinsics.ptrtoint(Intrinsics.LVec{N, T1}, v.data))
         elseif T2 <: Union{IntegerTypes, Bool}
             if sizeof(T1) < sizeof(T2)
@@ -316,12 +316,20 @@ _signed(::Type{Float64}) = Int64
 
 # Pointer arithmetic
 # Cast pointer to Int and back
-@inline Base.:+(x::Vec{N,<:AnyPtr{T}}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(typeof(x), convert(Vec{N,UInt}, x) + y)
-@inline Base.:-(x::Vec{N,<:AnyPtr{T}}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(typeof(x), convert(Vec{N,UInt}, x) - y)
-@inline Base.:+(x::AnyPtr{T}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(Vec{N,typeof(x)}, UInt(x) + y)
-@inline Base.:-(x::AnyPtr{T}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(Vec{N,typeof(x)}, UInt(x) - y)
-@inline Base.:+(x::Vec{N,<:AnyPtr{T}}, y::IntegerTypes) where {N,T} = convert(typeof(x), convert(Vec{N,UInt}, x) + y)
-@inline Base.:-(x::Vec{N,<:AnyPtr{T}}, y::IntegerTypes) where {N,T} = convert(typeof(x), convert(Vec{N,UInt}, x) - y)
+@inline Base.:+(x::Vec{N,Ptr{T}}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(typeof(x), convert(Vec{N,UInt}, x) + y)
+@inline Base.:-(x::Vec{N,Ptr{T}}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(typeof(x), convert(Vec{N,UInt}, x) - y)
+@inline Base.:+(x::Ptr{T}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(Vec{N,typeof(x)}, UInt(x) + y)
+@inline Base.:-(x::Ptr{T}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(Vec{N,typeof(x)}, UInt(x) - y)
+@inline Base.:+(x::Vec{N,Ptr{T}}, y::IntegerTypes) where {N,T} = convert(typeof(x), convert(Vec{N,UInt}, x) + y)
+@inline Base.:-(x::Vec{N,Ptr{T}}, y::IntegerTypes) where {N,T} = convert(typeof(x), convert(Vec{N,UInt}, x) - y)
+
+# use gep
+@inline Base.:+(x::Vec{N,LLVMPtr{T, AS}}, y::Vec{N,<:IntegerTypes}) where {N,T,AS} = Vec(Intrinsics.add_ptr(x.data, y.data))
+@inline Base.:-(x::Vec{N,LLVMPtr{T, AS}}, y::Vec{N,<:IntegerTypes}) where {N,T,AS} = Vec(Intrinsics.add_ptr(x.data, (-y).data))
+@inline Base.:+(x::LLVMPtr{T, AS}, y::Vec{N,<:IntegerTypes}) where {N,T,AS} = Vec(Intrinsics.add_ptr(x, y.data))
+@inline Base.:-(x::LLVMPtr{T, AS}, y::Vec{N,<:IntegerTypes}) where {N,T,AS} = Vec(Intrinsics.add_ptr(x, (-y).data))
+@inline Base.:+(x::Vec{N,LLVMPtr{T, AS}}, y::IntegerTypes) where {N,T,AS} = Vec(Intrinsics.add_ptr(x.data, y))
+@inline Base.:-(x::Vec{N,LLVMPtr{T, AS}}, y::IntegerTypes) where {N,T,AS} = Vec(Intrinsics.add_ptr(x.data, -y))
 
 @inline Base.:+(y::Vec{N,<:IntegerTypes}, x::Vec{N,<:AnyPtr{T}}) where {N,T} = x + y
 @inline Base.:+(y::Vec{N,<:IntegerTypes}, x::AnyPtr{T}) where {N,T} = x + y

@@ -85,12 +85,12 @@ end
     end
     return a
 end
-@propagate_inbounds vstorea(x::Vec, ptr::Union{Ptr, LLVMPtr}, mask=nothing) = vstore(x, ptr, mask, Val(true))
-@propagate_inbounds vstorent(x::Vec, ptr::Union{Ptr, LLVMPtr}, mask=nothing) = vstore(x, ptr, mask, Val(true), Val(true))
+@propagate_inbounds vstorea(x::Vec, ptr::AnyPtr, mask=nothing) = vstore(x, ptr, mask, Val(true))
+@propagate_inbounds vstorent(x::Vec, ptr::AnyPtr, mask=nothing) = vstore(x, ptr, mask, Val(true), Val(true))
 @propagate_inbounds vstorea(x::Vec, a, i, mask=nothing) = vstore(x, a, i, mask, Val(true))
 @propagate_inbounds vstorent(x::Vec, a, i, mask=nothing) = vstore(x, a, i, mask, Val(true), Val(true))
 
-@inline vloadx(ptr::Union{Ptr, LLVMPtr}, mask::Vec{<:Any, Bool}) =
+@inline vloadx(ptr::AnyPtr, mask::Vec{<:Any, Bool}) =
     Vec(Intrinsics.maskedexpandload(ptr, mask.data))
 
 @propagate_inbounds function vloadx(a::FastContiguousArray{T,1},
@@ -153,7 +153,7 @@ end
                  mask::Vec{N,Bool}=one(Vec{N,Bool}),
                  ::Val{Aligned}=Val(false)) where {N, T<:ScalarTypes, Aligned} =
     return Vec(Intrinsics.maskedgather(ptrs.data, mask.data))
-@inline vgather(ptrs::Vec{<:Any,<:Union{Ptr{<:ScalarTypes}, LLVMPtr{<:ScalarTypes}}}, ::Nothing, aligned::Val = Val(false)) =
+@inline vgather(ptrs::Vec{<:Any,<:AnyPtr{<:ScalarTypes}}, ::Nothing, aligned::Val = Val(false)) =
     vgather(ptrs, one(Vec{length(ptrs),Bool}), aligned)
 @propagate_inbounds function vgather(a::FastContiguousArray{T,1}, idx::Vec{N, <:Integer},
                                      mask::Vec{N,Bool}=one(Vec{N,Bool}),

@@ -1129,4 +1129,41 @@ end
     )
 end
 
+###################################
+# add_ptr (through getelementptr) #
+###################################
+
+@generated function add_ptr(ptr::LLVMPtr{T, AS}, i::LVec{N, I}) where {T, AS, N, I <: IntegerTypes}
+    s = """
+    %res = getelementptr i8, $(llvm_type(LLVMPtr{UInt8, AS})) %0, <$(N) x $(d[I])> %1
+    ret <$(N) x $(llvm_type(LLVMPtr{UInt8, AS}))> %res
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall($s, LVec{N, LLVMPtr{T, AS}}, Tuple{LLVMPtr{T, AS}, LVec{N, I}}, ptr, i)
+    )
+end
+
+@generated function add_ptr(ptr::LVec{N, LLVMPtr{T, AS}}, i::I) where {T, AS, N, I <: IntegerTypes}
+    s = """
+    %res = getelementptr i8, <$(N) x $(llvm_type(LLVMPtr{UInt8, AS}))> %0, $(d[I]) %1
+    ret <$(N) x $(llvm_type(LLVMPtr{UInt8, AS}))> %res
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall($s, LVec{N, LLVMPtr{T, AS}}, Tuple{LVec{N, LLVMPtr{T, AS}}, I}, ptr, i)
+    )
+end
+
+@generated function add_ptr(ptr::LVec{N, LLVMPtr{T, AS}}, i::LVec{N, I}) where {T, AS, N, I <: IntegerTypes}
+    s = """
+    %res = getelementptr i8, <$(N) x $(llvm_type(LLVMPtr{UInt8, AS}))> %0, <$(N) x $(d[I])> %1
+    ret <$(N) x $(llvm_type(LLVMPtr{UInt8, AS}))> %res
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall($s, LVec{N, LLVMPtr{T, AS}}, Tuple{LVec{N, LLVMPtr{T, AS}}, LVec{N, I}}, ptr, i)
+    )
+end
+
 end
