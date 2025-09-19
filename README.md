@@ -107,12 +107,12 @@ julia> reduce(&, v)
 ```julia
 # Reduce to a bitmask
 v = Vec{8,Bool}((0,1,1,0,1,1,0,1))
-bitmaskconvert(UInt8, v)
+bitmaskconvert(UInt8, v) # or tobitmask(v)
 0xb6
 
 # Expand from a bitmask
 m = 0xb6
-bitmaskconvert(Vec{8,Bool}, m)
+bitmaskconvert(Vec{8,Bool}, m) # or frombitmask(m)
 Vec{8,Bool}((0,1,1,0,1,1,0,1))
 ```
 

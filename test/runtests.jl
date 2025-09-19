@@ -1026,4 +1026,14 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test m1 === widen(m0)
     end
 
+    @testset "to/from bitmask" begin
+        for N in [8, 64]
+            m0 = @eval rand($(Symbol("UInt",N)))
+            v0 = Vec{N,Bool}(ntuple(i -> m0 >> (i-1) & true, N))
+
+            @test tobitmask(v0) === m0
+            @test frombitmask(m0) === v0
+        end
+    end
+
 # end

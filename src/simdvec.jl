@@ -120,6 +120,17 @@ Base.reinterpret(::Type{T}, v::Vec) where {T} = Intrinsics.bitcast(T, v.data)
 bitmaskconvert(::Type{T}, x::Vec{<:Any, Bool}) where {T <: SIMD.UIntTypes} = Intrinsics.bitmaskconvert(T, x.data)
 bitmaskconvert(::Type{Vec{N, Bool}}, x::SIMD.UIntTypes) where {N} = Vec(Intrinsics.bitmaskconvert(Intrinsics.LVec{N, Bool}, x))
 
+@generated function tobitmask(x::Vec{N,Bool}) where {N}
+    # Julia doesn't export anything larger than UInt128
+    (ispow2(N) && 8 <= N <= 128) || return :(throw(ArgumentError(("vector length ($(N)) must be a power of 2 between 8 and 128"))))
+    T = Symbol("UInt", N)
+    return :(Intrinsics.bitmaskconvert($T, x.data))
+end
+@generated function frombitmask(x::UIntTypes)
+    N = sizeof(x)*8
+    return :(Vec(Intrinsics.bitmaskconvert(Intrinsics.LVec{$N,Bool}, x)))
+end
+
 const FASTMATH = Intrinsics.FastMathFlags(Intrinsics.FastMath.fast)
 
 ###################
