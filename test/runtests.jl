@@ -1006,17 +1006,24 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test all(r == Vec(4.0, 3.0, 3.0, 4.0))
     end
 
-    @testset "bitmask" begin
-        for N in [1, 8, 24, 31, 64]
-            tmask = Tuple(rand(Bool,N))
-            vmask = Vec{N,Bool}(tmask)
-            imask = bitmask(vmask)
-            @test count_ones(imask) == sum(tmask)
+    @testset "bitmaskconvert" begin
+        m0 = rand(UInt32)
+        v0 = Vec{32,Bool}(ntuple(i -> m0 >> (i-1) & true, 32))
 
-            M = N - something(findlast(==(true), tmask), 0) # Num original leading zeros
-            K = sizeof(imask)*8 - N # Num extended leading zeros
-            @test leading_zeros(imask) == M + K
-        end
+        v1 = bitmaskconvert(Vec{32,Bool}, m0)
+        m1 = bitmaskconvert(UInt32, v0)
+        @test v1 === v0
+        @test m1 === m0
+
+        v1 = bitmaskconvert(Vec{16,Bool}, m0)
+        m1 = bitmaskconvert(UInt16, v0)
+        @test v1 === shufflevector(v0, Val(Tuple(0:15)))
+        @test m1 === m0 % UInt16
+
+        v1 = bitmaskconvert(Vec{64,Bool}, m0)
+        m1 = bitmaskconvert(UInt64, v0)
+        @test v1 === shufflevector(v0, Vec(ntuple(i->false, 32)), Val(Tuple(0:63)))
+        @test m1 === widen(m0)
     end
 
 # end

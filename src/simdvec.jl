@@ -117,7 +117,8 @@ Base.reinterpret(::Type{Vec{N, T}}, v::Vec) where {T, N} = Vec(Intrinsics.bitcas
 Base.reinterpret(::Type{Vec{N, T}}, v::ScalarTypes) where {T, N} = Vec(Intrinsics.bitcast(Intrinsics.LVec{N, T}, v))
 Base.reinterpret(::Type{T}, v::Vec) where {T} = Intrinsics.bitcast(T, v.data)
 
-bitmask(v::Vec{<:Any,Bool}) = Intrinsics.bitmask(v.data)
+bitmaskconvert(::Type{T}, x::Vec{<:Any, Bool}) where {T <: SIMD.UIntTypes} = Intrinsics.bitmaskconvert(T, x.data)
+bitmaskconvert(::Type{Vec{N, Bool}}, x::SIMD.UIntTypes) where {N} = Vec(Intrinsics.bitmaskconvert(Intrinsics.LVec{N, Bool}, x))
 
 const FASTMATH = Intrinsics.FastMathFlags(Intrinsics.FastMath.fast)
 

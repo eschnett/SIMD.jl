@@ -78,7 +78,7 @@ ys = Base.setindex(ys, 5, 3)   # cannot use ys[3] = 5
 
 Reduction operations reduce a SIMD vector to a scalar. The following reduction operations are provided:
 
-`all any maximum minimum sum prod bitmask`
+`all any maximum minimum sum prod`
 
 Example:
 
@@ -87,11 +87,6 @@ Example:
 v = Vec{4,Float64}((1,2,3,4))
 sum(v)
 10.0
-
-# Reduce to a bitmask
-v = Vec{8,Bool}((0,1,1,0,1,1,0,1))
-bitmask(v)
-0xb6
 ```
 
 It is also possible to use reduce with bit operations:
@@ -105,6 +100,20 @@ julia> reduce(|, v)
 
 julia> reduce(&, v)
 0x0000
+```
+
+## Bitmask operations
+
+```julia
+# Reduce to a bitmask
+v = Vec{8,Bool}((0,1,1,0,1,1,0,1))
+bitmaskconvert(UInt8, v)
+0xb6
+
+# Expand from a bitmask
+m = 0xb6
+bitmaskconvert(Vec{8,Bool}, m)
+Vec{8,Bool}((0,1,1,0,1,1,0,1))
 ```
 
 ## Overflow operations
