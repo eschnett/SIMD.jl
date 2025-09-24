@@ -81,15 +81,12 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v1
-      - uses: julia-actions/julia-buildpkg@v1
-      - name: Checkout OpenCL
+      - name: Remove OpenCL on unsupported platforms
         run: |
-          julia --project -e '
-            using Pkg
-            Pkg.activate("test")
-            Pkg.add(["KernelAbstractions", "OpenCL", "pocl_jll"])
-            rm("test/Manifest.toml")'
-        if: matrix.test-opencl
+          sed -i '/^OpenCL = /d' test/Project.toml
+          sed -i '/^pocl_jll = /d' test/Project.toml
+        if: ${{ ! matrix.test-opencl && matrix.os != 'macOS-latest' }}
+      - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
         with:
           check_bounds: auto
