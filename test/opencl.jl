@@ -73,10 +73,11 @@ const backend = OpenCLBackend()
         @test all(==(6f0), a)
     end
 
+    # Tested with `backend = ROCBackend()`, masked load/store not supported by the OpenCL backend
+
     #@testset "Masked load/store operations" begin
-    #    function masked_load_store_kernel!(a, b, masks_buf)
-    #        idx = get_global_id()
-    #        i = 4 * (idx - 1) + 1
+    #    @kernel function masked_load_store_kernel!(a, b, masks_buf)
+    #        i = 4 * (@index(Global) - 1) + 1
 
     #        # Create mask from buffer (convert to bool)
     #        mask = Vec{4, Bool}((
@@ -89,7 +90,6 @@ const backend = OpenCLBackend()
     #        xs = @inbounds vload(Vec{4, Float32}, b, i, mask)
     #        result = xs + Vec{4, Float32}(10f0)
     #        @inbounds vstore(result, a, i, mask)
-    #        return
     #    end
 
     #    n = 256
@@ -97,14 +97,11 @@ const backend = OpenCLBackend()
     #    a = KernelAbstractions.zeros(backend, Float32, n)
 
     #    # Create mask pattern: alternating true/false
-    #    mask_data = zeros(Int32, n)
-    #    for i in 1:n
-    #        mask_data[i] = i % 2
-    #    end
-    #    masks_buf = KernelAbstractions.zeros(backend, Int32, n)
+    #    mask_data = [i % 2 for i in 1:n]
+    #    masks_buf = similar(a, Int32, n)
     #    copyto!(masks_buf, mask_data)
 
-    #    @opencl global_size = n ÷ 4 backend = :khronos extensions = ["SPV_INTEL_masked_gather_scatter"] validate = false masked_load_store_kernel!(a, b, masks_buf)
+    #    masked_load_store_kernel!(backend)(a, b, masks_buf; ndrange = n ÷ 4)
 
     #    a_host = Array(a)
     #    # Check that masked elements were updated, unmasked remain zero
@@ -140,12 +137,8 @@ const backend = OpenCLBackend()
         end
 
         n = 128
-        b = KernelAbstractions.zeros(backend, Float32, n)
-        # Fill b with indices as values for easy verification
-        b_data = Float32.(1:n)
-        copyto!(b, b_data)
-
-        a = KernelAbstractions.zeros(backend, Float32, n)
+        b = CLVector{Float32}(1:n)
+        a = CLVector{Float32}(undef, n)
 
         # Create gather indices (1-based)
         indices_data = Int32[]
@@ -153,8 +146,7 @@ const backend = OpenCLBackend()
             # Gather in reverse order for testing
             append!(indices_data, [i+3, i+2, i+1, i])
         end
-        indices_buf = KernelAbstractions.zeros(backend, Int32, length(indices_data))
-        copyto!(indices_buf, indices_data)
+        indices_buf = CLVector{Int32}(indices_data)
 
         @opencl global_size = length(indices_data) ÷ 4 backend = :khronos extensions = ["SPV_INTEL_masked_gather_scatter"] validate = false gather_scatter_kernel!(a, b, indices_buf)
 
@@ -196,21 +188,16 @@ const backend = OpenCLBackend()
         end
 
         n = 64
-        b = KernelAbstractions.zeros(backend, Float32, n)
-        b_data = Float32.(1:n) .* 10f0
-        copyto!(b, b_data)
-
-        a = KernelAbstractions.zeros(backend, Float32, n)
+        b = CLVector{Float32}(Float32.(1:n) .* 10f0)
+        a = OpenCL.zeros(Float32, n)
 
         # Create indices and masks
         indices_data = Int32.(1:n)
-        indices_buf = KernelAbstractions.zeros(backend, Int32, n)
-        copyto!(indices_buf, indices_data)
+        indices_buf = CLVector{Int32}(indices_data)
 
         # Checkerboard mask pattern
         mask_data = [i % 2 for i in 1:n]
-        masks_buf = KernelAbstractions.zeros(backend, Int32, n)
-        copyto!(masks_buf, mask_data)
+        masks_buf = CLVector{Int32}(mask_data)
 
         @opencl global_size = n ÷ 4 backend = :khronos extensions = ["SPV_INTEL_masked_gather_scatter"] validate = false masked_gather_scatter_kernel!(a, b, indices_buf, masks_buf)
 
