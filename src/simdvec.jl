@@ -316,12 +316,12 @@ _signed(::Type{Float64}) = Int64
 
 # Pointer arithmetic
 # Cast pointer to Int and back
-@inline Base.:+(x::Vec{N,Ptr{T}}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(typeof(x), convert(Vec{N,UInt}, x) + y)
-@inline Base.:-(x::Vec{N,Ptr{T}}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(typeof(x), convert(Vec{N,UInt}, x) - y)
-@inline Base.:+(x::Ptr{T}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(Vec{N,typeof(x)}, UInt(x) + y)
-@inline Base.:-(x::Ptr{T}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(Vec{N,typeof(x)}, UInt(x) - y)
-@inline Base.:+(x::Vec{N,Ptr{T}}, y::IntegerTypes) where {N,T} = convert(typeof(x), convert(Vec{N,UInt}, x) + y)
-@inline Base.:-(x::Vec{N,Ptr{T}}, y::IntegerTypes) where {N,T} = convert(typeof(x), convert(Vec{N,UInt}, x) - y)
+@inline Base.:+(x::Vec{N,Ptr{T}}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(Vec{N,Ptr{T}}, convert(Vec{N,UInt}, x) + y)
+@inline Base.:-(x::Vec{N,Ptr{T}}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(Vec{N,Ptr{T}}, convert(Vec{N,UInt}, x) - y)
+@inline Base.:+(x::Ptr{T}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(Vec{N,Ptr{T}}, convert(UInt, x) + y)
+@inline Base.:-(x::Ptr{T}, y::Vec{N,<:IntegerTypes}) where {N,T} = convert(Vec{N,Ptr{T}}, convert(UInt, x) - y)
+@inline Base.:+(x::Vec{N,Ptr{T}}, y::IntegerTypes) where {N,T} = convert(Vec{N,Ptr{T}}, convert(Vec{N,UInt}, x) + y)
+@inline Base.:-(x::Vec{N,Ptr{T}}, y::IntegerTypes) where {N,T} = convert(Vec{N,Ptr{T}}, convert(Vec{N,UInt}, x) - y)
 
 # use gep
 @inline Base.:+(x::Vec{N,LLVMPtr{T, AS}}, y::Vec{N,<:IntegerTypes}) where {N,T,AS} = Vec(Intrinsics.add_ptr(x.data, y.data))
