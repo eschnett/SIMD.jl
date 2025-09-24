@@ -216,6 +216,21 @@ bounds of the array. These boundschecks can be turned off using the `@inbounds`
 macro, e.g. `@inbounds vload(V, a, i)`.  This is often crucial for good
 performance.
 
+### GPU backends
+
+There is experimental support for using `vload`, `vstore`, `vgather` and `vscatter`
+on GPU device arrays with supported backends. Support will vary from backend to
+backend. Currently, only OpenCL.jl is tested in CI. OpenCL by default only support
+`vload` and `vstore` on `CLDeviceArray`s. For `vgather` and `vscatter`, the
+`SPV_INTEL_masked_gather_scatter` extension is required, support for which
+currently requires some workarounds such as using the `:khronos` instead of the
+`:llvm` backend and disabling SPIRV validation. See the tests in
+[`test/opencl.jl`](test/opencl.jl) for some examples.
+
+On GPU backends, using `@inbounds` is essential for good performance, as exceptions
+have a large overhead. Otherwise - so far supported - SIMD operations should work
+just like on the CPU.
+
 ## Vector shuffles
 
 Vector shuffle is available through the `shufflevector` function.
