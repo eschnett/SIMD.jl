@@ -25,30 +25,30 @@ Base.copy(v::Vec) = v
 @inline function Base.convert(::Type{Vec{N, T1}}, v::Vec{N, T2}) where {T1, T2, N}
     if T1 <: Ptr || T1 <: LLVMPtr
         return Vec(Intrinsics.inttoptr(Intrinsics.LVec{N, T1}, v.data))
-    elseif T1 <: IntegerTypes
+    elseif T1 <: BIntegerTypes
         if T2 <: Ptr || T2 <: LLVMPtr
             return Vec(Intrinsics.ptrtoint(Intrinsics.LVec{N, T1}, v.data))
-        elseif T2 <: Union{IntegerTypes, Bool}
+        elseif T2 <: BIntegerTypes
             if sizeof(T1) < sizeof(T2)
                 return Vec(Intrinsics.trunc(Intrinsics.LVec{N, T1}, v.data))
             elseif sizeof(T1) == sizeof(T2)
                 return Vec(Intrinsics.bitcast(Intrinsics.LVec{N, T1}, v.data))
             else
-                if T2 <: UIntTypes
+                if T2 <: Union{UIntTypes, Bool}
                     return Vec(Intrinsics.zext(Intrinsics.LVec{N, T1}, v.data))
                 else
                     return Vec(Intrinsics.sext(Intrinsics.LVec{N, T1}, v.data))
                 end
             end
         elseif T2 <: FloatingTypes
-            if T1 <: UIntTypes
+            if T1 <: Union{UIntTypes, Bool}
                 return Vec(Intrinsics.fptoui(Intrinsics.LVec{N, T1}, v.data))
             elseif T1 <: IntTypes
                 return Vec(Intrinsics.fptosi(Intrinsics.LVec{N, T1}, v.data))
             end
         end
     elseif T1 <: FloatingTypes
-        if T2 <: UIntTypes
+        if T2 <: Union{UIntTypes, Bool}
             return Vec(Intrinsics.uitofp(Intrinsics.LVec{N, T1}, v.data))
         elseif T2 <: IntTypes
             return Vec(Intrinsics.sitofp(Intrinsics.LVec{N, T1}, v.data))
