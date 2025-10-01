@@ -11,10 +11,11 @@ module Intrinsics
 # intrinsic is called (e.g uitofp vs sitofp).
 
 import ..SIMD: SIMD, VE, LVec, FloatingTypes
+using Core: LLVMPtr
 # Include Bool in IntegerTypes
 const IntegerTypes = Union{SIMD.IntegerTypes, Bool}
 
-const d = Dict{DataType, String}(
+const d = Dict{Type, String}(
     Bool         => "i8",
     Int8         => "i8",
     Int16        => "i16",
@@ -33,14 +34,14 @@ const d = Dict{DataType, String}(
     Float64      => "double",
 )
 # Add the Ptr translations
-# Julia <=1.11 (LLVM <=16) passes `Ptr{T}` as `i64`, Julia >=1.12 (LLVM >=17) passes them as `T*`.
-# Use `argtoptr` e.g. as `%ptr = $argtoptr $(d[Ptr{T}]) %0 to <$N x $(d[T])>*`
+# Julia <=1.11 (LLVM <=16) passes `Ptr{T}` as `i64`, Julia >=1.12 (LLVM >=17) passes them as `ptr`.
+# Use `argtoptr` e.g. as `%ptr = $argtoptr $(d[Ptr]) %0 to <$N x $(d[T])>*`
 @static if VERSION >= v"1.12-DEV"
     const argtoptr = "bitcast"
-    foreach(x -> (d[Ptr{x}] = "$(d[x])*"), collect(keys(d)))
+    d[Ptr] = "ptr"
 else
     const argtoptr = "inttoptr"
-    foreach(x -> (d[Ptr{x}] = "$(d[Int])"), collect(keys(d)))
+    d[Ptr] = d[Int]
 end
 
 # LT = LLVM Type (scalar and vectors), we keep type names intentionally short
@@ -58,6 +59,12 @@ llvm_name(llvmf, ::Type{T}) where {T}            = string("llvm", ".", dotit(llv
 
 llvm_type(::Type{T}) where {T}            = d[T]
 llvm_type(::Type{LVec{N, T}}) where {N,T} = "<$N x $(d[T])>"
+
+@static if VERSION >= v"1.12-DEV"
+    llvm_ptr(T, AS) = "ptr addrspace($AS)"
+else
+    llvm_ptr(T, AS) = "$(llvm_type(T)) addrspace($AS)*"
+end
 
 ############
 # FastMath #
@@ -470,7 +477,7 @@ temporal_str(temporal) = temporal ? ", !nontemporal !{i32 1}" : ""
 @generated function load(x::Type{LVec{N, T}}, ptr::Ptr{T},
                          ::Val{Al}=Val(false), ::Val{Te}=Val(false)) where {N, T, Al, Te}
     s = """
-    %ptr = $argtoptr $(d[Ptr{T}]) %0 to <$N x $(d[T])>*
+    %ptr = $argtoptr $(d[Ptr]) %0 to <$N x $(d[T])>*
     %res = load <$N x $(d[T])>, <$N x $(d[T])>* %ptr, align $(n_align(Al, N, T)) $(temporal_str(Te))
     ret <$N x $(d[T])> %res
     """
@@ -480,16 +487,29 @@ temporal_str(temporal) = temporal ? ", !nontemporal !{i32 1}" : ""
     )
 end
 
+@generated function load(x::Type{LVec{N, T}}, ptr::LLVMPtr{T, AS},
+                         ::Val{Al}=Val(false), ::Val{Te}=Val(false)) where {N, T, AS, Al, Te}
+    s = """
+    %ptr = bitcast $(llvm_ptr(UInt8, AS)) %0 to $(llvm_ptr(LVec{N, T}, AS))
+    %res = load <$N x $(d[T])>, $(llvm_ptr(LVec{N, T}, AS)) %ptr, align $(n_align(Al, N, T)) $(temporal_str(Te))
+    ret <$N x $(d[T])> %res
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall($s, LVec{N, T}, Tuple{LLVMPtr{T, AS}}, ptr)
+    )
+end
+
 @generated function maskedload(ptr::Ptr{T}, mask::LVec{N,Bool},
                                ::Val{Al}=Val(false), ::Val{Te}=Val(false)) where {N, T, Al, Te}
     # TODO: Allow setting the passthru
     mod = """
         declare <$N x $(d[T])> @llvm.masked.load.$(suffix(N, T))(<$N x $(d[T])>*, i32, <$N x i1>, <$N x $(d[T])>)
 
-        define <$N x $(d[T])> @entry($(d[Ptr{T}]), <$(N) x i8>) #0 {
+        define <$N x $(d[T])> @entry($(d[Ptr]), <$(N) x i8>) #0 {
         top:
             %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
-            %ptr = $argtoptr $(d[Ptr{T}]) %0 to <$N x $(d[T])>*
+            %ptr = $argtoptr $(d[Ptr]) %0 to <$N x $(d[T])>*
             %res = call <$N x $(d[T])> @llvm.masked.load.$(suffix(N, T))(<$N x $(d[T])>* %ptr, i32 $(n_align(Al, N, T)), <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
             ret <$N x $(d[T])> %res
         }
@@ -502,10 +522,32 @@ end
     )
 end
 
+@generated function maskedload(ptr::LLVMPtr{T, AS}, mask::LVec{N,Bool},
+                               ::Val{Al}=Val(false), ::Val{Te}=Val(false)) where {N, T, AS, Al, Te}
+    # TODO: Allow setting the passthru
+    mod = """
+        declare <$N x $(d[T])> @llvm.masked.load.$(suffix(N, T))($(llvm_ptr(LVec{N, T}, AS)), i32, <$N x i1>, <$N x $(d[T])>)
+
+        define <$N x $(d[T])> @entry($(llvm_ptr(UInt8, AS)), <$(N) x i8>) #0 {
+        top:
+            %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
+            %ptr = bitcast $(llvm_ptr(UInt8, AS)) %0 to $(llvm_ptr(LVec{N, T}, AS))
+            %res = call <$N x $(d[T])> @llvm.masked.load.$(suffix(N, T))($(llvm_ptr(LVec{N, T}, AS)) %ptr, i32 $(n_align(Al, N, T)), <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
+            ret <$N x $(d[T])> %res
+        }
+
+        attributes #0 = { alwaysinline }
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall(($mod, "entry"), LVec{N, T}, Tuple{LLVMPtr{T, AS}, LVec{N,Bool}}, ptr, mask)
+    )
+end
+
 @generated function store(x::LVec{N, T}, ptr::Ptr{T},
                           ::Val{Al}=Val(false), ::Val{Te}=Val(false)) where {N, T, Al, Te}
     s = """
-    %ptr = $argtoptr $(d[Ptr{T}]) %1 to <$N x $(d[T])>*
+    %ptr = $argtoptr $(d[Ptr]) %1 to <$N x $(d[T])>*
     store <$N x $(d[T])> %0, <$N x $(d[T])>* %ptr, align $(n_align(Al, N, T)) $(temporal_str(Te))
     ret void
     """
@@ -516,16 +558,30 @@ end
     )
 end
 
+@generated function store(x::LVec{N, T}, ptr::LLVMPtr{T, AS},
+                          ::Val{Al}=Val(false), ::Val{Te}=Val(false)) where {N, T, AS, Al, Te}
+    s = """
+    %ptr = bitcast $(llvm_ptr(UInt8, AS)) %1 to $(llvm_ptr(LVec{N, T}, AS))
+    store <$N x $(d[T])> %0, $(llvm_ptr(LVec{N, T}, AS)) %ptr, align $(n_align(Al, N, T)) $(temporal_str(Te))
+    ret void
+    """
+    return :(
+
+        $(Expr(:meta, :inline));
+        Base.llvmcall($s, Cvoid, Tuple{LVec{N, T}, LLVMPtr{T, AS}}, x, ptr)
+    )
+end
+
 @generated function maskedstore(x::LVec{N, T}, ptr::Ptr{T}, mask::LVec{N,Bool},
                                ::Val{Al}=Val(false), ::Val{Te}=Val(false)) where {N, T, Al, Te}
     # TODO: Allow setting the passthru
     mod = """
         declare void @llvm.masked.store.$(suffix(N, T))(<$N x $(d[T])>, <$N x $(d[T])>*, i32, <$N x i1>)
 
-        define void @entry(<$N x $(d[T])>, $(d[Ptr{T}]), <$(N) x i8>) #0 {
+        define void @entry(<$N x $(d[T])>, $(d[Ptr]), <$(N) x i8>) #0 {
         top:
             %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
-            %ptr = $argtoptr $(d[Ptr{T}]) %1 to <$N x $(d[T])>*
+            %ptr = $argtoptr $(d[Ptr]) %1 to <$N x $(d[T])>*
             call void @llvm.masked.store.$(suffix(N, T))(<$N x $(d[T])> %0, <$N x $(d[T])>* %ptr, i32 $(n_align(Al, N, T)), <$N x i1> %mask)
             ret void
         }
@@ -538,15 +594,38 @@ end
     )
 end
 
+@generated function maskedstore(x::LVec{N, T}, ptr::LLVMPtr{T, AS}, mask::LVec{N,Bool},
+                               ::Val{Al}=Val(false), ::Val{Te}=Val(false)) where {N, T, AS, Al, Te}
+    # TODO: Allow setting the passthru
+    mod = """
+        declare void @llvm.masked.store.$(suffix(N, T))(<$N x $(d[T])>, $(llvm_ptr(LVec{N, T}, AS)), i32, <$N x i1>)
+
+        define void @entry(<$N x $(d[T])>, $(llvm_ptr(UInt8, AS)), <$(N) x i8>) #0 {
+        top:
+            %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
+            %ptr = bitcast $(llvm_ptr(UInt8, AS)) %1 to $(llvm_ptr(LVec{N, T}, AS))
+            call void @llvm.masked.store.$(suffix(N, T))(<$N x $(d[T])> %0, $(llvm_ptr(LVec{N, T}, AS)) %ptr, i32 $(n_align(Al, N, T)), <$N x i1> %mask)
+            ret void
+        }
+
+        attributes #0 = { alwaysinline }
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall(($mod, "entry"), Cvoid, Tuple{LVec{N, T}, LLVMPtr{T, AS}, LVec{N,Bool}}, x, ptr, mask)
+    )
+end
+
+
 @generated function maskedexpandload(ptr::Ptr{T}, mask::LVec{N,Bool}) where {N, T}
     # TODO: Allow setting the passthru
     mod = """
         declare <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))($(d[T])*, <$N x i1>, <$N x $(d[T])>)
 
-        define <$N x $(d[T])> @entry($(d[Ptr{T}]), <$(N) x i8>) #0 {
+        define <$N x $(d[T])> @entry($(d[Ptr]), <$(N) x i8>) #0 {
         top:
             %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
-            %ptr = $argtoptr $(d[Ptr{T}]) %0 to $(d[T])*
+            %ptr = $argtoptr $(d[Ptr]) %0 to $(d[T])*
             %res = call <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))($(d[T])* %ptr, <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
             ret <$N x $(d[T])> %res
         }
@@ -559,15 +638,37 @@ end
     )
 end
 
+@generated function maskedexpandload(ptr::LLVMPtr{T, AS}, mask::LVec{N,Bool}) where {N, T, AS}
+    # TODO: Allow setting the passthru
+    mod = """
+        declare <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))($(llvm_ptr(T, AS)), <$N x i1>, <$N x $(d[T])>)
+
+        define <$N x $(d[T])> @entry($(llvm_ptr(UInt8, AS)), <$(N) x i8>) #0 {
+        top:
+            %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
+            %ptr = bitcast $(llvm_ptr(UInt8, AS)) %0 to $(llvm_ptr(T, AS))
+            %res = call <$N x $(d[T])> @llvm.masked.expandload.$(suffix(N, T))($(llvm_ptr(T, AS)) %ptr, <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
+            ret <$N x $(d[T])> %res
+        }
+
+        attributes #0 = { alwaysinline }
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall(($mod, "entry"), LVec{N, T}, Tuple{LLVMPtr{T, AS}, LVec{N, Bool}}, ptr, mask)
+    )
+end
+
+
 @generated function maskedcompressstore(x::LVec{N, T}, ptr::Ptr{T},
                                         mask::LVec{N,Bool}) where {N, T}
     mod = """
         declare void @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])>, $(d[T])*, <$N x i1>)
 
-        define void @entry(<$N x $(d[T])>, $(d[Ptr{T}]), <$(N) x i8>) #0 {
+        define void @entry(<$N x $(d[T])>, $(d[Ptr]), <$(N) x i8>) #0 {
         top:
             %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
-            %ptr = $argtoptr $(d[Ptr{T}]) %1 to $(d[T])*
+            %ptr = $argtoptr $(d[Ptr]) %1 to $(d[T])*
             call void @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])> %0, $(d[T])* %ptr, <$N x i1> %mask)
             ret void
         }
@@ -577,6 +678,27 @@ end
     return :(
         $(Expr(:meta, :inline));
         Base.llvmcall(($mod, "entry"), Cvoid, Tuple{LVec{N, T}, Ptr{T}, LVec{N, Bool}}, x, ptr, mask)
+    )
+end
+
+@generated function maskedcompressstore(x::LVec{N, T}, ptr::LLVMPtr{T, AS},
+                                        mask::LVec{N,Bool}) where {N, T, AS}
+    mod = """
+        declare void @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])>, $(llvm_ptr(T, AS)), <$N x i1>)
+
+        define void @entry(<$N x $(d[T])>, $(llvm_ptr(UInt8, AS)), <$(N) x i8>) #0 {
+        top:
+            %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
+            %ptr = bitcast $(llvm_ptr(UInt8, AS)) %1 to $(llvm_ptr(T, AS))
+            call void @llvm.masked.compressstore.$(suffix(N, T))(<$N x $(d[T])> %0, $(llvm_ptr(T, AS)) %ptr, <$N x i1> %mask)
+            ret void
+        }
+
+        attributes #0 = { alwaysinline }
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall(($mod, "entry"), Cvoid, Tuple{LVec{N, T}, LLVMPtr{T, AS}, LVec{N, Bool}}, x, ptr, mask)
     )
 end
 
@@ -591,10 +713,10 @@ end
     mod = """
         declare <$N x $(d[T])> @llvm.masked.gather.$(suffix(N, T))(<$N x $(d[T])*>, i32, <$N x i1>, <$N x $(d[T])>)
 
-        define <$N x $(d[T])> @entry(<$N x $(d[Ptr{T}])>, <$(N) x i8>) #0 {
+        define <$N x $(d[T])> @entry(<$N x $(d[Ptr])>, <$(N) x i8>) #0 {
         top:
             %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
-            %ptrs = $argtoptr <$N x $(d[Ptr{T}])> %0 to <$N x $(d[T])*>
+            %ptrs = $argtoptr <$N x $(d[Ptr])> %0 to <$N x $(d[T])*>
             %res = call <$N x $(d[T])> @llvm.masked.gather.$(suffix(N, T))(<$N x $(d[T])*> %ptrs, i32 $(n_align(Al, N, T)), <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
             ret <$N x $(d[T])> %res
         }
@@ -607,15 +729,38 @@ end
     )
 end
 
+@generated function maskedgather(ptrs::LVec{N,LLVMPtr{T, AS}},
+                                 mask::LVec{N,Bool}, ::Val{Al}=Val(false)) where {N, T, AS, Al}
+    # TODO: Allow setting the passthru
+    mod = """
+        declare <$N x $(d[T])> @llvm.masked.gather.$(suffix(N, T))(<$N x $(llvm_ptr(T, AS))>, i32, <$N x i1>, <$N x $(d[T])>)
+
+        define <$N x $(d[T])> @entry(<$N x $(llvm_ptr(UInt8, AS))>, <$(N) x i8>) #0 {
+        top:
+            %mask = trunc <$(N) x i8> %1 to <$(N) x i1>
+            %ptrs = bitcast <$N x $(llvm_ptr(UInt8, AS))> %0 to <$N x $(llvm_ptr(T, AS))>
+            %res = call <$N x $(d[T])> @llvm.masked.gather.$(suffix(N, T))(<$N x $(llvm_ptr(T, AS))> %ptrs, i32 $(n_align(Al, N, T)), <$N x i1> %mask, <$N x $(d[T])> zeroinitializer)
+            ret <$N x $(d[T])> %res
+        }
+
+        attributes #0 = { alwaysinline }
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall(($mod, "entry"), LVec{N, T}, Tuple{LVec{N, LLVMPtr{T, AS}}, LVec{N, Bool}}, ptrs, mask)
+    )
+end
+
+
 @generated function maskedscatter(x::LVec{N, T}, ptrs::LVec{N, Ptr{T}},
                                   mask::LVec{N,Bool}, ::Val{Al}=Val(false)) where {N, T, Al}
     mod = """
         declare void @llvm.masked.scatter.$(suffix(N, T))(<$N x $(d[T])>, <$N x $(d[T])*>, i32, <$N x i1>)
 
-        define void @entry(<$N x $(d[T])>, <$N x $(d[Ptr{T}])>, <$(N) x i8>) #0 {
+        define void @entry(<$N x $(d[T])>, <$N x $(d[Ptr])>, <$(N) x i8>) #0 {
         top:
             %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
-            %ptrs = $argtoptr <$N x $(d[Ptr{T}])> %1 to <$N x $(d[T])*>
+            %ptrs = $argtoptr <$N x $(d[Ptr])> %1 to <$N x $(d[T])*>
             call void @llvm.masked.scatter.$(suffix(N, T))(<$N x $(d[T])> %0, <$N x $(d[T])*> %ptrs, i32 $(n_align(Al, N, T)), <$N x i1> %mask)
             ret void
         }
@@ -625,6 +770,27 @@ end
     return :(
         $(Expr(:meta, :inline));
         Base.llvmcall(($mod, "entry"), Cvoid, Tuple{LVec{N, T}, LVec{N, Ptr{T}}, LVec{N, Bool}}, x, ptrs, mask)
+    )
+end
+
+@generated function maskedscatter(x::LVec{N, T}, ptrs::LVec{N, LLVMPtr{T, AS}},
+                                  mask::LVec{N,Bool}, ::Val{Al}=Val(false)) where {N, T, AS, Al}
+    mod = """
+        declare void @llvm.masked.scatter.$(suffix(N, T))(<$N x $(d[T])>, <$N x $(llvm_ptr(T, AS))>, i32, <$N x i1>)
+
+        define void @entry(<$N x $(d[T])>, <$N x $(llvm_ptr(UInt8, AS))>, <$(N) x i8>) #0 {
+        top:
+            %mask = trunc <$(N) x i8> %2 to <$(N) x i1>
+            %ptrs = bitcast <$N x $(llvm_ptr(UInt8, AS))> %1 to <$N x $(llvm_ptr(T, AS))>
+            call void @llvm.masked.scatter.$(suffix(N, T))(<$N x $(d[T])> %0, <$N x $(llvm_ptr(T, AS))> %ptrs, i32 $(n_align(Al, N, T)), <$N x i1> %mask)
+            ret void
+        }
+
+        attributes #0 = { alwaysinline }
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall(($mod, "entry"), Cvoid, Tuple{LVec{N, T}, LVec{N, LLVMPtr{T, AS}}, LVec{N, Bool}}, x, ptrs, mask)
     )
 end
 
@@ -762,8 +928,8 @@ end
 @generated function inttoptr(::Type{LVec{N, Ptr{T2}}}, x::LVec{N, T1}) where {N, T1 <: IntegerTypes, T2 <: Union{IntegerTypes, FloatingTypes}}
     convert = VERSION >= v"1.12-DEV" ? "inttoptr" : "bitcast"
     s = """
-    %2 = $convert <$(N) x $(d[T1])> %0 to <$(N) x $(d[Ptr{T2}])>
-    ret <$(N) x $(d[Ptr{T2}])> %2
+    %2 = $convert <$(N) x $(d[T1])> %0 to <$(N) x $(d[Ptr])>
+    ret <$(N) x $(d[Ptr])> %2
     """
     return :(
         $(Expr(:meta, :inline));
@@ -771,15 +937,37 @@ end
     )
 end
 
+@generated function inttoptr(::Type{LVec{N, LLVMPtr{T2, AS}}}, x::LVec{N, T1}) where {N, T1 <: IntegerTypes, T2 <: Union{IntegerTypes, FloatingTypes}, AS}
+    s = """
+    %2 = inttoptr <$(N) x $(d[T1])> %0 to <$(N) x $(llvm_ptr(UInt8, AS))>
+    ret <$(N) x $(llvm_ptr(UInt8, AS))> %2
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall($s, LVec{N, LLVMPtr{T2, AS}}, Tuple{LVec{N, T1}}, x)
+    )
+end
+
 @generated function ptrtoint(::Type{LVec{N, T2}}, x::LVec{N, Ptr{T1}}) where {N, T1 <: Union{IntegerTypes, FloatingTypes}, T2 <: IntegerTypes}
     convert = VERSION >= v"1.12-DEV" ? "ptrtoint" : "bitcast"
     s = """
-    %2 = $convert <$(N) x $(d[Ptr{T1}])> %0 to <$(N) x $(d[T2])>
+    %2 = $convert <$(N) x $(d[Ptr])> %0 to <$(N) x $(d[T2])>
     ret <$(N) x $(d[T2])> %2
     """
     return :(
         $(Expr(:meta, :inline));
         Base.llvmcall($s, LVec{N, T2}, Tuple{LVec{N, Ptr{T1}}}, x)
+    )
+end
+
+@generated function ptrtoint(::Type{LVec{N, T2}}, x::LVec{N, LLVMPtr{T1, AS}}) where {N, T1 <: Union{IntegerTypes, FloatingTypes}, T2 <: IntegerTypes, AS}
+    s = """
+    %2 = ptrtoint <$(N) x $(llvm_ptr(UInt8, AS))> %0 to <$(N) x $(d[T2])>
+    ret <$(N) x $(d[T2])> %2
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall($s, LVec{N, T2}, Tuple{LVec{N, LLVMPtr{T1, AS}}}, x)
     )
 end
 
@@ -939,6 +1127,43 @@ end
     return :(
         $(Expr(:meta, :inline));
         Base.llvmcall(($mod, "entry"), Int, Tuple{LVec{N, Bool}}, x)
+    )
+end
+
+###################################
+# add_ptr (through getelementptr) #
+###################################
+
+@generated function add_ptr(ptr::LLVMPtr{T, AS}, i::LVec{N, I}) where {T, AS, N, I <: IntegerTypes}
+    s = """
+    %res = getelementptr i8, $(llvm_ptr(UInt8, AS)) %0, <$(N) x $(d[I])> %1
+    ret <$(N) x $(llvm_ptr(UInt8, AS))> %res
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall($s, LVec{N, LLVMPtr{T, AS}}, Tuple{LLVMPtr{T, AS}, LVec{N, I}}, ptr, i)
+    )
+end
+
+@generated function add_ptr(ptr::LVec{N, LLVMPtr{T, AS}}, i::I) where {T, AS, N, I <: IntegerTypes}
+    s = """
+    %res = getelementptr i8, <$(N) x $(llvm_ptr(UInt8, AS))> %0, $(d[I]) %1
+    ret <$(N) x $(llvm_ptr(UInt8, AS))> %res
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall($s, LVec{N, LLVMPtr{T, AS}}, Tuple{LVec{N, LLVMPtr{T, AS}}, I}, ptr, i)
+    )
+end
+
+@generated function add_ptr(ptr::LVec{N, LLVMPtr{T, AS}}, i::LVec{N, I}) where {T, AS, N, I <: IntegerTypes}
+    s = """
+    %res = getelementptr i8, <$(N) x $(llvm_ptr(UInt8, AS))> %0, <$(N) x $(d[I])> %1
+    ret <$(N) x $(llvm_ptr(UInt8, AS))> %res
+    """
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall($s, LVec{N, LLVMPtr{T, AS}}, Tuple{LVec{N, LLVMPtr{T, AS}}, LVec{N, I}}, ptr, i)
     )
 end
 
