@@ -151,13 +151,13 @@ end
 # therefore use @propagate_inbounds
 @inline vgather(ptrs::Vec{N,<:AnyPtr{T}},
                  mask::Vec{N,Bool}=one(Vec{N,Bool}),
-                 ::Val{Aligned}=Val(false)) where {N, T<:ScalarTypes, Aligned} =
+                 ::Val{Aligned}=Val(false)) where {N, T<:BScalarTypes, Aligned} =
     return Vec(Intrinsics.maskedgather(ptrs.data, mask.data))
-@inline vgather(ptrs::Vec{<:Any,<:AnyPtr{<:ScalarTypes}}, ::Nothing, aligned::Val = Val(false)) =
+@inline vgather(ptrs::Vec{<:Any,<:AnyPtr{<:BScalarTypes}}, ::Nothing, aligned::Val = Val(false)) =
     vgather(ptrs, one(Vec{length(ptrs),Bool}), aligned)
 @propagate_inbounds function vgather(a::FastContiguousArray{T,1}, idx::Vec{N, <:Integer},
                                      mask::Vec{N,Bool}=one(Vec{N,Bool}),
-                                     ::Val{Aligned}=Val(false)) where {N, T<:ScalarTypes, Aligned}
+                                     ::Val{Aligned}=Val(false)) where {N, T<:BScalarTypes, Aligned}
     @boundscheck for i in 1:N
         checkbounds(a, @inbounds idx[i])
     end
@@ -176,14 +176,14 @@ end
 
 
 @propagate_inbounds vscatter(x::Vec{N,T}, ptrs::Vec{N,<:AnyPtr{T}},
-                             mask::Vec{N,Bool}, ::Val{Aligned}=Val(false)) where {N, T<:ScalarTypes, Aligned} =
+                             mask::Vec{N,Bool}, ::Val{Aligned}=Val(false)) where {N, T<:BScalarTypes, Aligned} =
     Intrinsics.maskedscatter(x.data, ptrs.data, mask.data)
 @inline vscatter(x::Vec{N,T}, ptrs::Vec{N,<:AnyPtr{T}},
-                 ::Nothing, aligned::Val=Val(false)) where {N, T<:ScalarTypes} =
+                 ::Nothing, aligned::Val=Val(false)) where {N, T<:BScalarTypes} =
     vscatter(x, ptrs, one(Vec{N, Bool}), aligned)
 @propagate_inbounds function vscatter(x::Vec{N,T}, a::FastContiguousArray{T,1}, idx::Vec{N, <:Integer},
                                       mask::Vec{N,Bool}=one(Vec{N, Bool}),
-                                      ::Val{Aligned}=Val(false)) where {N, T<:ScalarTypes, Aligned}
+                                      ::Val{Aligned}=Val(false)) where {N, T<:BScalarTypes, Aligned}
     @boundscheck for i in 1:N
         checkbounds(a, @inbounds idx[i])
     end
