@@ -419,6 +419,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         end
 
         global const arrf64 = valloc(Float64, L4, 4*L4) do i i end
+        global const arrbool = valloc(Bool, L8, 2*L8) do i isodd(i) end
         for i in 1:length(arrf64)-(L4-1)
             @test vload(V4F64, arrf64, i) === V4F64(ntuple(j->i+j-1, L4))
         end
@@ -591,6 +592,58 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                     y[idx1, 1, mask] = v1
                     @test y[idx1arr, 1] == v1arr .* maskarr
                 end
+            end
+        end
+
+        # Test Bool gather/scatter operations (issue #150)
+        @testset "Bool gather and scatter" begin
+            V8BOOL = Vec{L8,Bool}
+            arrbool .= [isodd(i) for i in 1:length(arrbool)]
+            idxarr = floor.(Int, range(1, stop=length(arrbool), length=L8))
+
+            idx = Vec(Tuple(idxarr))
+            expected_vals = [arrbool[i] for i in idxarr]
+            expected_vec = V8BOOL(Tuple(expected_vals))
+
+            @test vgather(arrbool, idx) === expected_vec
+            @test vgathera(arrbool, idx) === expected_vec
+            @test arrbool[idx] === expected_vec
+
+            # Masked gather for Bool
+            maskarr = zeros(Bool, L8)
+            for i in 1:L8
+                maskarr[i] = true
+                mask = Vec(Tuple(maskarr))
+                expected_masked = V8BOOL(Tuple(expected_vals .* maskarr))
+                @test vgather(arrbool, idx, mask) === expected_masked
+                @test vgathera(arrbool, idx, mask) === expected_masked
+                @test arrbool[idx, mask] === expected_masked
+            end
+
+            # Scatter for Bool
+            varr = [isodd(i*3) for i in 1:L8]  # Different pattern for scatter
+            v = Vec(Tuple(varr))
+
+            vscatter(v, fill!(arrbool, false), idx)
+            @test [arrbool[i] for i in idxarr] == varr
+            vscattera(v, fill!(arrbool, false), idx)
+            @test [arrbool[i] for i in idxarr] == varr
+            fill!(arrbool, false)
+            arrbool[idx] = v
+            @test [arrbool[i] for i in idxarr] == varr
+
+            # Masked scatter for Bool
+            maskarr = zeros(Bool, L8)
+            for i in 1:L8
+                maskarr[i] = true
+                mask = Vec(Tuple(maskarr))
+                vscatter(v, fill!(arrbool, false), idx, mask)
+                @test [arrbool[i] for i in idxarr] == varr .* maskarr
+                vscattera(v, fill!(arrbool, false), idx, mask)
+                @test [arrbool[i] for i in idxarr] == varr .* maskarr
+                fill!(arrbool, false)
+                arrbool[idx, mask] = v
+                @test [arrbool[i] for i in idxarr] == varr .* maskarr
             end
         end
     end
