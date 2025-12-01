@@ -34,7 +34,7 @@ jobs:
           - os: macOS-latest
             arch: x86 # 32-bit Julia binaries are not available on macOS
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
