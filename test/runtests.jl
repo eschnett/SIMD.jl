@@ -46,8 +46,8 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
     end
 
     @testset "Type conversion" begin
-        @test string(V8I32(v8i32)) == "<8 x Int32>[" * string(v8i32)[2:end-1] * "]"
-        @test string(V4F64(v4f64)) == "<4 x Float64>[" * string(v4f64)[2:end-1] * "]"
+        @test string(V8I32(v8i32)) == "Vec{8, Int32}(" * string(v8i32) * ")"
+        @test string(V4F64(v4f64)) == "Vec{4, Float64}(" * string(v4f64) * ")"
 
         @test convert(V8I32, V8I32(v8i32)) === V8I32(v8i32)
         @test convert(Vec{L8,Int64}, V8I32(v8i32)) ===
@@ -1096,6 +1096,12 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
             K = sizeof(imask)*8 - N # Num extended leading zeros
             @test leading_zeros(imask) == M + K
         end
+    end
+
+    @testset "parsable repr" begin
+        v = Vec(1.0, 2.0, 3.0, 4.0)
+        v2 = eval(Meta.parse(repr(v)))
+        @test v === v2
     end
 
 if parse(Bool, get(ENV, "TEST_OPENCL", "true"))
