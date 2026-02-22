@@ -53,7 +53,7 @@ The SIMD package provides the usual arithmetic and logical operations for SIMD v
 
 `+ - * / % ^ ! ~ & | $ << >> >>> == != < <= > >=`
 
-`abs cbrt ceil copysign cos div exp exp10 exp2 flipsign floor fma inv isfinite isinf isnan issubnormal log log10 log2 muladd rem round sign signbit sin sqrt trunc vifelse`
+`abs ceil copysign cos div exp exp2 flipsign floor fma inv isfinite isinf isnan issubnormal log log10 log2 muladd rem round sign signbit sin sqrt trunc vifelse`
 
 (Currently missing: `exponent ldexp significand`, many trigonometric functions)
 
@@ -78,14 +78,20 @@ ys = Base.setindex(ys, 5, 3)   # cannot use ys[3] = 5
 
 Reduction operations reduce a SIMD vector to a scalar. The following reduction operations are provided:
 
-`all any maximum minimum sum prod`
+`all any maximum minimum sum prod bitmask`
 
 Example:
 
 ```julia
+# Sum over a vector
 v = Vec{4,Float64}((1,2,3,4))
 sum(v)
 10.0
+
+# Reduce to a bitmask
+v = Vec{8,Bool}((0,1,1,0,1,1,0,1))
+bitmask(v)
+0xb6
 ```
 
 It is also possible to use reduce with bit operations:
@@ -209,6 +215,21 @@ Note that `vload`, `vstore` etc, by default, check that the indices are in
 bounds of the array. These boundschecks can be turned off using the `@inbounds`
 macro, e.g. `@inbounds vload(V, a, i)`.  This is often crucial for good
 performance.
+
+### GPU backends
+
+There is experimental support for using `vload`, `vstore`, `vgather` and `vscatter`
+on GPU device arrays with supported backends. Support will vary from backend to
+backend. Currently, only OpenCL.jl is tested in CI. OpenCL by default only support
+`vload` and `vstore` on `CLDeviceArray`s. For `vgather` and `vscatter`, the
+`SPV_INTEL_masked_gather_scatter` extension is required, support for which
+currently requires some workarounds such as using the `:khronos` instead of the
+`:llvm` backend and disabling SPIRV validation. See the tests in
+[`test/opencl.jl`](test/opencl.jl) for some examples.
+
+On GPU backends, using `@inbounds` is essential for good performance, as exceptions
+have a large overhead. Otherwise - so far supported - SIMD operations should work
+just like on the CPU.
 
 ## Vector shuffles
 

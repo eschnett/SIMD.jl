@@ -70,6 +70,32 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test all(Tuple(convert(Vec{8, Float64}, v)) .== Tuple(v))
     end
 
+    @testset "convert(target_type, source)" begin
+        for ST in (Bool, Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64, Float16, Float32, Float64)
+            for TT in (Bool, Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64, Float16, Float32, Float64)
+                lower = if ST <: Union{SIMD.UIntTypes, Bool} || TT <: Union{SIMD.UIntTypes, Bool}
+                    zero(ST)
+                elseif ST <: SIMD.FloatingTypes || TT <: SIMD.FloatingTypes
+                    ST(typemin(Int8)) # A reasonable lower bound for any float/signed combination
+                else
+                    ST(max(typemin(TT),typemin(ST)))
+                end
+                upper = if ST <: Bool || TT <: Bool
+                    ST(one(Bool))
+                elseif ST <: SIMD.FloatingTypes || TT <: SIMD.FloatingTypes
+                    ST(typemax(Int8)) # A reasonable upper bound for any float/integer combination
+                else
+                    ST(min(typemax(TT),typemax(ST)))
+                end
+
+                v8s = Tuple(rand(lower:upper,8))
+                v8t = TT.(v8s)
+
+                @test Tuple(SIMD.convert(SIMD.Vec{8,TT}, SIMD.Vec{8,ST}(v8s))) == v8t
+            end
+        end
+    end
+
     @testset "Element-wise access" begin
 
         for i in 1:L8
@@ -103,7 +129,8 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
 
         notbool(x) = !(x>=typeof(x)(0))
         for op in (~, +, -, abs, abs2, notbool, sign, signbit, count_ones, count_zeros,
-                   leading_ones, leading_zeros, conj, real, imag, trailing_ones, trailing_zeros)
+                   leading_ones, leading_zeros, conj, real, imag, trailing_ones, trailing_zeros,
+                   bswap)
             @test Tuple(op(V8I32(v8i32))) == map(op, v8i32)
         end
 
@@ -140,6 +167,14 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test Tuple(V8I32(v8i32)^1) === v8i32.^1
         @test Tuple(V8I32(v8i32)^2) === v8i32.^2
         @test Tuple(V8I32(v8i32)^3) === v8i32.^3
+    end
+
+    @testset "bswap" begin
+        for sz in [1, 2, 4, 8, 16, 32]
+            VszI8 = Vec{sz,Int8}
+            vszi8 = ntuple(i->Int8(ifelse(isodd(i), i, -i)), sz)
+            @test Tuple(bswap(VszI8(vszi8))) == map(bswap, vszi8)
+        end
     end
 
     @testset "saturation" begin
@@ -384,6 +419,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         end
 
         global const arrf64 = valloc(Float64, L4, 4*L4) do i i end
+        global const arrbool = valloc(Bool, L8, 2*L8) do i isodd(i) end
         for i in 1:length(arrf64)-(L4-1)
             @test vload(V4F64, arrf64, i) === V4F64(ntuple(j->i+j-1, L4))
         end
@@ -450,7 +486,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test all(Tuple(@fastmath -v) .≈ Tuple(-v))
         f = v -> @fastmath v + v
         # Test that v+v is rewritten as v * 2.0 (change test if optimization changes)
-        @test occursin(r"fmul fast <4 x double> %[^%,]*, <double 2\.000000e\+00", llvm_ir(f, (v,)))
+        @test occursin(r"fmul fast <4 x double> %[^%,]*,.*double 2\.000000e\+00", llvm_ir(f, (v,)))
 
         a = Vec{8, Int32}(0)
         @test all((@fastmath a + a) == a)
@@ -556,6 +592,58 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                     y[idx1, 1, mask] = v1
                     @test y[idx1arr, 1] == v1arr .* maskarr
                 end
+            end
+        end
+
+        # Test Bool gather/scatter operations (issue #150)
+        @testset "Bool gather and scatter" begin
+            V8BOOL = Vec{L8,Bool}
+            arrbool .= [isodd(i) for i in 1:length(arrbool)]
+            idxarr = floor.(Int, range(1, stop=length(arrbool), length=L8))
+
+            idx = Vec(Tuple(idxarr))
+            expected_vals = [arrbool[i] for i in idxarr]
+            expected_vec = V8BOOL(Tuple(expected_vals))
+
+            @test vgather(arrbool, idx) === expected_vec
+            @test vgathera(arrbool, idx) === expected_vec
+            @test arrbool[idx] === expected_vec
+
+            # Masked gather for Bool
+            maskarr = zeros(Bool, L8)
+            for i in 1:L8
+                maskarr[i] = true
+                mask = Vec(Tuple(maskarr))
+                expected_masked = V8BOOL(Tuple(expected_vals .* maskarr))
+                @test vgather(arrbool, idx, mask) === expected_masked
+                @test vgathera(arrbool, idx, mask) === expected_masked
+                @test arrbool[idx, mask] === expected_masked
+            end
+
+            # Scatter for Bool
+            varr = [isodd(i*3) for i in 1:L8]  # Different pattern for scatter
+            v = Vec(Tuple(varr))
+
+            vscatter(v, fill!(arrbool, false), idx)
+            @test [arrbool[i] for i in idxarr] == varr
+            vscattera(v, fill!(arrbool, false), idx)
+            @test [arrbool[i] for i in idxarr] == varr
+            fill!(arrbool, false)
+            arrbool[idx] = v
+            @test [arrbool[i] for i in idxarr] == varr
+
+            # Masked scatter for Bool
+            maskarr = zeros(Bool, L8)
+            for i in 1:L8
+                maskarr[i] = true
+                mask = Vec(Tuple(maskarr))
+                vscatter(v, fill!(arrbool, false), idx, mask)
+                @test [arrbool[i] for i in idxarr] == varr .* maskarr
+                vscattera(v, fill!(arrbool, false), idx, mask)
+                @test [arrbool[i] for i in idxarr] == varr .* maskarr
+                fill!(arrbool, false)
+                arrbool[idx, mask] = v
+                @test [arrbool[i] for i in idxarr] == varr .* maskarr
             end
         end
     end
@@ -997,10 +1085,29 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test all(r == Vec(4.0, 3.0, 3.0, 4.0))
     end
 
+    @testset "bitmask" begin
+        for N in [1, 8, 24, 31, 64]
+            tmask = Tuple(rand(Bool,N))
+            vmask = Vec{N,Bool}(tmask)
+            imask = bitmask(vmask)
+            @test count_ones(imask) == sum(tmask)
+
+            M = N - something(findlast(==(true), tmask), 0) # Num original leading zeros
+            K = sizeof(imask)*8 - N # Num extended leading zeros
+            @test leading_zeros(imask) == M + K
+        end
+    end
     @testset "parsable repr" begin
         v = Vec(1.0, 2.0, 3.0, 4.0)
         v2 = eval(Meta.parse(repr(v)))
         @test v === v2
     end
+
+
+if parse(Bool, get(ENV, "TEST_OPENCL", "true"))
+    include("opencl.jl")
+else
+    @info "Skipping OpenCL tests"
+end
 
 # end

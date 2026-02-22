@@ -23,32 +23,32 @@ Base.copy(v::Vec) = v
 
 @inline Base.convert(::Type{Vec{N,T}}, v::Vec{N,T}) where {N,T} = v
 @inline function Base.convert(::Type{Vec{N, T1}}, v::Vec{N, T2}) where {T1, T2, N}
-    if T1 <: Ptr
+    if T1 <: Ptr || T1 <: LLVMPtr
         return Vec(Intrinsics.inttoptr(Intrinsics.LVec{N, T1}, v.data))
-    elseif T1 <: IntegerTypes
-        if T2 <: Ptr
+    elseif T1 <: BIntegerTypes
+        if T2 <: Ptr || T2 <: LLVMPtr
             return Vec(Intrinsics.ptrtoint(Intrinsics.LVec{N, T1}, v.data))
-        elseif T2 <: Union{IntegerTypes, Bool}
+        elseif T2 <: BIntegerTypes
             if sizeof(T1) < sizeof(T2)
                 return Vec(Intrinsics.trunc(Intrinsics.LVec{N, T1}, v.data))
             elseif sizeof(T1) == sizeof(T2)
                 return Vec(Intrinsics.bitcast(Intrinsics.LVec{N, T1}, v.data))
             else
-                if T2 <: UIntTypes
+                if T2 <: Union{UIntTypes, Bool}
                     return Vec(Intrinsics.zext(Intrinsics.LVec{N, T1}, v.data))
                 else
                     return Vec(Intrinsics.sext(Intrinsics.LVec{N, T1}, v.data))
                 end
             end
         elseif T2 <: FloatingTypes
-            if T1 <: UIntTypes
+            if T1 <: Union{UIntTypes, Bool}
                 return Vec(Intrinsics.fptoui(Intrinsics.LVec{N, T1}, v.data))
             elseif T1 <: IntTypes
                 return Vec(Intrinsics.fptosi(Intrinsics.LVec{N, T1}, v.data))
             end
         end
     elseif T1 <: FloatingTypes
-        if T2 <: UIntTypes
+        if T2 <: Union{UIntTypes, Bool}
             return Vec(Intrinsics.uitofp(Intrinsics.LVec{N, T1}, v.data))
         elseif T2 <: IntTypes
             return Vec(Intrinsics.sitofp(Intrinsics.LVec{N, T1}, v.data))
@@ -116,6 +116,8 @@ Base.reinterpret(::Type{Vec{N, T}}, v::Vec) where {T, N} = Vec(Intrinsics.bitcas
 Base.reinterpret(::Type{Vec{N, T}}, v::ScalarTypes) where {T, N} = Vec(Intrinsics.bitcast(Intrinsics.LVec{N, T}, v))
 Base.reinterpret(::Type{T}, v::Vec) where {T} = Intrinsics.bitcast(T, v.data)
 
+bitmask(v::Vec{<:Any,Bool}) = Intrinsics.bitmask(v.data)
+
 const FASTMATH = Intrinsics.FastMathFlags(Intrinsics.FastMath.fast)
 
 ###################
@@ -155,6 +157,10 @@ for (op, constraint, llvmop) in UNARY_OPS
     @eval @inline (Base.$op)(x::Vec{<:Any, <:$constraint}) =
         Vec($(llvmop)(x.data))
 end
+
+# Fix up bswap (see <https://github.com/eschnett/SIMD.jl/issues/122>):
+# bswap for 1-byte types is a no-op
+Base.bswap(x::Vec{<:Any, <:Union{Int8,UInt8}}) = x
 
 Base.:+(v::Vec{<:Any, <:ScalarTypes}) = v
 Base.:-(v::Vec{<:Any, <:IntegerTypes}) = zero(v) - v
@@ -316,13 +322,21 @@ _signed(::Type{Float64}) = Int64
 @inline Base.:+(x::Vec{N,Ptr{T}}, y::IntegerTypes) where {N,T} = convert(Vec{N,Ptr{T}}, convert(Vec{N,UInt}, x) + y)
 @inline Base.:-(x::Vec{N,Ptr{T}}, y::IntegerTypes) where {N,T} = convert(Vec{N,Ptr{T}}, convert(Vec{N,UInt}, x) - y)
 
-@inline Base.:+(y::Vec{N,<:IntegerTypes}, x::Vec{N,Ptr{T}}, ) where {N,T} = x + y
-@inline Base.:+(y::Vec{N,<:IntegerTypes}, x::Ptr{T}) where {N,T} = x + y
-@inline Base.:+(y::IntegerTypes, x::Vec{N,Ptr{T}}) where {N,T} = x + y
+# use gep
+@inline Base.:+(x::Vec{N,LLVMPtr{T, AS}}, y::Vec{N,<:IntegerTypes}) where {N,T,AS} = Vec(Intrinsics.add_ptr(x.data, y.data))
+@inline Base.:-(x::Vec{N,LLVMPtr{T, AS}}, y::Vec{N,<:IntegerTypes}) where {N,T,AS} = Vec(Intrinsics.add_ptr(x.data, (-y).data))
+@inline Base.:+(x::LLVMPtr{T, AS}, y::Vec{N,<:IntegerTypes}) where {N,T,AS} = Vec(Intrinsics.add_ptr(x, y.data))
+@inline Base.:-(x::LLVMPtr{T, AS}, y::Vec{N,<:IntegerTypes}) where {N,T,AS} = Vec(Intrinsics.add_ptr(x, (-y).data))
+@inline Base.:+(x::Vec{N,LLVMPtr{T, AS}}, y::IntegerTypes) where {N,T,AS} = Vec(Intrinsics.add_ptr(x.data, y))
+@inline Base.:-(x::Vec{N,LLVMPtr{T, AS}}, y::IntegerTypes) where {N,T,AS} = Vec(Intrinsics.add_ptr(x.data, -y))
 
-@inline Base.:-(x::Vec{N,Ptr{T}}, y::Vec{N,Ptr{T}}) where {N,T} = convert(Vec{N,Int}, x) - convert(Vec{N,Int}, y)
-@inline Base.:-(x::Ptr{T}, y::Vec{N,Ptr{T}}) where {N,T} = convert(UInt, x) % Int - convert(Vec{N,Int}, y)
-@inline Base.:-(x::Vec{N,Ptr{T}}, y::Ptr{T}) where {N,T} = convert(Vec{N,Int}, x) - convert(UInt, y) % Int
+@inline Base.:+(y::Vec{N,<:IntegerTypes}, x::Vec{N,<:AnyPtr{T}}) where {N,T} = x + y
+@inline Base.:+(y::Vec{N,<:IntegerTypes}, x::AnyPtr{T}) where {N,T} = x + y
+@inline Base.:+(y::IntegerTypes, x::Vec{N,<:AnyPtr{T}}) where {N,T} = x + y
+
+@inline Base.:-(x::Vec{N,<:AnyPtr{T}}, y::Vec{N,<:AnyPtr{T}}) where {N,T} = convert(Vec{N,Int}, x) - convert(Vec{N,Int}, y)
+@inline Base.:-(x::AnyPtr{T}, y::Vec{N,<:AnyPtr{T}}) where {N,T} = UInt(x) % Int - convert(Vec{N,Int}, y)
+@inline Base.:-(x::Vec{N,<:AnyPtr{T}}, y::AnyPtr{T}) where {N,T} = convert(Vec{N,Int}, x) - UInt(y) % Int
 
 # Bitshifts
 # See https://github.com/JuliaLang/julia/blob/7426625b5c07b0d93110293246089a259a0a677d/src/intrinsics.cpp#L1179-L1196
