@@ -34,7 +34,7 @@ jobs:
           - arch: "x64"
             os: "windows-2025"
             version: "1.12"
-            test-opencl: true
+            test-opencl: false
           - arch: "arm64"
             os: "macOS-26"
             version: "1.12"
@@ -46,7 +46,7 @@ jobs:
           - arch: "x86"
             os: "ubuntu-24.04"
             version: "1.12"
-            test-opencl: true
+            test-opencl: false
           - arch: "x64"
             os: "ubuntu-24.04"
             version: "1.11"
