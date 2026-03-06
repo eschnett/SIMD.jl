@@ -201,6 +201,7 @@ end
 @propagate_inbounds Base.setindex!(a::FastContiguousArray{T,1}, v::Vec{N,T}, idx::Vec{N,<:Integer}) where {N, T} =
     vscatter(v, a, idx)
 
+@propagate_inbounds Base.setindex!(a::FastContiguousArray{T,1}, s::Number, idx::Vec{N,<:Integer}) where {N, T} = Base.setindex!(a, Vec{N,T}(s), idx)
 
 export VecRange
 
@@ -331,3 +332,10 @@ Base.@propagate_inbounds function Base.setindex!(
     vscatter(v, ptrs, mask)
     return arr
 end
+
+Base.@propagate_inbounds function Base.setindex!(
+        arr::ContiguousArray{T}, s::Number, idx::Union{<:Vec{N,<:Integer},<:VecRange{N}},
+        args::Vararg{Union{Integer,Vec{N,Bool}}}) where {N,T}
+    return Base.setindex!(arr, Vec{N,T}(s), idx, args...)
+end
+
