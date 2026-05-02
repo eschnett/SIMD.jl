@@ -53,6 +53,11 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v2
+      - name: Remove OpenCL on unsupported platforms
+        run: |
+          sed -i '/^OpenCL = /d' test/Project.toml
+          sed -i '/^pocl_jll = /d' test/Project.toml
+        if: ${{ !matrix.test-opencl }}
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
         with:
