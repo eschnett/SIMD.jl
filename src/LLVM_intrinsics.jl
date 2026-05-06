@@ -559,15 +559,21 @@ elsewhere). Substantially faster than the generic
 `N` element-wise comparisons against a constant index vector.
 """
 @generated function prefix_mask(::Val{N}, n::Int64) where {N}
-    fn = "llvm.get.active.lane.mask.v$(N)i1.i64"
+    @assert N in (1,2,4,8,16,32,64) "prefix_mask: N must be a power of 2 ≤ 64"
     ir = """
-        declare <$N x i1> @$fn(i64, i64)
         define <$N x i8> @entry(i64 %n) #0 {
         top:
-            %m1 = call <$N x i1> @$fn(i64 0, i64 %n)
+            %clamped = call i64 @llvm.umin.i64(i64 %n, i64 $N)
+            %shift_amt = sub i64 64, %clamped         ; ← was `sub i64 $N, %clamped`
+            %ones = sub i64 0, 1
+            %bits64 = call i64 @llvm.fshr.i64(i64 0, i64 %ones, i64 %shift_amt)
+            %bits = trunc i64 %bits64 to i$N
+            %m1 = bitcast i$N %bits to <$N x i1>
             %m8 = zext <$N x i1> %m1 to <$N x i8>
             ret <$N x i8> %m8
         }
+        declare i64 @llvm.umin.i64(i64, i64)
+        declare i64 @llvm.fshr.i64(i64, i64, i64)
         attributes #0 = { alwaysinline }
         """
     quote
