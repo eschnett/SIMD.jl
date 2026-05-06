@@ -544,6 +544,40 @@ end
     )
 end
 
+"""
+    prefix_mask(::Val{N}, n::Integer) -> Vec{N,Bool}
+
+Return a `Vec{N,Bool}` whose first `min(max(n, 0), N)` lanes are `true`
+and the remaining lanes are `false`. The canonical "vectorized-loop tail"
+mask: lane `i` (0-indexed) is `true` iff `i < n`.
+
+Lowers to LLVM's `llvm.get.active.lane.mask` intrinsic, which targets
+hand-tuned mask-building instructions on each backend (`kshift` chains
+on AVX-512, `whilelt`-style instructions on ARM SVE, scalar fallback
+elsewhere). Substantially faster than the generic
+`Vec{N,Bool}(ntuple(i -> i <= n, Val(N)))` lowering, which expands to
+`N` element-wise comparisons against a constant index vector.
+"""
+@generated function prefix_mask(::Val{N}, n::Int64) where {N}
+    fn = "llvm.get.active.lane.mask.v$(N)i1.i64"
+    ir = """
+        declare <$N x i1> @$fn(i64, i64)
+        define <$N x i8> @entry(i64 %n) #0 {
+        top:
+            %m1 = call <$N x i1> @$fn(i64 0, i64 %n)
+            %m8 = zext <$N x i1> %m1 to <$N x i8>
+            ret <$N x i8> %m8
+        }
+        attributes #0 = { alwaysinline }
+        """
+    quote
+        $(Expr(:meta, :inline))
+        nt = Base.llvmcall(($ir, "entry"), NTuple{$N, VecElement{Bool}},
+                            Tuple{Int64}, n)
+        Vec{$N,Bool}(nt)
+    end
+end
+
 @generated function store(x::LVec{N, T}, ptr::Ptr{T},
                           ::Val{Al}=Val(false), ::Val{Te}=Val(false)) where {N, T, Al, Te}
     s = """
