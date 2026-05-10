@@ -5,7 +5,7 @@ using Core: LLVMPtr
 
 export Vec, vload, vloada, vloadnt, vloadx, vstore, vstorea, vstorent, vstorec,
        vgather, vgathera, vscatter, vscattera, shufflevector, vifelse, valloc,
-       VecRange, bitmask
+       VecRange, bitmaskconvert, frombitmask, tobitmask
 
 const VE         = Base.VecElement
 const LVec{N, T} = NTuple{N, VE{T}}

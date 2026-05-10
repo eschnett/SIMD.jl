@@ -994,29 +994,61 @@ end
 # Bitmask #
 ###########
 
-@generated function bitmask(x::LVec{N, Bool}) where {N}
-    if N > 128 # Julia doesn't export anything larger than UInt128
-        return :(throw(ArgumentError(("vector length $(N) must be <= 128"))))
-    end
-    P = nextpow(2, max(N, 8))
-    T = Symbol("UInt", P)
-    if N == P
+@generated function bitmaskconvert(::Type{T}, x::LVec{N, Bool}) where {N, T <: SIMD.UIntTypes}
+    sT = sizeof(T) * 8
+    if sT > N
         s = """
-        %mask = trunc <$(N) x i8> %0 to <$(N) x i1>
-        %maski = bitcast <$(N) x i1> %mask to i$(N)
-        ret i$(N) %maski
+        %vmask = trunc <$(N) x $(llvm_type(Bool))> %0 to <$(N) x i1>
+        %imask = bitcast <$(N) x i1> %vmask to i$(N)
+        %imaskzext = zext i$(N) %imask to i$(sT)
+        ret i$(sT) %imaskzext
         """
-    else
+    elseif sT < N
         s = """
-        %mask = trunc <$(N) x i8> %0 to <$(N) x i1>
-        %maski = bitcast <$(N) x i1> %mask to i$(N)
-        %maskizext = zext i$(N) %maski to i$(P)
-        ret i$(P) %maskizext
+        %vmask = trunc <$(N) x $(llvm_type(Bool))> %0 to <$(N) x i1>
+        %imask = bitcast <$(N) x i1> %vmask to i$(N)
+        %imasktrunc = trunc i$(N) %imask to i$(sT)
+        ret i$(sT) %imasktrunc
+        """
+    else # sT == N
+        s = """
+        %vmask = trunc <$(N) x $(llvm_type(Bool))> %0 to <$(N) x i1>
+        %imask = bitcast <$(N) x i1> %vmask to i$(N)
+        ret i$(N) %imask
         """
     end
     return :(
         $(Expr(:meta, :inline));
-        Base.llvmcall($s, $T, Tuple{LVec{N, Bool}}, x)
+        Base.llvmcall($s, T, Tuple{LVec{N, Bool}}, x)
+    )
+end
+
+@generated function bitmaskconvert(::Type{LVec{N, Bool}}, x::T) where {N, T <: SIMD.UIntTypes}
+    sT = sizeof(T)*8
+    if N > sT
+        s = """
+        %imask = zext i$(sT) %0 to i$(N)
+        %vmask = bitcast i$(N) %imask to <$(N) x i1>
+        %vec = zext <$(N) x i1> %vmask to <$(N) x $(llvm_type(Bool))>
+        ret <$(N) x $(llvm_type(Bool))> %vec
+        """
+    elseif N < sT
+        s = """
+        %imask = trunc i$(sT) %0 to i$(N)
+        %vmask = bitcast i$(N) %imask to <$(N) x i1>
+        %vec = zext <$(N) x i1> %vmask to <$(N) x $(llvm_type(Bool))>
+        ret <$(N) x $(llvm_type(Bool))> %vec
+        """
+    else # N == sT
+        s = """
+        %vmask = bitcast i$(N) %0 to <$(N) x i1>
+        %vec = zext <$(N) x i1> %vmask to <$(N) x $(llvm_type(Bool))>
+        ret <$(N) x $(llvm_type(Bool))> %vec
+        """
+    end
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall($s, LVec{N, Bool}, Tuple{T}, x)
     )
 end
 
