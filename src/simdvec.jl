@@ -515,3 +515,12 @@ end
 @inline Base.conj(v::Vec{N, T}) where {N, T<:ScalarTypes} = v
 @inline Base.angle(v::Vec{N, T}) where {N, T <: FloatingTypes} = vifelse(signbit(v), Vec{N, T}(T(pi)), zero(v))
 @inline Base.imag(v::Vec{N, T}) where {N, T <: ScalarTypes} = zero(v)
+
+#Same implementation as in Base for IEEEFloats
+@inline function Base.eps(x::Vec{N, T}) where {N, T<:FloatingTypes}
+    TU = _unsigned(T)
+    y = reinterpret(Vec{N, T}, reinterpret(Vec{N, TU}, x) ⊻ one(TU))
+    return abs(x - y)
+end
+
+@inline Base.eps(::Type{Vec{N, T}}) where {N, T<:FloatingTypes} = Vec{N, T}(eps(T))

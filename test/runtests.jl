@@ -304,6 +304,17 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         # See: https://github.com/eschnett/SIMD.jl/pull/43
         ir = llvm_ir(^, (V4F64(v4f64), Int32(2)))
         @test occursin("@llvm.powi.v4f64", ir)
+
+        #tests for eps implementation
+        let v = V4F64((1, -1000, 100000, -1000000000))
+            ev = eps(v)
+            for i in 1:4
+                @test ev[i] === eps(v[i])
+            end
+
+            @test eps(V4F64) === V4F64(eps(Float64))
+        end
+
     end
 
     @testset "Type promotion" begin
