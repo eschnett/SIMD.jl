@@ -306,13 +306,22 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test occursin("@llvm.powi.v4f64", ir)
 
         #tests for eps implementation
-        let v = V4F64((1, -1000, 100000, -1000000000))
+        @test eps(V4F64) === V4F64(eps(Float64))
+        for v in (
+                V4F64((1, -1000, 100000, -1000000000)),
+                V4F64((0.0, prevfloat(1.0), 1.0, nextfloat(1.0))),
+                V4F64((-1.5, prevfloat(1.5), 1.5, nextfloat(1.5)))
+            )
             ev = eps(v)
             for i in 1:4
                 @test ev[i] === eps(v[i])
             end
-
-            @test eps(V4F64) === V4F64(eps(Float64))
+        end
+        #Sanity check
+        let v1 = V4F64((prevfloat(1.0, 2), prevfloat(1.0), 1.0, nextfloat(1.0))),
+                v2 = V4F64((prevfloat(1.5, 2), prevfloat(1.5), 1.5, nextfloat(1.5)))
+            @test v1 + eps(v1) === V4F64((prevfloat(1.0), 1.0, nextfloat(1.0), nextfloat(1.0,2)))
+            @test v2 + eps(v2) === V4F64((prevfloat(1.5), 1.5, nextfloat(1.5), nextfloat(1.5,2)))
         end
 
     end
