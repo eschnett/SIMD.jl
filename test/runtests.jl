@@ -861,6 +861,36 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
                 end
             end
         end
+
+        let a = zeros(Float32,8), M = zeros(Float64,8,2)
+
+            a[Vec{4,Int}((8,4,3,1))] = 1
+            @test a == Float32[1, 0, 1, 1, 0, 0, 0, 1]
+
+            a[VecRange{4}(5)] = 2
+            @test a == Float32[1, 0, 1, 1, 2, 2, 2, 2]
+
+            M[Vec{4,Int}((8,4,3,1)), 2] = 1
+            @test M == Float64[0 1
+                               0 0
+                               0 1
+                               0 1
+                               0 0
+                               0 0
+                               0 0
+                               0 1]
+
+            M[VecRange{4}(5), 2] = 2
+            @test M == Float64[0 1
+                               0 0
+                               0 1
+                               0 1
+                               0 2
+                               0 2
+                               0 2
+                               0 2]
+        end
+
     end
 
     @testset "Real-world examples" begin
