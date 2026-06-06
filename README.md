@@ -53,9 +53,10 @@ The SIMD package provides the usual arithmetic and logical operations for SIMD v
 
 `+ - * / % ^ ! ~ & | $ << >> >>> == != < <= > >=`
 
-`abs ceil copysign cos div eps exp exp2 flipsign floor fma inv isfinite isinf isnan issubnormal log log10 log2 muladd rem round sign signbit sin sqrt trunc vifelse`
+`abs ceil copysign cos div eps exp exp2 flipsign floor fma ifelse¹ inv isfinite isinf isnan issubnormal log log10 log2 muladd rem round sign signbit sin sqrt trunc vifelse`
 
-(Currently missing: `exponent ldexp significand`, many trigonometric functions)
+(Currently missing: `exponent ldexp significand`, many trigonometric functions)  
+¹ Supported on Julia v1.8 and above. For compatibility with lower versions use `vifelse` instead.
 
 These operators and functions are always applied element-wise, i.e. they are applied to each element in parallel, yielding again a SIMD vector as result. This means that e.g. multiplying two vectors yields a vector, and comparing two vectors yields a vector of booleans. This behaviour might seem strange and slightly unusual, but corresponds to the machine instructions provided by the hardware. It is also what is usually needed to vectorize loops.
 

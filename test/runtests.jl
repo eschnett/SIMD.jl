@@ -140,8 +140,12 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
             @test Tuple(op(V8I32(v8i32), V8I32(v8i32b))) === map(op, v8i32, v8i32b)
         end
 
-        global vifelsebool(x,y,z) = vifelse(x>=typeof(x)(0),y,z)
-        for op in (vifelsebool, muladd)
+        @static if VERSION >= v"1.8"
+            global ifelsebool(x,y,z) = ifelse(x>=zero(x),y,z)
+        else
+            global ifelsebool(x,y,z) = vifelse(x>=zero(x),y,z)
+        end
+        for op in (ifelsebool, muladd)
             @test Tuple(op(V8I32(v8i32), V8I32(v8i32b), V8I32(v8i32c))) ===
                 map(op, v8i32, v8i32b, v8i32c)
         end
@@ -292,7 +296,7 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test Tuple(V4F64(v4f64)^2) === v4f64.^2
         @test Tuple(V4F64(v4f64)^3) === v4f64.^3
 
-        for op in (fma, vifelsebool, muladd)
+        for op in (fma, ifelsebool, muladd)
             @test Tuple(op(V4F64(v4f64), V4F64(v4f64b), V4F64(v4f64c))) ===
                 map(op, v4f64, v4f64b, v4f64c)
         end

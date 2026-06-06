@@ -437,6 +437,10 @@ end
 @inline vifelse(v::Vec{N, Bool}, v1::T2, v2::Vec{N, T}) where {N, T, T2 <:ScalarTypes} = vifelse(v, Vec{N, T}(v1), v2)
 @inline vifelse(v::Vec{N, Bool}, v1::Vec{N, T}, v2::T2) where {N, T, T2 <:ScalarTypes} = vifelse(v, v1, Vec{N, T}(v2))
 
+@static if VERSION >= v"1.8"
+    @inline Base.ifelse(v::Vec{N, Bool}, v1, v2) where {N} = vifelse(v, v1, v2)
+end
+
 # fma, muladd and vectorization of these
 for (op, llvmop) in [(:fma, Intrinsics.fma), (:muladd, Intrinsics.fmuladd)]
     @eval begin
