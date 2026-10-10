@@ -1,8 +1,22 @@
 using KernelAbstractions, OpenCL, pocl_jll
+# Needed for the `backend = :khronos` kernels below: GPUCompiler's SPIR-V
+# emission errors unless a translator jll is loaded.
+using SPIRV_LLVM_Translator_jll
 using SIMD
 using Test
 
 const backend = OpenCLBackend()
+
+# Vectors of pointers (as used by `vgather`/`vscatter`) require the
+# `SPV_INTEL_masked_gather_scatter` extension, which pocl does not accept (it
+# exits the process when loading such a module). So only check that these
+# kernels compile to SPIR-V using the masked gather/scatter instructions.
+function gather_scatter_spirv(f, args...)
+    tt = Tuple{map(x -> typeof(OpenCL.kernel_convert(x)), args)...}
+    return sprint(io -> OpenCL.code_native(io, f, tt; kernel = true, backend = :khronos,
+                                          extensions = ["SPV_INTEL_masked_gather_scatter"],
+                                          validate = false))
+end
 
 @testset "OpenCL SIMD Load/Store Tests" begin
     @testset "Basic load/store operations" begin
@@ -148,14 +162,9 @@ const backend = OpenCLBackend()
         end
         indices_buf = CLVector{Int32}(indices_data)
 
-        @opencl global_size = length(indices_data) ÷ 4 backend = :khronos extensions = ["SPV_INTEL_masked_gather_scatter"] validate = false gather_scatter_kernel!(a, b, indices_buf)
-
-        a_host = Array(a)
-        # Verify scattered results
-        for (i, original_idx) in enumerate(indices_data)
-            expected = Float32(original_idx) * 2f0
-            @test a_host[original_idx] == expected
-        end
+        spirv = gather_scatter_spirv(gather_scatter_kernel!, a, b, indices_buf)
+        @test occursin("OpMaskedGatherINTEL", spirv)
+        @test occursin("OpMaskedScatterINTEL", spirv)
     end
 
     @testset "Masked gather/scatter operations" begin
@@ -199,16 +208,8 @@ const backend = OpenCLBackend()
         mask_data = [i % 2 for i in 1:n]
         masks_buf = CLVector{Int32}(mask_data)
 
-        @opencl global_size = n ÷ 4 backend = :khronos extensions = ["SPV_INTEL_masked_gather_scatter"] validate = false masked_gather_scatter_kernel!(a, b, indices_buf, masks_buf)
-
-        a_host = Array(a)
-        for i in 1:n
-            if i % 2 == 1  # mask was true
-                expected = Float32(i) * 10f0 + 100f0
-                @test a_host[i] == expected
-            else  # mask was false, should remain zero
-                @test a_host[i] == 0f0
-            end
-        end
+        spirv = gather_scatter_spirv(masked_gather_scatter_kernel!, a, b, indices_buf, masks_buf)
+        @test occursin("OpMaskedGatherINTEL", spirv)
+        @test occursin("OpMaskedScatterINTEL", spirv)
     end
 end
