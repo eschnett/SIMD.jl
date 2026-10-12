@@ -300,7 +300,17 @@ end
 @inline Base.literal_pow(::typeof(^), x::Vec, ::Val{0}) = one(typeof(x))
 @inline Base.literal_pow(::typeof(^), x::Vec, ::Val{1}) = x
 @inline Base.literal_pow(::typeof(^), x::Vec, ::Val{2}) = x*x
-@inline Base.literal_pow(::typeof(^), x::Vec, ::Val{3}) = x*x*x
+@inline function Base.literal_pow(::typeof(^), x::Vec, ::Val{N}) where N
+    M = div(N,2)
+    N<0 && return inv(Base.literal_pow(^, x, Val(-N)))
+    N<256 && return Base.literal_pow(^, x, Val(M))*Base.literal_pow(^, x, Val(N-M))
+    y, n, xn = one(x), 1, x
+    while n<=N
+        (n&N)==0 || (y = y*xn)
+        n, xn = 2n, xn*xn
+    end
+    y
+end
 
 # Sign
 @inline Base.flipsign(v1::Vec{N,T}, v2::Vec{N,T}) where {N,T} =
