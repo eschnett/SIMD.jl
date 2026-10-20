@@ -115,6 +115,29 @@ end
     return a
 end
 
+"""
+    vload_prefix(::Type{Vec{N,T}}, ptr::Ptr{T}, n::Integer) -> Vec{N,T}
+
+Load `min(max(n, 0), N)` consecutive elements of `T` from `ptr` into the
+first lanes of a `Vec{N,T}`; remaining lanes are zero. Equivalent to
+`vload(Vec{N,T}, ptr, prefix_mask(Val(N), n))` but composed into one
+call site.
+"""
+@inline function vload_prefix(::Type{Vec{N,T}}, ptr::Ptr{T}, n::Integer) where {N,T}
+    vload(Vec{N,T}, ptr, prefix_mask(Val(N), Int64(n)))
+end
+
+"""
+    vstore_prefix!(v::Vec{N,T}, ptr::Ptr{T}, n::Integer) -> Nothing
+
+Store the first `min(max(n, 0), N)` lanes of `v` to `ptr`; remaining
+lanes are not written. Equivalent to
+`vstore(v, ptr, prefix_mask(Val(N), n))` but composed into one call site.
+"""
+@inline function vstore_prefix!(v::Vec{N,T}, ptr::Ptr{T}, n::Integer) where {N,T}
+    vstore(v, ptr, prefix_mask(Val(N), Int64(n)))
+end
+
 function valloc(::Type{T}, N::Int, sz::Int) where T
     @assert N > 0
     @assert sz >= 0
