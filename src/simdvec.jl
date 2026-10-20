@@ -258,9 +258,19 @@ function get_fastmath_function(op)
     return nothing
 end
 
+# Base defines `>`, `>=` and `!=` generically as `y < x`, `y <= x` and `!(x == y)`,
+# which compile to the same vector comparisons. Base has so few methods for these
+# functions that inference resolves calls with abstract arguments (e.g. `x > 0` with
+# `x::Any`) to those fallbacks, so adding `Vec` methods would invalidate all such
+# code whenever SIMD is loaded. Their fast-math versions do get methods, so that
+# `@fastmath` comparisons keep their flags.
+is_fallback_op(op) = op in (:(Base.:>), :(Base.:>=), :(Base.:!=))
+
 for (op, constraint, llvmop) in BINARY_OPS
-    @eval @inline function $op(x::Vec{N, T}, y::Vec{N, T}) where {N, T <: $constraint}
-        Vec($(llvmop)(x.data, y.data))
+    if !is_fallback_op(op)
+        @eval @inline function $op(x::Vec{N, T}, y::Vec{N, T}) where {N, T <: $constraint}
+            Vec($(llvmop)(x.data, y.data))
+        end
     end
 
     # Add a fast math version if applicable
@@ -393,6 +403,9 @@ end
 
 
 # Vectorize binary functions
+# One method pair per operator, covering all element types it supports, keeps the
+# number of methods added to Base functions (and thus load time) down.
+const VECTORIZED_BINARY_OPS = Dict{Any, Any}()
 for (op, constraint) in [BINARY_OPS;
         (:(Base.flipsign) , ScalarTypes)
         (:(Base.copysign) , ScalarTypes)
@@ -409,7 +422,10 @@ for (op, constraint) in [BINARY_OPS;
         (:(Base.Checked.mul_with_overflow) , IntTypes)
         (:(Base.Checked.mul_with_overflow) , UIntTypes)
     ]
-    ops = [op]
+    VECTORIZED_BINARY_OPS[op] = Union{get(VECTORIZED_BINARY_OPS, op, Union{}), constraint}
+end
+for (op, constraint) in VECTORIZED_BINARY_OPS
+    ops = is_fallback_op(op) ? [] : [op]
     if (fast_op = get_fastmath_function(op)) !== nothing
         push!(ops, fast_op)
     end
