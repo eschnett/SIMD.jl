@@ -514,6 +514,12 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
 
         a = Vec{8, Int32}(0)
         @test all((@fastmath a + a) == a)
+
+        for (op, fast_op) in ((>, Base.FastMath.gt_fast), (>=, Base.FastMath.ge_fast),
+                              (!=, Base.FastMath.ne_fast))
+            @test Tuple(fast_op(v, 2.0)) === map(x -> op(x, 2.0), Tuple(v))
+        end
+        @test occursin("fcmp fast une", llvm_ir((x, y) -> @fastmath(x != y), (v, v)))
     end
 
     @testset "Gather and scatter function" begin
@@ -1156,6 +1162,14 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         v = Vec(1.0, 2.0, 3.0, 4.0)
         v2 = eval(Meta.parse(repr(v)))
         @test v === v2
+    end
+
+    @testset "no methods on generic comparison fallbacks" begin
+        # Base defines these in terms of `<`, `<=` and `==`. Adding `Vec` methods
+        # would invalidate all code calling them with abstract argument types.
+        for f in (>, >=, !=)
+            @test !any(m -> m.module === SIMD, methods(f))
+        end
     end
 
 if parse(Bool, get(ENV, "TEST_OPENCL", "true"))
