@@ -403,6 +403,9 @@ end
 
 
 # Vectorize binary functions
+# One method pair per operator, covering all element types it supports, keeps the
+# number of methods added to Base functions (and thus load time) down.
+const VECTORIZED_BINARY_OPS = Dict{Any, Any}()
 for (op, constraint) in [BINARY_OPS;
         (:(Base.flipsign) , ScalarTypes)
         (:(Base.copysign) , ScalarTypes)
@@ -419,6 +422,9 @@ for (op, constraint) in [BINARY_OPS;
         (:(Base.Checked.mul_with_overflow) , IntTypes)
         (:(Base.Checked.mul_with_overflow) , UIntTypes)
     ]
+    VECTORIZED_BINARY_OPS[op] = Union{get(VECTORIZED_BINARY_OPS, op, Union{}), constraint}
+end
+for (op, constraint) in VECTORIZED_BINARY_OPS
     ops = is_fallback_op(op) ? [] : [op]
     if (fast_op = get_fastmath_function(op)) !== nothing
         push!(ops, fast_op)
