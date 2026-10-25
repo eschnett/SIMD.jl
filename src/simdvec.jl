@@ -450,8 +450,9 @@ end
 @inline vifelse(v::Bool, v1::T, v2::T) where {T} = ifelse(v, v1, v2)
 @inline vifelse(v::Vec{N, Bool}, v1::Vec{N, T}, v2::Vec{N, T}) where {N, T} =
     Vec(Intrinsics.select(v.data, v1.data, v2.data))
-@inline vifelse(v::Vec{N, Bool}, v1::T2, v2::Vec{N, T}) where {N, T, T2 <:ScalarTypes} = vifelse(v, Vec{N, T}(v1), v2)
-@inline vifelse(v::Vec{N, Bool}, v1::Vec{N, T}, v2::T2) where {N, T, T2 <:ScalarTypes} = vifelse(v, v1, Vec{N, T}(v2))
+@inline vifelse(v::Vec{N, Bool}, v1::T, v2::T) where {N, T<:ScalarTypes} = vifelse(v, Vec{N, T}(v1), Vec{N, T}(v2))
+@inline vifelse(v::Vec{N, Bool}, v1::ScalarTypes, v2::Vec{N, T}) where {N, T} = vifelse(v, Vec{N, T}(v1), v2)
+@inline vifelse(v::Vec{N, Bool}, v1::Vec{N, T}, v2::ScalarTypes) where {N, T} = vifelse(v, v1, Vec{N, T}(v2))
 
 @static if VERSION >= v"1.8"
     @inline Base.ifelse(v::Vec{N, Bool}, v1, v2) where {N} = vifelse(v, v1, v2)
