@@ -204,50 +204,50 @@ end
 ####################
 
 const BINARY_OPS = [
-    (:(Base.:+)        , IntegerTypes  , Intrinsics.add)
-    (:(Base.:-)        , IntegerTypes  , Intrinsics.sub)
-    (:(Base.:*)        , IntegerTypes  , Intrinsics.mul)
-    (:(Base.div)       , UIntTypes     , Intrinsics.udiv)
-    (:(Base.div)       , IntTypes      , Intrinsics.sdiv)
-    (:(Base.rem)       , UIntTypes     , Intrinsics.urem)
-    (:(Base.rem)       , IntTypes      , Intrinsics.srem)
+    (:(Base.:+)        , IntegerTypes  , Intrinsics.add),
+    (:(Base.:-)        , IntegerTypes  , Intrinsics.sub),
+    (:(Base.:*)        , IntegerTypes  , Intrinsics.mul),
+    (:(Base.div)       , UIntTypes     , Intrinsics.udiv),
+    (:(Base.div)       , IntTypes      , Intrinsics.sdiv),
+    (:(Base.rem)       , UIntTypes     , Intrinsics.urem),
+    (:(Base.rem)       , IntTypes      , Intrinsics.srem),
 
-    (:(add_saturate) , IntTypes  , Intrinsics.sadd_sat)
-    (:(add_saturate) , UIntTypes , Intrinsics.uadd_sat)
-    (:(sub_saturate) , IntTypes  , Intrinsics.ssub_sat)
-    (:(sub_saturate) , UIntTypes , Intrinsics.usub_sat)
+    (:(add_saturate) , IntTypes  , Intrinsics.sadd_sat),
+    (:(add_saturate) , UIntTypes , Intrinsics.uadd_sat),
+    (:(sub_saturate) , IntTypes  , Intrinsics.ssub_sat),
+    (:(sub_saturate) , UIntTypes , Intrinsics.usub_sat),
 
-    (:(Base.:+)        , FloatingTypes , Intrinsics.fadd)
-    (:(Base.:-)        , FloatingTypes , Intrinsics.fsub)
-    (:(Base.:*)        , FloatingTypes , Intrinsics.fmul)
-    (:(Base.:^)        , FloatingTypes , Intrinsics.pow)
-    (:(Base.:/)        , FloatingTypes , Intrinsics.fdiv)
-    (:(Base.rem)       , FloatingTypes , Intrinsics.frem)
-    (:(Base.min)       , FloatingTypes , Intrinsics.minnum)
-    (:(Base.max)       , FloatingTypes , Intrinsics.maxnum)
-    (:(Base.copysign)  , FloatingTypes , Intrinsics.copysign)
-    (:(Base.:~)        , BIntegerTypes , Intrinsics.xor)
-    (:(Base.:&)        , BIntegerTypes , Intrinsics.and)
-    (:(Base.:|)        , BIntegerTypes , Intrinsics.or)
-    (:(Base.:⊻)        , BIntegerTypes , Intrinsics.xor)
+    (:(Base.:+)        , FloatingTypes , Intrinsics.fadd),
+    (:(Base.:-)        , FloatingTypes , Intrinsics.fsub),
+    (:(Base.:*)        , FloatingTypes , Intrinsics.fmul),
+    (:(Base.:^)        , FloatingTypes , Intrinsics.pow),
+    (:(Base.:/)        , FloatingTypes , Intrinsics.fdiv),
+    (:(Base.rem)       , FloatingTypes , Intrinsics.frem),
+    (:(Base.min)       , FloatingTypes , Intrinsics.minnum),
+    (:(Base.max)       , FloatingTypes , Intrinsics.maxnum),
+    (:(Base.copysign)  , FloatingTypes , Intrinsics.copysign),
+    (:(Base.:~)        , BIntegerTypes , Intrinsics.xor),
+    (:(Base.:&)        , BIntegerTypes , Intrinsics.and),
+    (:(Base.:|)        , BIntegerTypes , Intrinsics.or),
+    (:(Base.:⊻)        , BIntegerTypes , Intrinsics.xor),
 
-    (:(Base.:(==))   , BIntegerTypes  , Intrinsics.icmp_eq)
-    (:(Base.:!=)     , BIntegerTypes  , Intrinsics.icmp_ne)
-    (:(Base.:>)      , BIntTypes      , Intrinsics.icmp_sgt)
-    (:(Base.:>=)     , BIntTypes      , Intrinsics.icmp_sge)
-    (:(Base.:<)      , BIntTypes      , Intrinsics.icmp_slt)
-    (:(Base.:<=)     , BIntTypes      , Intrinsics.icmp_sle)
-    (:(Base.:>)      , UIntTypes      , Intrinsics.icmp_ugt)
-    (:(Base.:>=)     , UIntTypes      , Intrinsics.icmp_uge)
-    (:(Base.:<)      , UIntTypes      , Intrinsics.icmp_ult)
-    (:(Base.:<=)     , UIntTypes      , Intrinsics.icmp_ule)
+    (:(Base.:(==))   , BIntegerTypes  , Intrinsics.icmp_eq),
+    (:(Base.:!=)     , BIntegerTypes  , Intrinsics.icmp_ne),
+    (:(Base.:>)      , BIntTypes      , Intrinsics.icmp_sgt),
+    (:(Base.:>=)     , BIntTypes      , Intrinsics.icmp_sge),
+    (:(Base.:<)      , BIntTypes      , Intrinsics.icmp_slt),
+    (:(Base.:<=)     , BIntTypes      , Intrinsics.icmp_sle),
+    (:(Base.:>)      , UIntTypes      , Intrinsics.icmp_ugt),
+    (:(Base.:>=)     , UIntTypes      , Intrinsics.icmp_uge),
+    (:(Base.:<)      , UIntTypes      , Intrinsics.icmp_ult),
+    (:(Base.:<=)     , UIntTypes      , Intrinsics.icmp_ule),
 
-    (:(Base.:(==))   , FloatingTypes , Intrinsics.fcmp_oeq)
-    (:(Base.:!=)     , FloatingTypes , Intrinsics.fcmp_une)
-    (:(Base.:>)      , FloatingTypes , Intrinsics.fcmp_ogt)
-    (:(Base.:>=)     , FloatingTypes , Intrinsics.fcmp_oge)
-    (:(Base.:<)      , FloatingTypes , Intrinsics.fcmp_olt)
-    (:(Base.:<=)     , FloatingTypes , Intrinsics.fcmp_ole)
+    (:(Base.:(==))   , FloatingTypes , Intrinsics.fcmp_oeq),
+    (:(Base.:!=)     , FloatingTypes , Intrinsics.fcmp_une),
+    (:(Base.:>)      , FloatingTypes , Intrinsics.fcmp_ogt),
+    (:(Base.:>=)     , FloatingTypes , Intrinsics.fcmp_oge),
+    (:(Base.:<)      , FloatingTypes , Intrinsics.fcmp_olt),
+    (:(Base.:<=)     , FloatingTypes , Intrinsics.fcmp_ole),
 ]
 
 function get_fastmath_function(op)
@@ -283,12 +283,12 @@ end
 
 # overflow
 const OVERFLOW_INTRINSICS = [
-    (:(Base.Checked.add_with_overflow) , IntTypes  , Intrinsics.sadd_with_overflow)
-    (:(Base.Checked.add_with_overflow) , UIntTypes , Intrinsics.uadd_with_overflow)
-    (:(Base.Checked.sub_with_overflow) , IntTypes  , Intrinsics.ssub_with_overflow)
-    (:(Base.Checked.sub_with_overflow) , UIntTypes , Intrinsics.usub_with_overflow)
-    (:(Base.Checked.mul_with_overflow) , IntTypes  , Intrinsics.smul_with_overflow)
-    (:(Base.Checked.mul_with_overflow) , UIntTypes , Intrinsics.umul_with_overflow)
+    (:(Base.Checked.add_with_overflow) , IntTypes  , Intrinsics.sadd_with_overflow),
+    (:(Base.Checked.add_with_overflow) , UIntTypes , Intrinsics.uadd_with_overflow),
+    (:(Base.Checked.sub_with_overflow) , IntTypes  , Intrinsics.ssub_with_overflow),
+    (:(Base.Checked.sub_with_overflow) , UIntTypes , Intrinsics.usub_with_overflow),
+    (:(Base.Checked.mul_with_overflow) , IntTypes  , Intrinsics.smul_with_overflow),
+    (:(Base.Checked.mul_with_overflow) , UIntTypes , Intrinsics.umul_with_overflow),
 ]
 for (op, constraint, llvmop) in OVERFLOW_INTRINSICS
     @eval @inline function $op(x::Vec{N, T}, y::Vec{N, T}) where {N, T <: $constraint}
@@ -406,22 +406,22 @@ end
 # One method pair per operator, covering all element types it supports, keeps the
 # number of methods added to Base functions (and thus load time) down.
 const VECTORIZED_BINARY_OPS = Dict{Any, Any}()
-for (op, constraint) in [BINARY_OPS;
-        (:(Base.flipsign) , ScalarTypes)
-        (:(Base.copysign) , ScalarTypes)
-        (:(Base.signbit)  , ScalarTypes)
-        (:(Base.min)      , IntegerTypes)
-        (:(Base.max)      , IntegerTypes)
-        (:(Base.:<<)      , IntegerTypes)
-        (:(Base.:>>)      , IntegerTypes)
-        (:(Base.:>>>)     , IntegerTypes)
-        (:(Base.Checked.add_with_overflow) , IntTypes)
-        (:(Base.Checked.add_with_overflow) , UIntTypes)
-        (:(Base.Checked.sub_with_overflow) , IntTypes)
-        (:(Base.Checked.sub_with_overflow) , UIntTypes)
-        (:(Base.Checked.mul_with_overflow) , IntTypes)
-        (:(Base.Checked.mul_with_overflow) , UIntTypes)
-    ]
+for (op, constraint) in [BINARY_OPS; [
+        (:(Base.flipsign) , ScalarTypes),
+        (:(Base.copysign) , ScalarTypes),
+        (:(Base.signbit)  , ScalarTypes),
+        (:(Base.min)      , IntegerTypes),
+        (:(Base.max)      , IntegerTypes),
+        (:(Base.:<<)      , IntegerTypes),
+        (:(Base.:>>)      , IntegerTypes),
+        (:(Base.:>>>)     , IntegerTypes),
+        (:(Base.Checked.add_with_overflow) , IntTypes),
+        (:(Base.Checked.add_with_overflow) , UIntTypes),
+        (:(Base.Checked.sub_with_overflow) , IntTypes),
+        (:(Base.Checked.sub_with_overflow) , UIntTypes),
+        (:(Base.Checked.mul_with_overflow) , IntTypes),
+        (:(Base.Checked.mul_with_overflow) , UIntTypes),
+    ]]
     VECTORIZED_BINARY_OPS[op] = Union{get(VECTORIZED_BINARY_OPS, op, Union{}), constraint}
 end
 for (op, constraint) in VECTORIZED_BINARY_OPS
@@ -487,18 +487,18 @@ end
 # Reductions #
 ##############
 const HORZ_REDUCTION_OPS = [
-    (&   , Union{IntegerTypes, Bool}  , Intrinsics.reduce_and)
-    (|   , Union{IntegerTypes, Bool}  , Intrinsics.reduce_or)
-    (max , IntTypes      , Intrinsics.reduce_smax)
-    (max , UIntTypes     , Intrinsics.reduce_umax)
-    (max , FloatingTypes , Intrinsics.SUPPORTS_FMAXIMUM_FMINIMUM ? Intrinsics.reduce_fmaximum : Intrinsics.reduce_fmax)
-    (min , IntTypes      , Intrinsics.reduce_smin)
-    (min , UIntTypes     , Intrinsics.reduce_umin)
-    (min , FloatingTypes , Intrinsics.SUPPORTS_FMAXIMUM_FMINIMUM ? Intrinsics.reduce_fminimum : Intrinsics.reduce_fmin)
-    (+   , Union{IntegerTypes, Bool}  , Intrinsics.reduce_add)
-    (*   , IntegerTypes  , Intrinsics.reduce_mul)
-    (+   , FloatingTypes , Intrinsics.reduce_fadd)
-    (*   , FloatingTypes , Intrinsics.reduce_fmul)
+    (&   , Union{IntegerTypes, Bool}  , Intrinsics.reduce_and),
+    (|   , Union{IntegerTypes, Bool}  , Intrinsics.reduce_or),
+    (max , IntTypes      , Intrinsics.reduce_smax),
+    (max , UIntTypes     , Intrinsics.reduce_umax),
+    (max , FloatingTypes , Intrinsics.SUPPORTS_FMAXIMUM_FMINIMUM ? Intrinsics.reduce_fmaximum : Intrinsics.reduce_fmax),
+    (min , IntTypes      , Intrinsics.reduce_smin),
+    (min , UIntTypes     , Intrinsics.reduce_umin),
+    (min , FloatingTypes , Intrinsics.SUPPORTS_FMAXIMUM_FMINIMUM ? Intrinsics.reduce_fminimum : Intrinsics.reduce_fmin),
+    (+   , Union{IntegerTypes, Bool}  , Intrinsics.reduce_add),
+    (*   , IntegerTypes  , Intrinsics.reduce_mul),
+    (+   , FloatingTypes , Intrinsics.reduce_fadd),
+    (*   , FloatingTypes , Intrinsics.reduce_fmul),
 ]
 
 for (op, constraint, llvmop) in HORZ_REDUCTION_OPS
