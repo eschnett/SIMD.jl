@@ -105,27 +105,27 @@ const FPFlags{T} = Union{Nothing, FastMathFlags{T}}
 ####################
 
 const UNARY_INTRINSICS_FLOAT = [
-    :sqrt
-    :sin
-    :cos
-    :exp
-    :trunc
-    :exp2
-    :log
-    :log10
-    :log2
-    :fabs
-    :floor
-    :ceil
-    :rint
-    :nearbyint
-    :round
+    :sqrt,
+    :sin,
+    :cos,
+    :exp,
+    :trunc,
+    :exp2,
+    :log,
+    :log10,
+    :log2,
+    :fabs,
+    :floor,
+    :ceil,
+    :rint,
+    :nearbyint,
+    :round,
 ]
 
 const UNARY_INTRINSICS_INT = [
-    :bitreverse
-    :bswap
-    :ctpop
+    :bitreverse,
+    :bswap,
+    :ctpop,
 ]
 for (fs, c) in zip([UNARY_INTRINSICS_FLOAT, UNARY_INTRINSICS_INT],
                    [FloatingTypes,          IntegerTypes])
@@ -143,8 +143,8 @@ for (fs, c) in zip([UNARY_INTRINSICS_FLOAT, UNARY_INTRINSICS_INT],
 end
 
 const SHIFT_INTRINSICS_INT = [
-    :fshl
-    :fshr
+    :fshl,
+    :fshr,
 ]
 
 for f in SHIFT_INTRINSICS_INT
@@ -200,27 +200,27 @@ end
 #####################
 
 const BINARY_OPS_FLOAT = [
-    :fadd
-    :fsub
-    :fmul
-    :fdiv
-    :frem
+    :fadd,
+    :fsub,
+    :fmul,
+    :fdiv,
+    :frem,
 ]
 
 const BINARY_OPS_INT = [
-    :add
-    :sub
-    :mul
-    :sdiv
-    :udiv
-    :srem
-    :urem
-    :shl
-    :ashr
-    :lshr
-    :and
-    :or
-    :xor
+    :add,
+    :sub,
+    :mul,
+    :sdiv,
+    :udiv,
+    :srem,
+    :urem,
+    :shl,
+    :ashr,
+    :lshr,
+    :and,
+    :or,
+    :xor,
 ]
 
 for f in BINARY_OPS_FLOAT
@@ -253,25 +253,25 @@ for f in BINARY_OPS_INT
 end
 
 const BINARY_INTRINSICS_FLOAT = [
-    :minnum
-    :maxnum
-    :minimum
-    :maximum
-    :copysign
-    :pow
-    :floor
-    :ceil
-    :trunc
-    :rint
-    :nearbyint
-    :round
+    :minnum,
+    :maxnum,
+    :minimum,
+    :maximum,
+    :copysign,
+    :pow,
+    :floor,
+    :ceil,
+    :trunc,
+    :rint,
+    :nearbyint,
+    :round,
 ]
 
 const BINARY_INTRINSICS_INT = [
-    :sadd_sat
-    :uadd_sat
-    :ssub_sat
-    :usub_sat
+    :sadd_sat,
+    :uadd_sat,
+    :ssub_sat,
+    :usub_sat,
 ]
 
 for f in BINARY_INTRINSICS_FLOAT
@@ -320,12 +320,12 @@ end
 
 # Overflow
 const OVERFLOW_INTRINSICS = [
-    :sadd_with_overflow
-    :uadd_with_overflow
-    :ssub_with_overflow
-    :usub_with_overflow
-    :smul_with_overflow
-    :umul_with_overflow
+    :sadd_with_overflow,
+    :uadd_with_overflow,
+    :ssub_with_overflow,
+    :usub_with_overflow,
+    :smul_with_overflow,
+    :umul_with_overflow,
 ]
 
 const SUPPORTS_VEC_OVERFLOW = Base.libllvm_version >= v"9"
@@ -369,35 +369,35 @@ end
 
 # Comparisons
 const CMP_FLAGS_FLOAT = [
-    :false
-    :oeq
-    :ogt
-    :oge
-    :olt
-    :ole
-    :one
-    :ord
-    :ueq
-    :ugt
-    :uge
-    :ult
-    :ule
-    :une
-    :uno
-    :true
+    :false,
+    :oeq,
+    :ogt,
+    :oge,
+    :olt,
+    :ole,
+    :one,
+    :ord,
+    :ueq,
+    :ugt,
+    :uge,
+    :ult,
+    :ule,
+    :une,
+    :uno,
+    :true,
 ]
 
 const CMP_FLAGS_INT = [
-    :eq
-    :ne
-    :sgt
-    :sge
-    :slt
-    :sle
-    :ugt
-    :uge
-    :ult
-    :ule
+    :eq,
+    :ne,
+    :sgt,
+    :sge,
+    :slt,
+    :sle,
+    :ugt,
+    :uge,
+    :ult,
+    :ule,
 ]
 
 for flag in CMP_FLAGS_FLOAT
@@ -865,14 +865,14 @@ end
 #########################
 
 const CAST_SIZE_CHANGE_FLOAT = [
-    (:fptrunc, >)
-    (:fpext, <)
+    (:fptrunc, >),
+    (:fpext, <),
 ]
 
 const CAST_SIZE_CHANGE_INT = [
-    (:trunc, >)
-    (:zext, <)
-    (:sext, <)
+    (:trunc, >),
+    (:zext, <),
+    (:sext, <),
 ]
 
 for (fs, c) in zip([CAST_SIZE_CHANGE_FLOAT, CAST_SIZE_CHANGE_INT],
@@ -900,12 +900,12 @@ end
 
 const CONVERSION_FLOAT_TO_INT = [
     :fptoui,
-    :fptosi
+    :fptosi,
 ]
 
 const CONVERSION_INT_TO_FLOAT = [
     :uitofp,
-    :sitofp
+    :sitofp,
 ]
 
 for (fs, (from, to)) in zip([CONVERSION_FLOAT_TO_INT,       CONVERSION_INT_TO_FLOAT],
@@ -1027,19 +1027,19 @@ end
 const SUPPORTS_FMAXIMUM_FMINIMUM = Base.libllvm_version >= v"18"
 
 const HORZ_REDUCTION_OPS_FLOAT = [
-    SUPPORTS_FMAXIMUM_FMINIMUM ? :fmaximum : :fmax
-    SUPPORTS_FMAXIMUM_FMINIMUM ? :fminimum : :fmin
+    SUPPORTS_FMAXIMUM_FMINIMUM ? :fmaximum : :fmax,
+    SUPPORTS_FMAXIMUM_FMINIMUM ? :fminimum : :fmin,
 ]
 
 const HORZ_REDUCTION_OPS_INT = [
-    :and
-    :or
-    :mul
-    :add
-    :smax
-    :umax
-    :smin
-    :umin
+    :and,
+    :or,
+    :mul,
+    :add,
+    :smax,
+    :umax,
+    :smin,
+    :umin,
 ]
 
 const horizontal_reduction_prefix = Base.libllvm_version < v"12" ? "experimental.vector.reduce." : "vector.reduce."
